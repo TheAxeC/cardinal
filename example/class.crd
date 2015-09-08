@@ -1,0 +1,42 @@
+
+System.collect()
+System.printGC()
+
+class B {
+	fields {
+		a
+	}
+	
+	method {
+		a = 3
+		IO.println(a)
+	}
+}
+
+class C {
+	fields {
+		a
+	}
+	
+	otherMethod {
+		IO.println(a)
+		a = 5
+	}
+}
+
+class A is B, C {
+	fields {
+		a
+	}
+	
+	method {
+		a = 1
+		super.B
+		otherMethod
+		IO.println(a)
+	}
+}
+
+var a = new A
+a.method
+IO.println(a.getAllMethods())

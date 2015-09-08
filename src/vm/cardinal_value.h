@@ -173,6 +173,7 @@ struct CardinalValue {
 };
 
 DECLARE_BUFFER(Value, Value);
+DECLARE_BUFFER(ValuePtr, Value*);
 
 /// OBJECT
 /// A string class
@@ -272,6 +273,9 @@ typedef enum MethodType {
 
   // A normal user-defined method.
   METHOD_BLOCK,
+  
+  // A method belonging to a superclass
+  METHOD_SUPERCLASS,
 
   // No method for the given symbol.
   METHOD_NONE
@@ -311,11 +315,15 @@ typedef struct ObjInstance { EXTENDS(Obj)
 	/// Parent
 	Obj obj;
 	
+	/// Stack used to check where to access the correct fields 
+	/// when we are within a super class
+	CardinalStack stack;
+	
 	/// All the fields of the instance
 	/// This field will be used to store the data used for classes
 	/// bound from c++
 	/// Enough memory will be allocated to be able to acces the members
-	Value fields[FLEXIBLE_ARRAY];
+	Value* fields; //[FLEXIBLE_ARRAY];
 } ObjInstance;
 
 
@@ -937,6 +945,9 @@ ObjClass* cardinalNewClass(CardinalVM* vm, ObjClass* superclass, int numFields, 
 
 // Bind a method to the VM
 void cardinalBindMethod(CardinalVM* vm, ObjClass* classObj, int symbol, Method method);
+
+// Get the correct method to call
+Method* cardinalGetMethod(CardinalVM* vm, ObjClass* classObj, int symbol, int& adjustment);
 
 ///////////////////////////////////////////////////////////////////////////////////
 //// FUNCTIONS: METHOD	

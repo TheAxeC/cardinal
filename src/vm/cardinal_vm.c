@@ -962,7 +962,7 @@ bool runInterpreter(CardinalVM* vm) {
 			ASSERT(IS_INSTANCE(receiver), "Receiver should be instance.");
 			ObjInstance* instance = AS_INSTANCE(receiver);
 			ASSERT(field < instance->obj.classObj->numFields, "Out of bounds field.");
-			PUSH(instance->fields[field]);
+			PUSH(instance->fields[field + cardinalStackPeek(vm, &instance->stack)]);
 			CHECK_STACK();
 			DISPATCH();
 		}
@@ -1014,7 +1014,12 @@ bool runInterpreter(CardinalVM* vm) {
 				RUNTIME_ERROR(methodNotFound(vm, classObj, (int) symbol));
 			}
 			
-			Method* method = &classObj->methods.data[symbol];
+			int adj = 0;
+			Method* method = cardinalGetMethod(vm, classObj, symbol, adj);
+			
+			if (IS_INSTANCE(args[0])) {
+				cardinalStackPush(vm, &AS_INSTANCE(args[0])->stack, adj);
+			}
 			
 			switch (method->type) {
 				case METHOD_PRIMITIVE:
@@ -1106,15 +1111,29 @@ bool runInterpreter(CardinalVM* vm) {
 
 			Value* args = fiber->stacktop - numArgs;
 			ObjClass* receive = cardinalGetClassInline(vm, args[0]);
+			
+			ObjInstance* instance = NULL;
+			if (IS_INSTANCE(args[0])) {
+				instance = AS_INSTANCE(args[0]);
+			}
 
 			// Ignore methods defined on the receiver's immediate class.
 			//int super = READ_CONSTANT();
 			//ObjClass* classObj = AS_CLASS(receive->superclasses->elements[super]);
+			int adj = 0;
 			ObjClass* classObj = receive;
 			ObjList* list = AS_LIST(fn->constants[READ_CONSTANT()]);
+			adj = classObj->superclass;
 			for(int i=0; i<list->count; i++) {
 				uint32_t super = AS_NUM(list->elements[i]);
+				for(uint32_t a=0; a<super; a++) {
+					adj += AS_CLASS(classObj->superclasses->elements[a])->superclass;
+				}
 				classObj = AS_CLASS(classObj->superclasses->elements[super]);
+			}
+			
+			if (instance != NULL) {
+				cardinalStackPush(vm, &instance->stack, adj);
 			}
 
 			// If the class's method table doesn't include the symbol, bail.
@@ -1208,7 +1227,7 @@ bool runInterpreter(CardinalVM* vm) {
 			ASSERT(IS_INSTANCE(receiver), "Receiver should be instance.");
 			ObjInstance* instance = AS_INSTANCE(receiver);
 			ASSERT(field < instance->obj.classObj->numFields, "Out of bounds field.");
-			instance->fields[field] = PEEK();
+			instance->fields[field + cardinalStackPeek(vm, &instance->stack)] = PEEK();
 			DISPATCH();
 		}
 		
@@ -1220,7 +1239,7 @@ bool runInterpreter(CardinalVM* vm) {
 			ASSERT(IS_INSTANCE(receiver), "Receiver should be instance.");
 			ObjInstance* instance = AS_INSTANCE(receiver);
 			ASSERT(field < instance->obj.classObj->numFields, "Out of bounds field.");
-			PUSH(instance->fields[field]);
+			PUSH(instance->fields[field + cardinalStackPeek(vm, &instance->stack)]);
 			CHECK_STACK();
 			DISPATCH();
 		}
@@ -1233,7 +1252,7 @@ bool runInterpreter(CardinalVM* vm) {
 			ASSERT(IS_INSTANCE(receiver), "Receiver should be instance.");
 			ObjInstance* instance = AS_INSTANCE(receiver);
 			ASSERT(field < instance->obj.classObj->numFields, "Out of bounds field.");
-			instance->fields[field] = PEEK();
+			instance->fields[field + cardinalStackPeek(vm, &instance->stack)] = PEEK();
 			DISPATCH();
 		}
 		
@@ -1331,6 +1350,10 @@ bool runInterpreter(CardinalVM* vm) {
 			Value result = POP();
 			// Reduce the current frames in use
 			fiber->numFrames--;
+			
+			if (IS_INSTANCE(stackStart[0])) {
+				cardinalStackPop(vm, &AS_INSTANCE(stackStart[0])->stack);
+			}
 
 			// Close any upvalues still in scope.
 			Value* firstValue = stackStart;
@@ -1421,15 +1444,7 @@ bool runInterpreter(CardinalVM* vm) {
 			cardinal_integer numFields = READ_FIELD();
 			cardinal_integer numSuperClasses = READ_CONSTANT() - 1;
 
-			ObjClass* classObj;
-			if (superclass == vm->metatable.objectClass)  
-				classObj = cardinalNewClass(vm, superclass, numFields, name);
-			else {
-				classObj = cardinalNewClass(vm, NULL, numFields, name);
-				CARDINAL_PIN(vm, classObj);
-				cardinalAddFirstSuper(vm, classObj, superclass);
-				CARDINAL_UNPIN(vm);
-			}
+			ObjClass* classObj = cardinalNewClass(vm, superclass, numFields, name);
 			
 			CARDINAL_UNPIN(vm);
 			CARDINAL_PIN(vm, classObj);
@@ -1440,7 +1455,7 @@ bool runInterpreter(CardinalVM* vm) {
 					if (error != NULL) RUNTIME_ERROR(error);
 					superclass = AS_CLASS(PEEK());
 				
-					cardinalAddSuperclass(vm, i, classObj, superclass);
+					cardinalBindSuperclass(vm, classObj, superclass);
 				}
 				DROP();
 				i++;

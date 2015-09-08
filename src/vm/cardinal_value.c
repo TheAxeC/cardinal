@@ -15,6 +15,7 @@
 
 DEFINE_BUFFER(Method, Method)
 DEFINE_BUFFER(Value, Value)
+DEFINE_BUFFER(ValuePtr, Value*);
 
 ObjInstance* cardinalThrowException(CardinalVM* vm, ObjString* str) {
 	CARDINAL_PIN(vm, str);
@@ -62,7 +63,7 @@ ObjClass* cardinalNewSingleClass(CardinalVM* vm, int numFields, ObjString* name)
 	ObjClass* obj = ALLOCATE(vm, ObjClass);	
 	initObj(vm, &obj->obj, OBJ_CLASS, NULL);
 	obj->name = name;
-	obj->superclass = 0;
+	obj->superclass = numFields;
 	obj->superclasses = NULL;
 	
 	CARDINAL_PIN(vm, obj);
@@ -102,159 +103,19 @@ void cardinalBindSuperclass(CardinalVM* vm, ObjClass* subclass, ObjClass* superc
 
 	cardinalListAdd(vm, subclass->superclasses, OBJ_VAL(superclass));
 
-	subclass->superclass += superclass->numFields;
+	//subclass->superclass += superclass->numFields;
 	
 	// Include the superclass in the total number of fields.
 	subclass->numFields += superclass->numFields;
 
 	// Inherit methods from its superclass.
 	for (int i = superclass->methods.count-1; i >= 0; i--) {
-		if (superclass->methods.data[i].type != METHOD_NONE)
-			cardinalBindMethod(vm, subclass, i, superclass->methods.data[i]);
-	}
-}
-
-ObjFn* copyMethodBlock(CardinalVM* vm, Method method) {
-	ObjFn* func = (ObjFn*) method.fn.obj;
-	
-	uint8_t* bytecode = ALLOCATE_ARRAY(vm, uint8_t, func->bytecodeLength);
-	int* sourcelines = ALLOCATE_ARRAY(vm, int, func->bytecodeLength);
-	
-	for(int i=0; i<func->bytecodeLength; i++) {
-		bytecode[i] = func->bytecode[i];
-		sourcelines[i] = func->debug->sourceLines[i];
-	}
-	
-	SymbolTable locals;
-	SymbolTable lines;
-	
-	cardinalSymbolTableInit(vm, &locals);
-	cardinalSymbolTableInit(vm, &lines);
-	for(int i=0; i<func->debug->locals.count; i++) {
-		cardinalSymbolTableAdd(vm, &locals, func->debug->locals.data[i].buffer, func->debug->locals.data[i].length);
-	}
-	for(int i=0; i<func->debug->lines.count; i++) {
-		cardinalSymbolTableAdd(vm, &lines, func->debug->lines.data[i].buffer, func->debug->lines.data[i].length);
-	}
-	
-	FnDebug* debug = cardinalNewDebug(vm, func->debug->sourcePath, func->debug->name, strlen(func->debug->name), sourcelines, locals, lines);
-	
-	return cardinalNewFunction(vm, func->module,
-                       func->constants, func->numConstants,
-                       func->numUpvalues, func->numParams,
-                       bytecode, func->bytecodeLength,
-                       debug);
-}
-
-
-static ObjClass* bindSuperClassesFirst(CardinalVM* vm, ObjClass* superclass, int adjustment, int num) {
-	//if (adjustment == 0 || superclass->numFields == 0) return superclass;
-	
-	// Create a new class with no superclass and correct amount of fields
-	ObjClass* newClass = cardinalNewClass(vm, NULL, superclass->numFields - superclass->superclass, superclass->name);
-	CARDINAL_PIN(vm, newClass);
-	// Set the superclass fields for the new class
-	newClass->superclass = adjustment;
-
-	// Bind all super classes from the old superclass
-	for(int i=0; i< superclass->superclasses->count; i++) {
-		/// \todo is this call correct?
-		cardinalAddSuperclass(vm, i, newClass, AS_CLASS(superclass->superclasses->elements[i]));
-	}
-	// Copy methods from the original class
-	for (int i = superclass->methods.count-1; i >= 0; i--) {
 		if (superclass->methods.data[i].type != METHOD_NONE) {
-			if (superclass->methods.data[i].type != METHOD_BLOCK) {
-				cardinalBindMethod(vm, newClass, i, superclass->methods.data[i]);
-			}
-			else {
-				Value methodValue = OBJ_VAL(copyMethodBlock(vm, superclass->methods.data[i]));
-				
-				ObjFn* methodFn = AS_FN(methodValue);
-				CARDINAL_PIN(vm, methodFn);
-				// Methods are always bound against the class, and not the metaclass, even
-				// for static methods, so that constructors (which are static) get bound like
-				// instance methods.
-				cardinalBindMethodSuperCode(vm, num, methodFn);
-				
-				Method method;
-				method.type = METHOD_BLOCK;
-				method.fn.obj = AS_OBJ(methodValue);
-
-				cardinalBindMethod(vm, newClass, i, method);
-				CARDINAL_UNPIN(vm);
-			}
+			Method meth;
+			meth.type = METHOD_SUPERCLASS;
+			cardinalBindMethod(vm, subclass, i, meth); //superclass->methods.data[i]);
 		}
 	}
-	CARDINAL_UNPIN(vm);
-	return newClass;
-}
-
-// Makes [superclass] the superclass of [subclass], and causes subclass to
-// inherit its methods. This should be called before any methods are defined
-// on subclass.
-void cardinalAddFirstSuper(CardinalVM* vm, ObjClass* subclass, ObjClass* superclass) {
-	ASSERT(superclass != NULL, "Superclass must exist");
-
-	ObjClass* sprclass = bindSuperClassesFirst(vm, superclass, subclass->superclass, 0);
-	CARDINAL_PIN(vm, sprclass);
-	cardinalBindSuperclass(vm, subclass, sprclass);
-	CARDINAL_UNPIN(vm);
-}
-
-static ObjClass* bindSuperClasses(CardinalVM* vm, ObjClass* superclass, int adjustment, int num) {
-	//if (adjustment == 0 || superclass->numFields == 0) return superclass;
-	
-	// Create a new class with no superclass and correct amount of fields
-	ObjClass* newClass = cardinalNewClass(vm, NULL, superclass->numFields - superclass->superclass, superclass->name);
-	CARDINAL_PIN(vm, newClass);
-	// Set the superclass fields for the new class
-	newClass->superclass = adjustment;
-	
-	if (superclass->superclasses == NULL) {
-		superclass->superclasses = cardinalNewList(vm, 0);
-	}
-
-	// Bind all super classes from the old superclass
-	for(int i=0; i< superclass->superclasses->count; i++) {
-		cardinalAddSuperclass(vm, i, newClass, AS_CLASS(superclass->superclasses->elements[i]));
-	}
-	// Copy methods from the original class
-	for (int i = superclass->methods.count-1; i >= 0; i--) {
-		if (superclass->methods.data[i].type != METHOD_NONE) {
-			if (superclass->methods.data[i].type != METHOD_BLOCK) {
-				cardinalBindMethod(vm, newClass, i, superclass->methods.data[i]);
-			}
-			else {
-				Value methodValue = OBJ_VAL(copyMethodBlock(vm, superclass->methods.data[i]));
-				
-				ObjFn* methodFn = AS_FN(methodValue);
-				
-				// Methods are always bound against the class, and not the metaclass, even
-				// for static methods, so that constructors (which are static) get bound like
-				// instance methods.
-				cardinalBindMethodCode(vm, num, newClass, methodFn);
-				
-				Method method;
-				method.type = METHOD_BLOCK;
-				method.fn.obj = AS_OBJ(methodValue);
-
-				cardinalBindMethod(vm, newClass, i, method);
-			}
-		}
-	}
-	CARDINAL_UNPIN(vm);
-	return newClass;
-}
-
-// Makes [superclass] the superclass of [subclass], and causes subclass to
-// inherit its methods. This should be called before any methods are defined
-// on subclass.
-void cardinalAddSuperclass(CardinalVM* vm, int num, ObjClass* subclass, ObjClass* superclass) {
-	ASSERT(superclass != NULL, "Superclass must exist");
-
-	ObjClass* sprclass = bindSuperClasses(vm, superclass, subclass->superclass, num);
-	cardinalBindSuperclass(vm, subclass, sprclass);
 }
 
 // Creates a new class object as well 
@@ -305,6 +166,24 @@ void cardinalBindMethod(CardinalVM* vm, ObjClass* classObj, int symbol, Method m
 	}
 
 	classObj->methods.data[symbol] = method;
+}
+
+Method* cardinalGetMethod(CardinalVM* vm, ObjClass* classObj, int symbol, int& adjustment) {
+	Method* meth = &classObj->methods.data[symbol];
+	
+	if (meth->type == METHOD_NONE || meth->type == METHOD_SUPERCLASS) {
+		adjustment += classObj->superclass;
+		int nb = classObj->superclasses->count;
+		for(int a=0; a<nb; a++) {
+			int adj = adjustment;
+			meth = cardinalGetMethod(vm, AS_CLASS(classObj->superclasses->elements[a]), symbol, adjustment);
+			if (meth->type != METHOD_NONE)
+				break;
+			adjustment = adj + AS_CLASS(classObj->superclasses->elements[a])->superclass;
+		}
+	}
+	
+	return meth;
 }
 
 ObjMethod* cardinalNewMethod(CardinalVM* vm) {
@@ -448,14 +327,16 @@ ObjFn* cardinalNewFunction(CardinalVM* vm, ObjModule* module,
 
 // Creates a new instance of the given [classObj].
 Value cardinalNewInstance(CardinalVM* vm, ObjClass* classObj) {
-	ObjInstance* instance = ALLOCATE_FLEX(vm, ObjInstance,
-                                        Value, classObj->numFields); 
+	ObjInstance* instance = ALLOCATE(vm, ObjInstance); //	ALLOCATE_FLEX(vm, ObjInstance, Value, classObj->numFields); 
+	instance->fields = ALLOCATE_ARRAY(vm, Value, classObj->numFields);
 	initObj(vm, &instance->obj, OBJ_INSTANCE, classObj);
 
 	// Initialize fields to null.
 	for (int i = 0; i < classObj->numFields; i++) {
 		instance->fields[i] = NULL_VAL;
 	}
+	
+	cardinalStackInit(vm, &instance->stack);
 	
 	return OBJ_VAL(instance);
 }
@@ -1442,6 +1323,9 @@ void cardinalFreeObj(CardinalVM* vm, Obj* obj) {
 			break;
 		case OBJ_INSTANCE: {
 			// call the foreign destructor
+			ObjInstance* inst = (ObjInstance*) obj;
+			cardinalStackClear(vm, &inst->stack);
+			cardinalReallocate(vm, inst->fields, 0, 0);
 			ObjClass* cls = cardinalGetClass(vm, OBJ_VAL(obj));
 			if (cls->destructor != NULL) {
 				// call the destructor

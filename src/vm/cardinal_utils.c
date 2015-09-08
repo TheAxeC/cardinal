@@ -9,6 +9,7 @@ DEFINE_BUFFER(ByteCode, uint8_t*);
 DEFINE_BUFFER(Int, int)
 DEFINE_BUFFER(Char, char)
 
+
 // Initializes the symbol table.
 void cardinalSymbolTableInit(CardinalVM* vm, SymbolTable* symbols) {
 	cardinalStringBufferInit(vm, symbols);
@@ -144,4 +145,46 @@ int cardinalUtf8Decode(const uint8_t* bytes, uint32_t length) {
 	}
 
 	return value;
+}
+
+// Initialise the cardinal stack
+void cardinalStackInit(CardinalVM* vm, CardinalStack* buffer) {
+	UNUSED(vm);
+	buffer->data = NULL;
+	buffer->capacity = 0;
+	buffer->count = 0;
+}
+
+// Pop an element from the cardinal stack
+void cardinalStackPop(CardinalVM* vm, CardinalStack* buffer) {
+	UNUSED(vm);
+	if (buffer->count > 0)	
+		buffer->count--;
+}
+
+// Clear the cardinal stack
+void cardinalStackClear(CardinalVM* vm, CardinalStack* buffer) {
+	cardinalReallocate(vm, buffer->data, 0, 0);
+	cardinalStackInit(vm, buffer);
+}
+
+// Peek at the top element on the cardinal stack
+size_t cardinalStackPeek(CardinalVM* vm, CardinalStack* buffer) {
+	UNUSED(vm);
+	if (buffer->count > 0)
+		return buffer->data[buffer->count - 1];
+	else 
+		return 0;
+}
+
+// Push an integer onto the cardinal stack
+void cardinalStackPush(CardinalVM* vm, CardinalStack* buffer, int elem) {
+	if (buffer->capacity < buffer->count + 1) {
+		int capacity = buffer->capacity == 0 ? 8 : buffer->capacity * 2;
+		buffer->data = (size_t*) cardinalReallocate(vm, buffer->data,
+			buffer->capacity * sizeof(size_t), capacity * sizeof(size_t));
+		buffer->capacity = capacity;
+	}
+	buffer->data[buffer->count] = elem;
+	buffer->count++;
 }

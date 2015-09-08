@@ -4069,8 +4069,8 @@ void cardinalBindMethodCode(CardinalVM* vm, int num, ObjClass* classObj, ObjFn* 
 				// Shift this class's fields down past the inherited ones. We don't
 				// check for overflow here because we'll see if the number of fields
 				// overflows when the subclass is created.
-				int fields = READ_FIELD2() + classObj->superclass;
-				setByteCodeBuffer(fn->bytecode, ip, fields, FIELD_BYTE);
+				//int fields = READ_FIELD2() + classObj->superclass;
+				//setByteCodeBuffer(fn->bytecode, ip, fields, FIELD_BYTE);
 				ip += getNumArguments(fn->bytecode, fn->constants, ip - 1);
 				break;
 			}

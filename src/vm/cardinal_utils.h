@@ -64,6 +64,29 @@ DECLARE_BUFFER(Int, int);
 DECLARE_BUFFER(String, String);
 DECLARE_BUFFER(Char, char);
 
+
+// Stack
+typedef struct {
+	size_t* data;
+	size_t count;
+	size_t capacity;
+} CardinalStack;
+
+// Initialise the cardinal stack
+void cardinalStackInit(CardinalVM* vm, CardinalStack* buffer);
+
+// Pop an element from the cardinal stack
+void cardinalStackPop(CardinalVM* vm, CardinalStack* buffer);
+
+// Peek at the top element on the cardinal stack
+size_t cardinalStackPeek(CardinalVM* vm, CardinalStack* buffer);
+
+// Clear the cardinal stack
+void cardinalStackClear(CardinalVM* vm, CardinalStack* buffer);
+
+// Push an integer onto the cardinal stack
+void cardinalStackPush(CardinalVM* vm, CardinalStack* buffer, int elem);
+
 // The symboltable maps to a stringbuffer 
 //
 typedef StringBuffer SymbolTable;
