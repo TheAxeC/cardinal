@@ -1,0 +1,11 @@
+Generating makefiles:
+
+To generate the correct project files using cmake you need to call cmake using the following line:
+	cmake -DCMAKE_BUILD_TYPE=Release .. (in the build/release folder)
+	cmake -DCMAKE_BUILD_TYPE=Debug .. (in the build/debug folder)
+
+Should you want to generate the correct files for a specific buildset (eclipse, mingw)
+See if it is available using: cmake --help
+Then call:
+	cmake -G "MinGW Makefiles" -DCMAKE_BUILD_TYPE=Release .. (in the build/release folder)
+	cmake -G "MinGW Makefiles" -DCMAKE_BUILD_TYPE=Debug .. (in the build/debug folder)
