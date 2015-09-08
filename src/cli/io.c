@@ -43,8 +43,8 @@ char* readFile(const char* path) {
 
 void printReplIntro() {
 	printf("\\\\/\"-\n");
-	printf(" \\_/   %s\n", UDOG_VERSION);
-	printf("Thunderdog Script is a small, fast, class-based, Object Oriented scripting language. \n"
+	printf(" \\_/   %s\n", CARDINAL_VERSION);
+	printf("Cardinal is a small, fast, class-based, Object Oriented scripting language. \n"
 	       "The language is under heavy development and is subject to change. \n\n");
 }
 

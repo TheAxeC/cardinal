@@ -4,20 +4,20 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "udog_config.h"
-#include "udog_core.h"
-#include "udog_value.h"
-#include "udog_debug.h"
+#include "cardinal_config.h"
+#include "cardinal_core.h"
+#include "cardinal_value.h"
+#include "cardinal_debug.h"
 
 // Binds a native method named [name] implemented using C function
 // [fn] to `ObjClass` [cls].
 #define NATIVE(cls, name, func) \
 	{ \
-		int symbol = udogSymbolTableEnsure(vm, &vm->methodNames, name, strlen(name)); \
+		int symbol = cardinalSymbolTableEnsure(vm, &vm->methodNames, name, strlen(name)); \
 		Method method; \
 		method.type = METHOD_PRIMITIVE; \
 		method.fn.primitive = native_##func; \
-		udogBindMethod(vm, cls, symbol, method); \
+		cardinalBindMethod(vm, cls, symbol, method); \
 	}
 
 // Return a single value from a function
@@ -40,23 +40,23 @@
 // Return the constant [True]
 #define RETURN_TRUE         RETURN_VAL(TRUE_VAL)
 
-static bool validateFn(UDogVM* vm, Value* args, int index, const char* argName);
-static bool validateNum(UDogVM* vm, Value* args, int index, const char* argName);
-static bool validateIntValue(UDogVM* vm, Value* args, double value, const char* argName);
-static bool validateInt(UDogVM* vm, Value* args, int index, const char* argName);
-static int validateIndexValue(UDogVM* vm, Value* args, int count, double value, const char* argName);
-static int validateIndex(UDogVM* vm, Value* args, int count, int argIndex, const char* argName);
-static bool validateString(UDogVM* vm, Value* args, int index, const char* argName);
-static bool validateException(UDogVM* vm, Value* args, int index, const char* argName);
+static bool validateFn(CardinalVM* vm, Value* args, int index, const char* argName);
+static bool validateNum(CardinalVM* vm, Value* args, int index, const char* argName);
+static bool validateIntValue(CardinalVM* vm, Value* args, double value, const char* argName);
+static bool validateInt(CardinalVM* vm, Value* args, int index, const char* argName);
+static int validateIndexValue(CardinalVM* vm, Value* args, int count, double value, const char* argName);
+static int validateIndex(CardinalVM* vm, Value* args, int count, int argIndex, const char* argName);
+static bool validateString(CardinalVM* vm, Value* args, int index, const char* argName);
+static bool validateException(CardinalVM* vm, Value* args, int index, const char* argName);
 
-static ObjClass* defineSingleClass(UDogVM* vm, const char* name);
+static ObjClass* defineSingleClass(CardinalVM* vm, const char* name);
 
 
 // Defines a native method whose C function name is [native]. This abstracts
 // the actual type signature of a native function and makes it clear which C
 // functions are intended to be invoked as natives.
 #define DEF_NATIVE(native) \
-	static PrimitiveResult native_##native(UDogVM* vm, ObjFiber* fiber, Value* args, int* numargs) { \
+	static PrimitiveResult native_##native(CardinalVM* vm, ObjFiber* fiber, Value* args, int* numargs) { \
 		UNUSED(vm); \
 		UNUSED(fiber); \
 		UNUSED(args); \
@@ -66,7 +66,7 @@ static ObjClass* defineSingleClass(UDogVM* vm, const char* name);
 
 #define RETURN_ERROR(msg) \
 	do { \
-		args[0] = udogNewString(vm, msg, strlen(msg)); \
+		args[0] = cardinalNewString(vm, msg, strlen(msg)); \
 		return PRIM_ERROR; \
 	} while (0);
 
@@ -395,37 +395,37 @@ static const char* libSource =
 
 // Validates that the given argument in [args] is a function. Returns true if
 // it is. If not, reports an error and returns false.
-static bool validateFn(UDogVM* vm, Value* args, int index, const char* argName) {
+static bool validateFn(CardinalVM* vm, Value* args, int index, const char* argName) {
 	if (IS_FN(args[index]) || IS_CLOSURE(args[index])) return true;
 
-	args[0] = OBJ_VAL(udogStringConcat(vm, argName, -1,
+	args[0] = OBJ_VAL(cardinalStringConcat(vm, argName, -1,
                                      " must be a function.", -1));
 	return false;
 }
 
 // Validates that the given argument in [args] is a Num. Returns true if it is.
 // If not, reports an error and returns false.
-static bool validateNum(UDogVM* vm, Value* args, int index, const char* argName) {
+static bool validateNum(CardinalVM* vm, Value* args, int index, const char* argName) {
 	if (IS_NUM(args[index])) return true;
 
-	args[0] = OBJ_VAL(udogStringConcat(vm, argName, -1,
+	args[0] = OBJ_VAL(cardinalStringConcat(vm, argName, -1,
                                      " must be a number.", -1));
 	return false;
 }
 
 // Validates that [value] is an integer. Returns true if it is. If not, reports
 // an error and returns false.
-static bool validateIntValue(UDogVM* vm, Value* args, double value, const char* argName) {
+static bool validateIntValue(CardinalVM* vm, Value* args, double value, const char* argName) {
 	if (compareFloat(trunc(value),value)) return true;
 
-	args[0] = OBJ_VAL(udogStringConcat(vm, argName, -1,
+	args[0] = OBJ_VAL(cardinalStringConcat(vm, argName, -1,
                                      " must be an integer.", -1));
 	return false;
 }
 
 // Validates that the given argument in [args] is an integer. Returns true if
 // it is. If not, reports an error and returns false.
-static bool validateInt(UDogVM* vm, Value* args, int index, const char* argName) {
+static bool validateInt(CardinalVM* vm, Value* args, int index, const char* argName) {
 	// Make sure it's a number first.
 	if (!validateNum(vm, args, index, argName)) return false;
 
@@ -435,7 +435,7 @@ static bool validateInt(UDogVM* vm, Value* args, int index, const char* argName)
 // Validates that [value] is an integer within `[0, count)`. Also allows
 // negative indices which map backwards from the end. Returns the valid positive
 // index value. If invalid, reports an error and returns -1.
-static int validateIndexValue(UDogVM* vm, Value* args, int count, double value, const char* argName) {
+static int validateIndexValue(CardinalVM* vm, Value* args, int count, double value, const char* argName) {
 	if (!validateIntValue(vm, args, value, argName)) return -1;
 
 	int index = (int)value;
@@ -446,20 +446,20 @@ static int validateIndexValue(UDogVM* vm, Value* args, int count, double value, 
 	// Check bounds.
 	if (index >= 0 && index < count) return index;
 
-	args[0] = OBJ_VAL(udogStringConcat(vm, argName, -1, " out of bounds.", -1));
+	args[0] = OBJ_VAL(cardinalStringConcat(vm, argName, -1, " out of bounds.", -1));
 	return -1;
 }
 
 // Validates that [key] is a valid object for use as a map key. Returns true if
 // it is. If not, reports an error and returns false.
-static bool validateKey(UDogVM* vm, Value* args, int index) {
+static bool validateKey(CardinalVM* vm, Value* args, int index) {
 	Value arg = args[index];
 	if (IS_BOOL(arg) || IS_CLASS(arg) || IS_NULL(arg) ||
 	        IS_NUM(arg) || IS_RANGE(arg) || IS_STRING(arg)) {
 		return true;
 	}
 
-	args[0] = udogNewString(vm, "Key must be a value type.", 25);
+	args[0] = cardinalNewString(vm, "Key must be a value type.", 25);
 	return false;
 }
 
@@ -467,7 +467,7 @@ static bool validateKey(UDogVM* vm, Value* args, int index) {
 // Validates that the argument at [argIndex] is an integer within `[0, count)`.
 // Also allows negative indices which map backwards from the end. Returns the
 // valid positive index value. If invalid, reports an error and returns -1.
-static int validateIndex(UDogVM* vm, Value* args, int count, int argIndex, const char* argName) {
+static int validateIndex(CardinalVM* vm, Value* args, int count, int argIndex, const char* argName) {
 	if (!validateNum(vm, args, argIndex, argName)) return -1;
 
 	return validateIndexValue(vm, args, count, AS_NUM(args[argIndex]), argName);
@@ -475,27 +475,27 @@ static int validateIndex(UDogVM* vm, Value* args, int count, int argIndex, const
 
 // Validates that the given argument in [args] is a String. Returns true if it
 // is. If not, reports an error and returns false.
-static bool validateString(UDogVM* vm, Value* args, int index, const char* argName) {
+static bool validateString(CardinalVM* vm, Value* args, int index, const char* argName) {
 	if (IS_STRING(args[index])) return true;
 
-	args[0] = OBJ_VAL(udogStringConcat(vm, argName, -1,
+	args[0] = OBJ_VAL(cardinalStringConcat(vm, argName, -1,
                                      " must be a string.", -1));
 	return false;
 }
 
 // Validates that the given argument in [args] is a String. Returns true if it
 // is. If not, reports an error and returns false.
-static bool validateException(UDogVM* vm, Value* args, int index, const char* argName) {
-	if (udogIsObjInstanceOf(vm, args[index], "Exception")) return true;
+static bool validateException(CardinalVM* vm, Value* args, int index, const char* argName) {
+	if (cardinalIsObjInstanceOf(vm, args[index], "Exception")) return true;
 
-	args[0] = OBJ_VAL(udogStringConcat(vm, argName, -1,
+	args[0] = OBJ_VAL(cardinalStringConcat(vm, argName, -1,
                                      " must be a string.", -1));
 	return false;
 }
 
 
 // Prepare a function call to execute the function that was given as parameter
-static PrimitiveResult callFunction(UDogVM* vm, Value* args, int numArgs) {
+static PrimitiveResult callFunction(CardinalVM* vm, Value* args, int numArgs) {
 	ObjFn* fn;
 	if (IS_CLOSURE(args[0])) {
 		fn = AS_CLOSURE(args[0])->fn;
@@ -509,7 +509,7 @@ static PrimitiveResult callFunction(UDogVM* vm, Value* args, int numArgs) {
 	return PRIM_CALL;
 }
 
-static void pushParamCore(UDogVM* vm, Value val) {
+static void pushParamCore(CardinalVM* vm, Value val) {
 	*vm->fiber->stacktop++ = val;
 }
 
@@ -523,7 +523,7 @@ static void pushParamCore(UDogVM* vm, Value val) {
 // in the resulting sequence. [step] will be direction that the range is going:
 // `1` if the range is increasing from the start index or `-1` if the range is
 // decreasing.
-static int calculateRange(UDogVM* vm, Value* args, ObjRange* range,
+static int calculateRange(CardinalVM* vm, Value* args, ObjRange* range,
                           int* length, int* step) {
 	// Corner case: an empty range at zero is allowed on an empty sequence.
 	// This way, list[0..-1] and list[0...list.count] can be used to copy a list
@@ -555,7 +555,7 @@ static int calculateRange(UDogVM* vm, Value* args, ObjRange* range,
 		if (to < 0) to = *length + to;
 
 		if (to < -1 || to > *length) {
-			args[0] = udogNewString(vm, "Range end out of bounds.", 24);
+			args[0] = cardinalNewString(vm, "Range end out of bounds.", 24);
 			return -1;
 		}
 
@@ -573,7 +573,7 @@ static int calculateRange(UDogVM* vm, Value* args, ObjRange* range,
 DEF_NATIVE(moduleS_import)
 	ObjModule* result;
 	ObjString* toLoad = AS_STRING(args[1]);
-	result = udogImportModuleVar(vm, OBJ_VAL(toLoad));
+	result = cardinalImportModuleVar(vm, OBJ_VAL(toLoad));
 	
 	RETURN_VAL(OBJ_VAL(result));
 END_NATIVE
@@ -582,7 +582,7 @@ DEF_NATIVE(moduleS_save)
 	ObjModule* module = AS_MODULE(args[1]);
 	ObjString* name = AS_STRING(args[2]);
 
-	udogSaveModule(vm, module, name);
+	cardinalSaveModule(vm, module, name);
 	
 	RETURN_NUM(args[1]);
 END_NATIVE
@@ -597,11 +597,11 @@ END_NATIVE
 
 DEF_NATIVE(module_subscript)
 	ObjModule* module = AS_MODULE(args[0]);
-	RETURN_VAL(udogModuleFind(vm, module, AS_STRING(args[1])));
+	RETURN_VAL(cardinalModuleFind(vm, module, AS_STRING(args[1])));
 END_NATIVE
 
 DEF_NATIVE(module_subscriptSetter)
-	udogModuleSet(vm, AS_MODULE(args[0]), AS_STRING(args[1]), args[2]);
+	cardinalModuleSet(vm, AS_MODULE(args[0]), AS_STRING(args[1]), args[2]);
 	RETURN_VAL(args[2]);
 END_NATIVE
 
@@ -633,21 +633,21 @@ END_NATIVE
 ///////////////////////////////////////////////////////////////////////////////////
 
 DEF_NATIVE(method_new)
-	ObjMethod* meth = udogNewMethod(vm);
+	ObjMethod* meth = cardinalNewMethod(vm);
 	RETURN_OBJ(meth);
 END_NATIVE
 
 DEF_NATIVE(method_new1)
-	ObjMethod* meth = udogNewMethod(vm);
+	ObjMethod* meth = cardinalNewMethod(vm);
 	ObjString* name = AS_STRING(args[1]);
-	udogLoadMethod(vm, meth, name);
+	cardinalLoadMethod(vm, meth, name);
 	RETURN_OBJ(meth);
 END_NATIVE
 
 DEF_NATIVE(method_new2)
-	ObjMethod* meth = udogNewMethod(vm);
+	ObjMethod* meth = cardinalNewMethod(vm);
 	ObjString* name = AS_STRING(args[1]);
-	udogLoadMethod(vm, meth, name);
+	cardinalLoadMethod(vm, meth, name);
 	
 	meth->caller = args[2];
 	
@@ -663,7 +663,7 @@ DEF_NATIVE(method_load)
 	ObjMethod* meth = AS_METHOD(args[0]);
 	ObjString* name = AS_STRING(args[1]);
 	
-	udogLoadMethod(vm, meth, name);
+	cardinalLoadMethod(vm, meth, name);
 	
 	RETURN_OBJ(meth);
 END_NATIVE
@@ -691,7 +691,7 @@ DEF_NATIVE(method_loadCaller)
 	RETURN_OBJ(meth);
 END_NATIVE
 
-static void callForeign(UDogVM* vm, ObjFiber* fiber, udogForeignMethodFn foreign, int numArgs) {
+static void callForeign(CardinalVM* vm, ObjFiber* fiber, cardinalForeignMethodFn foreign, int numArgs) {
 	vm->fiber->foreignCallSlot = fiber->stacktop - numArgs;
 	vm->fiber->foreignCallNumArgs = numArgs;
 
@@ -708,14 +708,14 @@ static void callForeign(UDogVM* vm, ObjFiber* fiber, udogForeignMethodFn foreign
 	}
 }
 
-static PrimitiveResult callMethodCore(UDogVM* vm, ObjFiber* fiber, Value* args, int* numargs) {
+static PrimitiveResult callMethodCore(CardinalVM* vm, ObjFiber* fiber, Value* args, int* numargs) {
 	ObjMethod* meth = AS_METHOD(args[0]);
 	
 	if (!methodIsReady(vm, meth))
 		RETURN_ERROR("Methodcall is invalid. ");
 	
 	Value val = meth->caller;
-	ObjClass* classObj = udogGetClassInline(vm, val);
+	ObjClass* classObj = cardinalGetClassInline(vm, val);
 	
 	Method* method = &classObj->methods.data[meth->symbol];
 	
@@ -835,10 +835,10 @@ END_NATIVE
 // Defines a tostring function on bool types
 DEF_NATIVE(bool_toString)
 	if (AS_BOOL(args[0])) {
-		RETURN_VAL(udogNewString(vm, "true", 4));
+		RETURN_VAL(cardinalNewString(vm, "true", 4));
 	}
 	else {
-		RETURN_VAL(udogNewString(vm, "false", 5));
+		RETURN_VAL(cardinalNewString(vm, "false", 5));
 	}
 END_NATIVE
 
@@ -846,13 +846,13 @@ END_NATIVE
 //// CLASS
 ///////////////////////////////////////////////////////////////////////////////////
 
-static void bindMethod(UDogVM* vm, int methodType, int symbol, ObjClass* classObj, Value methodValue) {
+static void bindMethod(CardinalVM* vm, int methodType, int symbol, ObjClass* classObj, Value methodValue) {
 	ObjFn* methodFn = IS_FN(methodValue) ? AS_FN(methodValue) : AS_CLOSURE(methodValue)->fn;
 
 	// Methods are always bound against the class, and not the metaclass, even
 	// for static methods, so that constructors (which are static) get bound like
 	// instance methods.
-	udogBindMethodCode(vm, -1, classObj, methodFn);
+	cardinalBindMethodCode(vm, -1, classObj, methodFn);
 
 	Method method;
 	method.type = METHOD_BLOCK;
@@ -862,10 +862,10 @@ static void bindMethod(UDogVM* vm, int methodType, int symbol, ObjClass* classOb
 		classObj = classObj->obj.classObj;
 	}
 
-	udogBindMethod(vm, classObj, symbol, method);
+	cardinalBindMethod(vm, classObj, symbol, method);
 }
 
-static PrimitiveResult bindMethodNative(UDogVM* vm, ObjFiber* fiber, Value* args, int* numargs, int type) {
+static PrimitiveResult bindMethodNative(CardinalVM* vm, ObjFiber* fiber, Value* args, int* numargs, int type) {
 	UNUSED(vm);
 	UNUSED(fiber);
 	UNUSED(args);
@@ -873,10 +873,10 @@ static PrimitiveResult bindMethodNative(UDogVM* vm, ObjFiber* fiber, Value* args
 	ObjClass* classObj = AS_CLASS(args[0]);
 	ObjString* name = AS_STRING(args[2]);
 	
-	int symbol = udogSymbolTableFind(&vm->methodNames, name->value, name->length);
+	int symbol = cardinalSymbolTableFind(&vm->methodNames, name->value, name->length);
 	
 	if (symbol < 0) {
-		symbol = udogSymbolTableAdd(vm, &vm->methodNames, name->value, name->length);
+		symbol = cardinalSymbolTableAdd(vm, &vm->methodNames, name->value, name->length);
 	}
 	
 	// Binds the code of methodValue to the classObj (not the metaclass)
@@ -890,7 +890,7 @@ static PrimitiveResult bindMethodNative(UDogVM* vm, ObjFiber* fiber, Value* args
 // Create a new instance of a given class
 DEF_NATIVE(class_instantiate)
 	ObjClass* classObj = AS_CLASS(args[0]);
-	RETURN_VAL(udogNewInstance(vm, classObj));
+	RETURN_VAL(cardinalNewInstance(vm, classObj));
 END_NATIVE
 
 // Get the name of an given class
@@ -912,27 +912,27 @@ DEF_NATIVE(class_tradeMethod)
 	ObjClass* other = AS_CLASS(args[1]);
 	ObjString* name = AS_STRING(args[2]);
 	
-	int symbol = udogSymbolTableFind(&vm->methodNames, name->value, name->length);
+	int symbol = cardinalSymbolTableFind(&vm->methodNames, name->value, name->length);
 	
 	if (symbol < 0) RETURN_NULL;
 	
 	Method method = other->methods.data[symbol];
-	udogBindMethod(vm, classObj, symbol, method);
+	cardinalBindMethod(vm, classObj, symbol, method);
 	
 	RETURN_OBJ(classObj);
 END_NATIVE
 
 DEF_NATIVE(class_tradeStaticMethod)
 	ObjClass* classObj = AS_CLASS(args[0]);
-	ObjClass* other = udogGetClass(vm, args[1]);
+	ObjClass* other = cardinalGetClass(vm, args[1]);
 	ObjString* name = AS_STRING(args[2]);
 	
-	int symbol = udogSymbolTableFind(&vm->methodNames, name->value, name->length);
+	int symbol = cardinalSymbolTableFind(&vm->methodNames, name->value, name->length);
 	
 	if (symbol < 0) RETURN_NULL;
 	
 	Method method = other->methods.data[symbol];
-	udogBindMethod(vm, udogGetClass(vm, args[0]), symbol, method);
+	cardinalBindMethod(vm, cardinalGetClass(vm, args[0]), symbol, method);
 	
 	RETURN_OBJ(classObj);
 END_NATIVE
@@ -940,7 +940,7 @@ END_NATIVE
 // Create a new class
 DEF_NATIVE(class_newClass)
 	ObjString* name = AS_STRING(args[1]);
-	RETURN_OBJ(udogNewClass(vm, vm->metatable.objectClass, 0, name));
+	RETURN_OBJ(cardinalNewClass(vm, vm->metatable.objectClass, 0, name));
 END_NATIVE
 
 ///////////////////////////////////////////////////////////////////////////////////
@@ -952,11 +952,11 @@ DEF_NATIVE(object_not)
 END_NATIVE
 
 DEF_NATIVE(object_eqeq)
-	RETURN_BOOL(udogValuesEqual(args[0], args[1]));
+	RETURN_BOOL(cardinalValuesEqual(args[0], args[1]));
 END_NATIVE
 
 DEF_NATIVE(object_bangeq)
-	RETURN_BOOL(!udogValuesEqual(args[0], args[1]));
+	RETURN_BOOL(!cardinalValuesEqual(args[0], args[1]));
 END_NATIVE
 
 DEF_NATIVE(object_new)
@@ -972,21 +972,21 @@ DEF_NATIVE(object_toString)
 	else if (IS_INSTANCE(args[0])) {
 		ObjInstance* instance = AS_INSTANCE(args[0]);
 		ObjString* name = instance->obj.classObj->name;
-		RETURN_OBJ(udogStringConcat(vm, "instance of ", -1,
+		RETURN_OBJ(cardinalStringConcat(vm, "instance of ", -1,
 							name->value, name->length));
 	}
 
-	RETURN_VAL(udogNewString(vm, "<object>", 8));
+	RETURN_VAL(cardinalNewString(vm, "<object>", 8));
 END_NATIVE
 
 DEF_NATIVE(object_type)
-	RETURN_OBJ(udogGetClass(vm, args[0]));
+	RETURN_OBJ(cardinalGetClass(vm, args[0]));
 END_NATIVE
 
 DEF_NATIVE(object_getMethod)
-	ObjMethod* meth = udogNewMethod(vm);
+	ObjMethod* meth = cardinalNewMethod(vm);
 	ObjString* name = AS_STRING(args[1]);
-	udogLoadMethod(vm, meth, name);
+	cardinalLoadMethod(vm, meth, name);
 	
 	meth->caller = args[0];
 	
@@ -994,19 +994,19 @@ DEF_NATIVE(object_getMethod)
 END_NATIVE
 
 DEF_NATIVE(object_getAllMethods)
-	ObjList* list = udogNewList(vm, 0);
+	ObjList* list = cardinalNewList(vm, 0);
 	
-	ObjClass* type = udogGetClassInline(vm, args[0]);
+	ObjClass* type = cardinalGetClassInline(vm, args[0]);
 	
 	for(int i=0; i<type->methods.count; i++) {
 		if (type->methods.data[i].type == METHOD_NONE)
 			continue;
-		ObjMethod* meth = udogNewMethod(vm);
-		Value name = udogNewString(vm, vm->methodNames.data[i].buffer, vm->methodNames.data[i].length);
-		udogLoadMethod(vm, meth, AS_STRING(name));
+		ObjMethod* meth = cardinalNewMethod(vm);
+		Value name = cardinalNewString(vm, vm->methodNames.data[i].buffer, vm->methodNames.data[i].length);
+		cardinalLoadMethod(vm, meth, AS_STRING(name));
 		
 		meth->caller = args[0];
-		udogListAdd(vm, list, OBJ_VAL(meth));
+		cardinalListAdd(vm, list, OBJ_VAL(meth));
 	}
 	
 	
@@ -1027,7 +1027,7 @@ DEF_NATIVE(string_contains)
 	ObjString* string = AS_STRING(args[0]);
 	ObjString* search = AS_STRING(args[1]);
 
-	RETURN_BOOL(udogStringFind(vm, string, search) != UINT32_MAX);
+	RETURN_BOOL(cardinalStringFind(vm, string, search) != UINT32_MAX);
 END_NATIVE
 
 DEF_NATIVE(string_count)
@@ -1056,7 +1056,7 @@ DEF_NATIVE(string_indexOf)
 	ObjString* string = AS_STRING(args[0]);
 	ObjString* search = AS_STRING(args[1]);
 
-	uint32_t index = udogStringFind(vm, string, search);
+	uint32_t index = cardinalStringFind(vm, string, search);
 
 	RETURN_NUM(index == UINT32_MAX ? -1 : (int)index);
 END_NATIVE
@@ -1090,7 +1090,7 @@ DEF_NATIVE(string_iteratorValue)
 	int index = validateIndex(vm, args, string->length, 1, "Iterator");
 	if (index == -1) return PRIM_ERROR;
 
-	RETURN_VAL(udogStringCodePointAt(vm, string, index));
+	RETURN_VAL(cardinalStringCodePointAt(vm, string, index));
 END_NATIVE
 
 DEF_NATIVE(string_startsWith)
@@ -1113,7 +1113,7 @@ DEF_NATIVE(string_plus)
 	if (!validateString(vm, args, 1, "Right operand")) return PRIM_ERROR;
 	ObjString* left = AS_STRING(args[0]);
 	ObjString* right = AS_STRING(args[1]);
-	RETURN_OBJ(udogStringConcat(vm, left->value, left->length,
+	RETURN_OBJ(cardinalStringConcat(vm, left->value, left->length,
 							  right->value, right->length));
 END_NATIVE
 
@@ -1124,7 +1124,7 @@ DEF_NATIVE(string_subscript)
 		int index = validateIndex(vm, args, string->length, 1, "Subscript");
 		if (index == -1) return PRIM_ERROR;
 
-		RETURN_VAL(udogStringCodePointAt(vm, string, index));
+		RETURN_VAL(cardinalStringCodePointAt(vm, string, index));
 	}
 
 	if (!IS_RANGE(args[1])) {
@@ -1136,7 +1136,7 @@ DEF_NATIVE(string_subscript)
 	int start = calculateRange(vm, args, AS_RANGE(args[1]), &count, &step);
 	if (start == -1) return PRIM_ERROR;
 
-	ObjString* result = AS_STRING(udogNewUninitializedString(vm, count));
+	ObjString* result = AS_STRING(cardinalNewUninitializedString(vm, count));
 	for (int i = 0; i < count; i++) {
 		result->value[i] = string->value[start + (i * step)];
 	}
@@ -1156,7 +1156,7 @@ DEF_NATIVE(string_fromCodePoint)
 		RETURN_ERROR("Code point cannot be greater than 0x10ffff.");
 	}
 
-	RETURN_VAL(udogStringFromCodePoint(vm, codePoint));
+	RETURN_VAL(cardinalStringFromCodePoint(vm, codePoint));
 END_NATIVE
 
 DEF_NATIVE(string_byteAt)
@@ -1179,7 +1179,7 @@ DEF_NATIVE(string_codePointAt)
 	if ((bytes[index] & 0xc0) == 0x80) RETURN_NUM(-1);
 
 	// Decode the UTF-8 sequence.
-	RETURN_NUM(udogUtf8Decode((uint8_t*)string->value + index,
+	RETURN_NUM(cardinalUtf8Decode((uint8_t*)string->value + index,
 							string->length - index));
 END_NATIVE
 
@@ -1220,7 +1220,7 @@ END_NATIVE
 DEF_NATIVE(fiber_new)
 	if (!validateFn(vm, args, 1, "Argument")) return PRIM_ERROR;
 
-	ObjFiber* newFiber = udogNewFiber(vm, AS_OBJ(args[1]));
+	ObjFiber* newFiber = cardinalNewFiber(vm, AS_OBJ(args[1]));
 
 	// The compiler expects the first slot of a function to hold the receiver.
 	// Since a fiber's stack is invoked directly, it doesn't have one, so put it
@@ -1232,7 +1232,7 @@ END_NATIVE
 
 // Defines a tostring function on fn type
 DEF_NATIVE(fiber_toString)
-	RETURN_VAL(udogNewString(vm, "<fiber>", 7));
+	RETURN_VAL(cardinalNewString(vm, "<fiber>", 7));
 END_NATIVE
 
 DEF_NATIVE(fiber_abort)
@@ -1269,7 +1269,7 @@ DEF_NATIVE(fiber_call)
 	return PRIM_RUN_FIBER;
 END_NATIVE
 
-static PrimitiveResult callFiber(UDogVM* vm, ObjFiber* fiber, Value* args, int numargs) {
+static PrimitiveResult callFiber(CardinalVM* vm, ObjFiber* fiber, Value* args, int numargs) {
 	ObjFiber* runFiber = AS_FIBER(args[0]);
 
 	if (runFiber->numFrames == 0) RETURN_ERROR("Cannot call a finished fiber.");
@@ -1379,7 +1379,7 @@ DEF_NATIVE(fiber_isDone)
 	RETURN_BOOL(runFiber->numFrames == 0 || runFiber->error != NULL);
 END_NATIVE
 
-static PrimitiveResult runFiber(UDogVM* vm, ObjFiber* fiber, Value* args, int numargs) {
+static PrimitiveResult runFiber(CardinalVM* vm, ObjFiber* fiber, Value* args, int numargs) {
 	ObjFiber* runFiber = AS_FIBER(args[0]);
 
 	if (runFiber->numFrames == 0) RETURN_ERROR("Cannot call a finished fiber.");
@@ -1522,7 +1522,7 @@ DEF_NATIVE(fiber_try)
 	return PRIM_RUN_FIBER;
 END_NATIVE
 
-static PrimitiveResult tryFiber(UDogVM* vm, ObjFiber* fiber, Value* args, int numargs) {
+static PrimitiveResult tryFiber(CardinalVM* vm, ObjFiber* fiber, Value* args, int numargs) {
 	ObjFiber* runFiber = AS_FIBER(args[0]);
 
 	if (runFiber->numFrames == 0) RETURN_ERROR("Cannot call a finished fiber.");
@@ -1681,12 +1681,12 @@ END_NATIVE
 ///////////////////////////////////////////////////////////////////////////////////
 
 DEF_NATIVE(list_instantiate)
-	RETURN_OBJ(udogNewList(vm, 0));
+	RETURN_OBJ(cardinalNewList(vm, 0));
 END_NATIVE
 
 DEF_NATIVE(list_add)
 	ObjList* list = AS_LIST(args[0]);
-	udogListAdd(vm, list, args[1]);
+	cardinalListAdd(vm, list, args[1]);
 	RETURN_VAL(args[1]);
 END_NATIVE
 
@@ -1714,9 +1714,9 @@ END_NATIVE
 DEF_NATIVE(list_tail)
 	ObjList* list = AS_LIST(args[0]);
 
-	ObjList* newlist = udogNewList(vm, 0);
+	ObjList* newlist = cardinalNewList(vm, 0);
 	for(int i=1; i < list->count; i++) {
-		udogListAdd(vm, newlist, list->elements[i]);
+		cardinalListAdd(vm, newlist, list->elements[i]);
 	}
 	RETURN_OBJ(newlist);
 END_NATIVE
@@ -1724,9 +1724,9 @@ END_NATIVE
 DEF_NATIVE(list_init)
 	ObjList* list = AS_LIST(args[0]);
 
-	ObjList* newlist = udogNewList(vm, 0);
+	ObjList* newlist = cardinalNewList(vm, 0);
 	for(int i=0; i < list->count - 1; i++) {
-		udogListAdd(vm, newlist, list->elements[i]);
+		cardinalListAdd(vm, newlist, list->elements[i]);
 	}
 	RETURN_OBJ(newlist);
 END_NATIVE
@@ -1742,7 +1742,7 @@ DEF_NATIVE(list_conc)
 	ObjList* list = AS_LIST(args[0]);
 	if (list->count == 0) return PRIM_ERROR;
 
-	udogListInsert(vm, list, args[1], 0);
+	cardinalListInsert(vm, list, args[1], 0);
 	RETURN_VAL(args[1]);
 END_NATIVE
 
@@ -1791,7 +1791,7 @@ DEF_NATIVE(list_insert)
 	int index = validateIndex(vm, args, list->count + 1, 2, "Index");
 	if (index == -1) return PRIM_ERROR;
 
-	udogListInsert(vm, list, args[1], index);
+	cardinalListInsert(vm, list, args[1], index);
 	RETURN_VAL(args[1]);
 END_NATIVE
 
@@ -1828,7 +1828,7 @@ DEF_NATIVE(list_removeAt)
 	int index = validateIndex(vm, args, list->count, 1, "Index");
 	if (index == -1) return PRIM_ERROR;
 
-	RETURN_VAL(udogListRemoveAt(vm, list, index));
+	RETURN_VAL(cardinalListRemoveAt(vm, list, index));
 END_NATIVE
 
 DEF_NATIVE(list_subscript)
@@ -1850,7 +1850,7 @@ DEF_NATIVE(list_subscript)
 	int start = calculateRange(vm, args, AS_RANGE(args[1]), &count, &step);
 	if (start == -1) return PRIM_ERROR;
 
-	ObjList* result = udogNewList(vm, count);
+	ObjList* result = cardinalNewList(vm, count);
 	for (int i = 0; i < count; i++) {
 		result->elements[i] = list->elements[start + (i * step)];
 	}
@@ -1872,14 +1872,14 @@ END_NATIVE
 ///////////////////////////////////////////////////////////////////////////////////
 
 DEF_NATIVE(map_instantiate)
-	RETURN_OBJ(udogNewMap(vm));
+	RETURN_OBJ(cardinalNewMap(vm));
 END_NATIVE
 
 DEF_NATIVE(map_subscript)
 	if (!validateKey(vm, args, 1)) return PRIM_ERROR;
 
 	ObjMap* map = AS_MAP(args[0]);
-	uint32_t index = udogMapFind(map, args[1]);
+	uint32_t index = cardinalMapFind(map, args[1]);
 	if (index == UINT32_MAX) RETURN_NULL;
 
 	RETURN_VAL(map->entries[index].value);
@@ -1888,19 +1888,19 @@ END_NATIVE
 DEF_NATIVE(map_subscriptSetter)
 	if (!validateKey(vm, args, 1)) return PRIM_ERROR;
 
-	udogMapSet(vm, AS_MAP(args[0]), args[1], args[2]);
+	cardinalMapSet(vm, AS_MAP(args[0]), args[1], args[2]);
 	RETURN_VAL(args[2]);
 END_NATIVE
 
 DEF_NATIVE(map_clear)
-	udogMapClear(vm, AS_MAP(args[0]));
+	cardinalMapClear(vm, AS_MAP(args[0]));
 	RETURN_NULL;
 END_NATIVE
 
 DEF_NATIVE(map_containsKey)
 	if (!validateKey(vm, args, 1)) return PRIM_ERROR;
 
-	RETURN_BOOL(udogMapFind(AS_MAP(args[0]), args[1]) != UINT32_MAX);
+	RETURN_BOOL(cardinalMapFind(AS_MAP(args[0]), args[1]) != UINT32_MAX);
 END_NATIVE
 
 DEF_NATIVE(map_count)
@@ -1940,7 +1940,7 @@ END_NATIVE
 DEF_NATIVE(map_remove)
 	if (!validateKey(vm, args, 1)) return PRIM_ERROR;
 
-	RETURN_VAL(udogMapRemoveKey(vm, AS_MAP(args[0]), args[1]));
+	RETURN_VAL(cardinalMapRemoveKey(vm, AS_MAP(args[0]), args[1]));
 END_NATIVE
 
 DEF_NATIVE(map_keyIteratorValue)
@@ -1978,7 +1978,7 @@ DEF_NATIVE(range_toString)
 	ObjRange* range = AS_RANGE(args[0]);
 	sprintf(buffer, "%.14g%s%.14g", range->from,
 	        range->isInclusive ? ".." : "...", range->to);
-	RETURN_VAL(udogNewString(vm, buffer, strlen(buffer)));
+	RETURN_VAL(cardinalNewString(vm, buffer, strlen(buffer)));
 END_NATIVE
 
 DEF_NATIVE(range_from)
@@ -2098,7 +2098,7 @@ DEF_NATIVE(num_toString)
 	// Corner case: If the value is NaN, different versions of libc produce
 	// different outputs (some will format it signed and some won't). To get
 	// reliable output, handle that ourselves.
-	if (value != value) RETURN_VAL(udogNewString(vm, "nan", 3));
+	if (value != value) RETURN_VAL(cardinalNewString(vm, "nan", 3));
 
 	// This is large enough to hold any double converted to a string using
 	// "%.14g". Example:
@@ -2118,7 +2118,7 @@ DEF_NATIVE(num_toString)
 	// = 24
 	char buffer[24];
 	int length = sprintf(buffer, "%.14g", value);
-	RETURN_VAL(udogNewString(vm, buffer, length));
+	RETURN_VAL(cardinalNewString(vm, buffer, length));
 END_NATIVE
 
 DEF_NATIVE(num_fromString)
@@ -2137,7 +2137,7 @@ DEF_NATIVE(num_fromString)
 	while (*end != '\0' && isspace(*end)) end++;
 
 	//if (errno == ERANGE) {
-	//	args[0] = udogNewString(vm, "Number literal is too large.", 28);
+	//	args[0] = cardinalNewString(vm, "Number literal is too large.", 28);
 	//	return PRIM_ERROR;
 	//}
 
@@ -2241,7 +2241,7 @@ END_NATIVE
 
 DEF_NATIVE(num_bitwiseNot)
 	// Bitwise operators always work on 32-bit unsigned ints.
-	udog_uinteger value = (udog_uinteger)AS_NUM(args[0]);
+	cardinal_uinteger value = (cardinal_uinteger)AS_NUM(args[0]);
 	RETURN_NUM((double) ~value);
 END_NATIVE
 
@@ -2249,8 +2249,8 @@ DEF_NATIVE(num_bitwiseAnd)
 	if (!validateNum(vm, args, 1, "Right operand")) return PRIM_ERROR;
 
 	// Bitwise operators always work on 32-bit unsigned ints.
-	udog_uinteger left = (udog_uinteger)AS_NUM(args[0]);
-	udog_uinteger right = (udog_uinteger)AS_NUM(args[1]);
+	cardinal_uinteger left = (cardinal_uinteger)AS_NUM(args[0]);
+	cardinal_uinteger right = (cardinal_uinteger)AS_NUM(args[1]);
 	RETURN_NUM((double) (left & right));
 END_NATIVE
 
@@ -2258,8 +2258,8 @@ DEF_NATIVE(num_bitwiseOr)
 	if (!validateNum(vm, args, 1, "Right operand")) return PRIM_ERROR;
 
 	// Bitwise operators always work on 32-bit unsigned ints.
-	udog_uinteger left = (udog_uinteger)AS_NUM(args[0]);
-	udog_uinteger right = (udog_uinteger)AS_NUM(args[1]);
+	cardinal_uinteger left = (cardinal_uinteger)AS_NUM(args[0]);
+	cardinal_uinteger right = (cardinal_uinteger)AS_NUM(args[1]);
 	RETURN_NUM((double) (left | right));
 END_NATIVE
 
@@ -2267,8 +2267,8 @@ DEF_NATIVE(num_bitwiseXor)
 	if (!validateNum(vm, args, 1, "Right operand")) return PRIM_ERROR;
 
 	// Bitwise operators always work on 32-bit unsigned ints.
-	udog_uinteger left = (udog_uinteger)AS_NUM(args[0]);
-	udog_uinteger right = (udog_uinteger)AS_NUM(args[1]);
+	cardinal_uinteger left = (cardinal_uinteger)AS_NUM(args[0]);
+	cardinal_uinteger right = (cardinal_uinteger)AS_NUM(args[1]);
 	RETURN_NUM(left ^ right);
 END_NATIVE
 
@@ -2276,8 +2276,8 @@ DEF_NATIVE(num_bitwiseLeftShift)
 	if (!validateNum(vm, args, 1, "Right operand")) return PRIM_ERROR;
 
 	// Bitwise operators always work on 32-bit unsigned ints.
-	udog_uinteger left = (udog_uinteger)AS_NUM(args[0]);
-	udog_uinteger right = (udog_uinteger)AS_NUM(args[1]);
+	cardinal_uinteger left = (cardinal_uinteger)AS_NUM(args[0]);
+	cardinal_uinteger right = (cardinal_uinteger)AS_NUM(args[1]);
 	RETURN_NUM(left << right);
 END_NATIVE
 
@@ -2285,8 +2285,8 @@ DEF_NATIVE(num_bitwiseRightShift)
 	if (!validateNum(vm, args, 1, "Right operand")) return PRIM_ERROR;
 
 	// Bitwise operators always work on 32-bit unsigned ints.
-	udog_uinteger left = (udog_uinteger)AS_NUM(args[0]);
-	udog_uinteger right = (udog_uinteger)AS_NUM(args[1]);
+	cardinal_uinteger left = (cardinal_uinteger)AS_NUM(args[0]);
+	cardinal_uinteger right = (cardinal_uinteger)AS_NUM(args[1]);
 	RETURN_NUM(left >> right);
 END_NATIVE
 
@@ -2296,7 +2296,7 @@ DEF_NATIVE(num_dotDot)
 	double from = AS_NUM(args[0]);
 	double to = AS_NUM(args[1]);
 
-	RETURN_VAL(udogNewRange(vm, from, to, true));
+	RETURN_VAL(cardinalNewRange(vm, from, to, true));
 END_NATIVE
 
 DEF_NATIVE(num_dotDotDot)
@@ -2305,7 +2305,7 @@ DEF_NATIVE(num_dotDotDot)
 	double from = AS_NUM(args[0]);
 	double to = AS_NUM(args[1]);
 
-	RETURN_VAL(udogNewRange(vm, from, to, false));
+	RETURN_VAL(cardinalNewRange(vm, from, to, false));
 END_NATIVE
 
 ///////////////////////////////////////////////////////////////////////////////////
@@ -2398,7 +2398,7 @@ END_NATIVE
 
 // Defines a tostring function on fn type
 DEF_NATIVE(fn_toString)
-	RETURN_VAL(udogNewString(vm, AS_FN(args[0])->debug->name, strlen(AS_FN(args[0])->debug->name)));
+	RETURN_VAL(cardinalNewString(vm, AS_FN(args[0])->debug->name, strlen(AS_FN(args[0])->debug->name)));
 END_NATIVE
 
 DEF_NATIVE(fn_arity)
@@ -2422,7 +2422,7 @@ END_NATIVE
 
 // Defines a tostring function on null type
 DEF_NATIVE(null_toString)
-	RETURN_VAL(udogNewString(vm, "null", 4));
+	RETURN_VAL(cardinalNewString(vm, "null", 4));
 END_NATIVE
 
 
@@ -2436,40 +2436,40 @@ END_NATIVE
 ///////////////////////////////////////////////////////////////////////////////////
 
 DEF_NATIVE(table_new)
-	ObjTable* list = udogNewTable(vm, 0);
+	ObjTable* list = cardinalNewTable(vm, 0);
 	RETURN_OBJ(list);
 END_NATIVE
 
 DEF_NATIVE(table_instantiate)
-	RETURN_OBJ(udogNewTable(vm, 0));
+	RETURN_OBJ(cardinalNewTable(vm, 0));
 END_NATIVE
 
 DEF_NATIVE(table_newSize)
 	if (!validateNum(vm, args, 1, "New operator")) return PRIM_ERROR;
 	
-	ObjTable* list = udogNewTable(vm, AS_NUM(args[1]));
+	ObjTable* list = cardinalNewTable(vm, AS_NUM(args[1]));
 	RETURN_OBJ(list);
 END_NATIVE
 
 DEF_NATIVE(table_containsKey)
 	if (!validateKey(vm, args, 1)) return PRIM_ERROR;
 
-	RETURN_BOOL(udogTableFind(vm, AS_TABLE(args[0]), args[1]) != NULL_VAL);
+	RETURN_BOOL(cardinalTableFind(vm, AS_TABLE(args[0]), args[1]) != NULL_VAL);
 END_NATIVE
 
 DEF_NATIVE(table_add)
 	ObjTable* list = AS_TABLE(args[0]);
-	udogTableAdd(vm, list, args[1], args[2]);
+	cardinalTableAdd(vm, list, args[1], args[2]);
 	RETURN_VAL(args[1]);
 END_NATIVE
 
 DEF_NATIVE(table_toString)
-	RETURN_VAL(udogNewString(vm, "Instance of Table", 17));
+	RETURN_VAL(cardinalNewString(vm, "Instance of Table", 17));
 END_NATIVE
 
 DEF_NATIVE(table_clear)
 	ObjTable* list = AS_TABLE(args[0]);
-	udogReallocate(vm, list->hashmap, 0, 0);
+	cardinalReallocate(vm, list->hashmap, 0, 0);
 	list->hashmap = NULL;
 	list->capacity = 0;
 	list->count = 0;
@@ -2483,23 +2483,23 @@ END_NATIVE
 
 DEF_NATIVE(table_remove)
 	ObjTable* list = AS_TABLE(args[0]);
-	RETURN_VAL(udogTableRemove(vm, list, args[1]));
+	RETURN_VAL(cardinalTableRemove(vm, list, args[1]));
 END_NATIVE
 
 DEF_NATIVE(table_subscript)
 	ObjTable* list = AS_TABLE(args[0]);
-	RETURN_VAL(udogTableFind(vm, list, args[1]));
+	RETURN_VAL(cardinalTableFind(vm, list, args[1]));
 END_NATIVE
 
 DEF_NATIVE(table_subscriptSetter)
 	ObjTable* list = AS_TABLE(args[0]);
-	udogTableAdd(vm, list, args[1], args[2]);
+	cardinalTableAdd(vm, list, args[1], args[2]);
 	RETURN_VAL(args[2]);
 END_NATIVE
 
 DEF_NATIVE(table_printAll)
 	ObjTable* list = AS_TABLE(args[0]);
-	udogTablePrint(vm, list);
+	cardinalTablePrint(vm, list);
 	RETURN_TRUE;
 END_NATIVE
 
@@ -2525,7 +2525,7 @@ DEF_NATIVE(table_iterate)
 	}
 
 	// Find a used entry, if any.
-	HashValue* val = udogGetTableIndex(map, index);
+	HashValue* val = cardinalGetTableIndex(map, index);
 	if (val == NULL) RETURN_FALSE;
 	RETURN_NUM(index);
 END_NATIVE
@@ -2535,7 +2535,7 @@ DEF_NATIVE(table_keyIteratorValue)
 	int index = validateIndex(vm, args, map->capacity, 1, "Iterator");
 	if (index == -1) return PRIM_ERROR;
 
-	HashValue* entry = udogGetTableIndex(map, index);
+	HashValue* entry = cardinalGetTableIndex(map, index);
 	if (entry == NULL || IS_UNDEFINED(entry->key)) {
 		RETURN_ERROR("Invalid map iterator value.");
 	}
@@ -2549,7 +2549,7 @@ DEF_NATIVE(table_get)
 	if (index == -1) return PRIM_ERROR;
 	
 	// Index is the x-th element we want to acces
-	HashValue* entry = udogGetTableIndex(map, index);
+	HashValue* entry = cardinalGetTableIndex(map, index);
 	if (entry == NULL || IS_UNDEFINED(entry->key)) {
 		RETURN_ERROR("Invalid map iterator value.");
 	}
@@ -2563,7 +2563,7 @@ DEF_NATIVE(table_valueIteratorValue)
 	if (index == -1) return PRIM_ERROR;
 
 	// Index is the x-th element we want to acces
-	HashValue* entry = udogGetTableIndex(map, index);
+	HashValue* entry = cardinalGetTableIndex(map, index);
 	if (entry == NULL || IS_UNDEFINED(entry->key)) {
 		RETURN_ERROR("Invalid map iterator value.");
 	}
@@ -2575,9 +2575,9 @@ END_NATIVE
 //// SYSTEM
 ///////////////////////////////////////////////////////////////////////////////////
 
-static void deassembleFunction(UDogVM* vm) {
-	UDogValue* val = udogGetArgument(vm, 1);
-	Value obj = udogGetHostObject(vm, val);
+static void deassembleFunction(CardinalVM* vm) {
+	CardinalValue* val = cardinalGetArgument(vm, 1);
+	Value obj = cardinalGetHostObject(vm, val);
 	
 	ObjFn* fn;
 	if (IS_CLOSURE(obj)) {
@@ -2587,19 +2587,19 @@ static void deassembleFunction(UDogVM* vm) {
 		fn = AS_FN(obj);
 	}
 
-	udogDebugPrintCode(vm, fn);
-	udogRemoveHostObject(vm, val);
+	cardinalDebugPrintCode(vm, fn);
+	cardinalRemoveHostObject(vm, val);
 }
 
-static void runCode(UDogVM* vm) {
-	const char* source = udogGetArgumentString(vm, 1);
-	ObjString* str = udogStringConcat(vm, "return new Fiber {\n", -1, source, -1);
-	ObjString* res = udogStringConcat(vm, str->value, str->length, "\n}\n", -1);
+static void runCode(CardinalVM* vm) {
+	const char* source = cardinalGetArgumentString(vm, 1);
+	ObjString* str = cardinalStringConcat(vm, "return new Fiber {\n", -1, source, -1);
+	ObjString* res = cardinalStringConcat(vm, str->value, str->length, "\n}\n", -1);
 
-	ObjFiber* fiber = loadModuleFiber(vm, udogNewString(vm, "<runtime>", 9), OBJ_VAL(res));
+	ObjFiber* fiber = loadModuleFiber(vm, cardinalNewString(vm, "<runtime>", 9), OBJ_VAL(res));
 	
 	if (fiber == NULL) {
-		udogReturnNull(vm);
+		cardinalReturnNull(vm);
 	}
 	else {
 		ObjFiber* old = vm->fiber;
@@ -2609,23 +2609,23 @@ static void runCode(UDogVM* vm) {
 		
 		Value returnValue = fiber->stack[1];
 	
-		UDogValue* ret = udogCreateHostObject(vm, returnValue);
-		udogReturnValue(vm, ret);
+		CardinalValue* ret = cardinalCreateHostObject(vm, returnValue);
+		cardinalReturnValue(vm, ret);
 	}
 }
 
-static void runCodeParam(UDogVM* vm) {
-	const char* param = udogGetArgumentString(vm, 1);
-	const char* source = udogGetArgumentString(vm, 2);
-	ObjString* str = udogStringConcat(vm, "return new Fiber { |", -1, param, -1);
-	ObjString* str2 = udogStringConcat(vm, str->value, str->length, "|\n", -1);
-	ObjString* str3 = udogStringConcat(vm, str2->value, str2->length, source, -1);
-	ObjString* res = udogStringConcat(vm, str3->value, str3->length, "\n}\n", -1);
+static void runCodeParam(CardinalVM* vm) {
+	const char* param = cardinalGetArgumentString(vm, 1);
+	const char* source = cardinalGetArgumentString(vm, 2);
+	ObjString* str = cardinalStringConcat(vm, "return new Fiber { |", -1, param, -1);
+	ObjString* str2 = cardinalStringConcat(vm, str->value, str->length, "|\n", -1);
+	ObjString* str3 = cardinalStringConcat(vm, str2->value, str2->length, source, -1);
+	ObjString* res = cardinalStringConcat(vm, str3->value, str3->length, "\n}\n", -1);
 	
-	ObjFiber* fiber = loadModuleFiber(vm, udogNewString(vm, "<runtime>", 9), OBJ_VAL(res));
+	ObjFiber* fiber = loadModuleFiber(vm, cardinalNewString(vm, "<runtime>", 9), OBJ_VAL(res));
 	
 	if (fiber == NULL) {
-		udogReturnNull(vm);
+		cardinalReturnNull(vm);
 	}
 	else {
 		ObjFiber* old = vm->fiber;
@@ -2635,41 +2635,41 @@ static void runCodeParam(UDogVM* vm) {
 		
 		Value returnValue = fiber->stack[1];
 	
-		UDogValue* ret = udogCreateHostObject(vm, returnValue);
-		udogReturnValue(vm, ret);
+		CardinalValue* ret = cardinalCreateHostObject(vm, returnValue);
+		cardinalReturnValue(vm, ret);
 	}
 }
 
-static void getHostObject(UDogVM* vm) {
-	double ind = udogGetArgumentDouble(vm, 1);
+static void getHostObject(CardinalVM* vm) {
+	double ind = cardinalGetArgumentDouble(vm, 1);
 	
-	UDogValue* val = udogCreateValue(vm);
+	CardinalValue* val = cardinalCreateValue(vm);
 	val->value = NUM_VAL(ind);
 	
-	udogReturnValue(vm, val);
+	cardinalReturnValue(vm, val);
 }
 
-static void setHostObject(UDogVM* vm) {
-	UDogValue* obj = udogGetArgument(vm, 2);
-	double ind = udogGetArgumentDouble(vm, 1);
+static void setHostObject(CardinalVM* vm) {
+	CardinalValue* obj = cardinalGetArgument(vm, 2);
+	double ind = cardinalGetArgumentDouble(vm, 1);
 	
-	UDogValue val;
+	CardinalValue val;
 	val.value = ind;
-	udogSetHostObject(vm, udogGetHostObject(vm, obj), &val);
-	udogRemoveHostObject(vm, obj);
+	cardinalSetHostObject(vm, cardinalGetHostObject(vm, obj), &val);
+	cardinalRemoveHostObject(vm, obj);
 }
 
-static void collect(UDogVM* vm) {
-	udogCollectGarbage(vm);
+static void collect(CardinalVM* vm) {
+	cardinalCollectGarbage(vm);
 }
 
-static void setGC(UDogVM* vm) {
-	udogEnableGC(vm, udogGetArgumentBool(vm, 1));
+static void setGC(CardinalVM* vm) {
+	cardinalEnableGC(vm, cardinalGetArgumentBool(vm, 1));
 }
 
-static void listStatistics(UDogVM* vm) {
+static void listStatistics(CardinalVM* vm) {
 	int gcCurrSize, gcTotalDestr, gcTotalDet, gcNewObjects, gcNext, nbHosts;
-	udogGetGCStatistics(vm, &gcCurrSize, &gcTotalDestr, &gcTotalDet, &gcNewObjects, &gcNext, &nbHosts);
+	cardinalGetGCStatistics(vm, &gcCurrSize, &gcTotalDestr, &gcTotalDet, &gcNewObjects, &gcNext, &nbHosts);
 
 	vm->printFunction("Garbage collector:\n");
 	vm->printFunction(" current size:          %d\n", gcCurrSize);
@@ -2684,19 +2684,19 @@ static void listStatistics(UDogVM* vm) {
 //// CORE
 ///////////////////////////////////////////////////////////////////////////////////
 
-static ObjClass* defineSingleClass(UDogVM* vm, const char* name) {
+static ObjClass* defineSingleClass(CardinalVM* vm, const char* name) {
 	size_t length = strlen(name);
-	ObjString* nameString = AS_STRING(udogNewString(vm, name, length));
-	UDOG_PIN(vm, nameString);
+	ObjString* nameString = AS_STRING(cardinalNewString(vm, name, length));
+	CARDINAL_PIN(vm, nameString);
 
-	ObjClass* classObj = udogNewSingleClass(vm, 0, nameString);
-	udogDefineVariable(vm, NULL, name, length, OBJ_VAL(classObj));
+	ObjClass* classObj = cardinalNewSingleClass(vm, 0, nameString);
+	cardinalDefineVariable(vm, NULL, name, length, OBJ_VAL(classObj));
 
-	UDOG_UNPIN(vm);
+	CARDINAL_UNPIN(vm);
 	return classObj;
 }
 
-void udogInitializeCore(UDogVM* vm) {
+void cardinalInitializeCore(CardinalVM* vm) {
 	// Define the root Object class. This has to be done a little specially
 	// because it has no superclass and an unusual metaclass (Class).
 	vm->metatable.objectClass = defineSingleClass(vm, "Object");
@@ -2716,7 +2716,7 @@ void udogInitializeCore(UDogVM* vm) {
 	vm->metatable.classClass = defineSingleClass(vm, "Class");
 
 	// Now that Object and Class are defined, we can wire them up to each other.
-	udogBindSuperclass(vm, vm->metatable.classClass, vm->metatable.objectClass);
+	cardinalBindSuperclass(vm, vm->metatable.classClass, vm->metatable.objectClass);
 	vm->metatable.objectClass->obj.classObj = vm->metatable.classClass;
 	vm->metatable.classClass->obj.classObj = vm->metatable.classClass;
 
@@ -2751,13 +2751,13 @@ void udogInitializeCore(UDogVM* vm) {
 	//     '---------'   '--------------'   -'
 	
 	// CORE
-	udogInterpret(vm, "", libSource);
+	cardinalInterpret(vm, "", libSource);
 
 
 	// The rest of the classes can not be defined normally.
 	
 	// MODULES
-	vm->metatable.moduleClass = AS_CLASS(udogFindVariable(vm, "Module"));
+	vm->metatable.moduleClass = AS_CLASS(cardinalFindVariable(vm, "Module"));
 	NATIVE(vm->metatable.moduleClass, "importModule", module_import);
 	NATIVE(vm->metatable.moduleClass, "[_]", module_subscript);
 	NATIVE(vm->metatable.moduleClass, "[_]=(_)", module_subscriptSetter);
@@ -2768,7 +2768,7 @@ void udogInitializeCore(UDogVM* vm) {
 	NATIVE(vm->metatable.moduleClass->obj.classObj, "current", module_current);
 	
 	// METHODS
-	vm->metatable.methodClass = AS_CLASS(udogFindVariable(vm, "Method"));
+	vm->metatable.methodClass = AS_CLASS(cardinalFindVariable(vm, "Method"));
 	NATIVE(vm->metatable.methodClass, "new()", method_new);
 	NATIVE(vm->metatable.methodClass, "new(_)", method_new1);
 	NATIVE(vm->metatable.methodClass, "new(_,_)", method_new2);
@@ -2795,12 +2795,12 @@ void udogInitializeCore(UDogVM* vm) {
 	NATIVE(vm->metatable.methodClass, "call(_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_)", method_call16);
 	
 	// BOOLEANS
-	vm->metatable.boolClass = AS_CLASS(udogFindVariable(vm, "Bool"));
+	vm->metatable.boolClass = AS_CLASS(cardinalFindVariable(vm, "Bool"));
 	NATIVE(vm->metatable.boolClass, "toString", bool_toString);
 	NATIVE(vm->metatable.boolClass, "!", bool_not);
 
 	// FUNCTIONS	
-	vm->metatable.fnClass = AS_CLASS(udogFindVariable(vm, "Fn"));
+	vm->metatable.fnClass = AS_CLASS(cardinalFindVariable(vm, "Fn"));
 	NATIVE(vm->metatable.fnClass->obj.classObj, "<instantiate>", fn_instantiate);
 	NATIVE(vm->metatable.fnClass->obj.classObj, "new(_)", fn_new);
 
@@ -2825,12 +2825,12 @@ void udogInitializeCore(UDogVM* vm) {
 	NATIVE(vm->metatable.fnClass, "arity", fn_arity);
 
 	// NULL
-	vm->metatable.nullClass = AS_CLASS(udogFindVariable(vm, "Null"));
+	vm->metatable.nullClass = AS_CLASS(cardinalFindVariable(vm, "Null"));
 	NATIVE(vm->metatable.nullClass, "!", null_not);
 	NATIVE(vm->metatable.nullClass, "toString", null_toString);
 	
 	// NUMBER
-	vm->metatable.numClass = AS_CLASS(udogFindVariable(vm, "Num"));
+	vm->metatable.numClass = AS_CLASS(cardinalFindVariable(vm, "Num"));
 	NATIVE(vm->metatable.numClass->obj.classObj, "fromString(_)", num_fromString);
 	NATIVE(vm->metatable.numClass->obj.classObj, "pi", num_pi);
 	NATIVE(vm->metatable.numClass, "abs", num_abs);
@@ -2876,7 +2876,7 @@ void udogInitializeCore(UDogVM* vm) {
 	NATIVE(vm->metatable.numClass, "!=(_)", num_bangeq);
 	
 	// FIBER
-	vm->metatable.fiberClass = AS_CLASS(udogFindVariable(vm, "Fiber"));
+	vm->metatable.fiberClass = AS_CLASS(cardinalFindVariable(vm, "Fiber"));
 	NATIVE(vm->metatable.fiberClass->obj.classObj, "<instantiate>", fiber_instantiate);
 	NATIVE(vm->metatable.fiberClass->obj.classObj, "new(_)", fiber_new);
 	NATIVE(vm->metatable.fiberClass->obj.classObj, "abort(_)", fiber_abort);
@@ -2943,7 +2943,7 @@ void udogInitializeCore(UDogVM* vm) {
 	NATIVE(vm->metatable.fiberClass, "try(_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_)", fiber_try16);
 	
 	// STRING
-	vm->metatable.stringClass = AS_CLASS(udogFindVariable(vm, "String"));
+	vm->metatable.stringClass = AS_CLASS(cardinalFindVariable(vm, "String"));
 	NATIVE(vm->metatable.stringClass, "+(_)", string_plus);
 	NATIVE(vm->metatable.stringClass, "[_]", string_subscript);
 	NATIVE(vm->metatable.stringClass, "contains(_)", string_contains);
@@ -2961,7 +2961,7 @@ void udogInitializeCore(UDogVM* vm) {
 	NATIVE(vm->metatable.stringClass, "iterateByte_(_)", string_iterateByte);
 	
 	// LIST
-	vm->metatable.listClass = AS_CLASS(udogFindVariable(vm, "List")); 
+	vm->metatable.listClass = AS_CLASS(cardinalFindVariable(vm, "List")); 
 	NATIVE(vm->metatable.listClass->obj.classObj, "<instantiate>", list_instantiate);
 	NATIVE(vm->metatable.listClass, "add(_)", list_add);
 	NATIVE(vm->metatable.listClass, "head", list_head);
@@ -2980,7 +2980,7 @@ void udogInitializeCore(UDogVM* vm) {
 	NATIVE(vm->metatable.listClass, "[_]=", list_subscriptSetter);
 
 	// MAP
-	vm->metatable.mapClass = AS_CLASS(udogFindVariable(vm, "Map"));
+	vm->metatable.mapClass = AS_CLASS(cardinalFindVariable(vm, "Map"));
 	NATIVE(vm->metatable.mapClass->obj.classObj, "<instantiate>", map_instantiate);
 	NATIVE(vm->metatable.mapClass, "[_]", map_subscript);
 	NATIVE(vm->metatable.mapClass, "[_]=(_)", map_subscriptSetter);
@@ -2993,7 +2993,7 @@ void udogInitializeCore(UDogVM* vm) {
 	NATIVE(vm->metatable.mapClass, "valueIteratorValue_(_)", map_valueIteratorValue);
 
 	// TABLE
-	vm->metatable.tableClass = AS_CLASS(udogFindVariable(vm, "Table"));
+	vm->metatable.tableClass = AS_CLASS(cardinalFindVariable(vm, "Table"));
 	NATIVE(vm->metatable.tableClass->obj.classObj, "<instantiate>", table_instantiate);
 	NATIVE(vm->metatable.tableClass, "new()", table_new);
 	NATIVE(vm->metatable.tableClass, "new(_)", table_newSize);
@@ -3013,7 +3013,7 @@ void udogInitializeCore(UDogVM* vm) {
 	NATIVE(vm->metatable.tableClass, "get(_)", table_get);
 	
 	// RANGE
-	vm->metatable.rangeClass = AS_CLASS(udogFindVariable(vm, "Range"));
+	vm->metatable.rangeClass = AS_CLASS(cardinalFindVariable(vm, "Range"));
 	NATIVE(vm->metatable.rangeClass, "from", range_from);
 	NATIVE(vm->metatable.rangeClass, "to", range_to);
 	NATIVE(vm->metatable.rangeClass, "min", range_min);
@@ -3024,14 +3024,14 @@ void udogInitializeCore(UDogVM* vm) {
 	NATIVE(vm->metatable.rangeClass, "toString", range_toString);
 	
 	// System
-	udogDefineStaticMethod(vm, NULL, "System", "deassemble(_)", deassembleFunction);
-	udogDefineStaticMethod(vm, NULL, "System", "run(_)", runCode);
-	udogDefineStaticMethod(vm, NULL, "System", "run(_,_)", runCodeParam);
-	udogDefineStaticMethod(vm, NULL, "System", "getHostObject(_)", getHostObject);
-	udogDefineStaticMethod(vm, NULL, "System", "setHostObject(_,_)", setHostObject);
-	udogDefineStaticMethod(vm, NULL, "System", "printGC()", listStatistics);
-	udogDefineStaticMethod(vm, NULL, "System", "setGC(_)", setGC);
-	udogDefineStaticMethod(vm, NULL, "System", "collect()", collect);
+	cardinalDefineStaticMethod(vm, NULL, "System", "deassemble(_)", deassembleFunction);
+	cardinalDefineStaticMethod(vm, NULL, "System", "run(_)", runCode);
+	cardinalDefineStaticMethod(vm, NULL, "System", "run(_,_)", runCodeParam);
+	cardinalDefineStaticMethod(vm, NULL, "System", "getHostObject(_)", getHostObject);
+	cardinalDefineStaticMethod(vm, NULL, "System", "setHostObject(_,_)", setHostObject);
+	cardinalDefineStaticMethod(vm, NULL, "System", "printGC()", listStatistics);
+	cardinalDefineStaticMethod(vm, NULL, "System", "setGC(_)", setGC);
+	cardinalDefineStaticMethod(vm, NULL, "System", "collect()", collect);
 
 	// While bootstrapping the core types and running the core library, a number
 	// string objects have been created, many of which were instantiated before

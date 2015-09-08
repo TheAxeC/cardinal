@@ -1,16 +1,16 @@
-#ifndef udog_compiler_h
-#define udog_compiler_h
+#ifndef cardinal_compiler_h
+#define cardinal_compiler_h
 
-#include "udog.h"
-#include "udog_value.h"
+#include "cardinal.h"
+#include "cardinal_value.h"
 
 /// This is written in bottom-up order, so the tokenization comes first, then
 /// parsing/code generation. This minimizes the number of explicit forward
 /// declarations needed.
-typedef struct UDogCompiler UDogCompiler;
+typedef struct CardinalCompiler CardinalCompiler;
 
-// This module defines the compiler for UDog. It takes a string of source code
-// and lexes, parses, and compiles it. UDog uses a single-pass compiler. It
+// This module defines the compiler for Cardinal. It takes a string of source code
+// and lexes, parses, and compiles it. Cardinal uses a single-pass compiler. It
 // does not build an actual AST during parsing and then consume that to
 // generate code. Instead, the parser directly emits bytecode.
 //
@@ -25,9 +25,9 @@ typedef struct UDogCompiler UDogCompiler;
 // Compilation is also faster since we don't create a bunch of temporary data
 // structures and destroy them after generating code.
 
-// Compiles [source], a string of UDog source code located in [module], to an
+// Compiles [source], a string of Cardinal source code located in [module], to an
 // [ObjFn] that will execute that code when invoked.
-ObjFn* udogCompile(UDogVM* vm, ObjModule* module,
+ObjFn* cardinalCompile(CardinalVM* vm, ObjModule* module,
                    const char* sourcePath, const char* source);
 				
 // When a class is defined, its superclass is not known until runtime since
@@ -43,7 +43,7 @@ ObjFn* udogCompile(UDogVM* vm, ObjModule* module,
 //
 // We could handle this dynamically, but that adds overhead. Instead, when a
 // method is bound, we walk the bytecode for the function and patch it up.
-void udogBindMethodCode(UDogVM* vm, int num, ObjClass* classObj, ObjFn* fn);
+void cardinalBindMethodCode(CardinalVM* vm, int num, ObjClass* classObj, ObjFn* fn);
 
 // When a class is defined, its superclass is not known until runtime since
 // class definitions are just imperative statements. Most of the bytecode for a
@@ -58,10 +58,10 @@ void udogBindMethodCode(UDogVM* vm, int num, ObjClass* classObj, ObjFn* fn);
 //
 // We could handle this dynamically, but that adds overhead. Instead, when a
 // method is bound, we walk the bytecode for the function and patch it up.
-void udogBindMethodSuperCode(UDogVM* vm, int num, ObjFn* fn);
+void cardinalBindMethodSuperCode(CardinalVM* vm, int num, ObjFn* fn);
 
 // Reaches all of the heap-allocated objects in use by [compiler] (and all of
 // its parents) so that they are not collected by the GC.
-void udogMarkCompiler(UDogVM* vm, UDogCompiler* compiler);
+void cardinalMarkCompiler(CardinalVM* vm, CardinalCompiler* compiler);
 
 #endif

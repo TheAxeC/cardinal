@@ -1,8 +1,8 @@
-#ifndef udog_debugger_h
-#define udog_debugger_h
+#ifndef cardinal_debugger_h
+#define cardinal_debugger_h
 
-#include "udog.h"
-#include "udog_value.h"
+#include "cardinal.h"
+#include "cardinal_value.h"
 
 // DebugState
 typedef enum DebugState {
@@ -17,41 +17,41 @@ typedef enum DebugState {
 typedef struct DebugData DebugData;
 
 // Default callback function for the debugger
-void defaultDebugCallBack(UDogVM* vm);
+void defaultDebugCallBack(CardinalVM* vm);
 
 ///////////////////////////////////////////////////////////////////////////////////
 //// HELPER FUNCTIONS FOR DEBUGGER
 ///////////////////////////////////////////////////////////////////////////////////
 
 // Create a new debugger
-DebugData* udogNewDebugger(UDogVM* vm);
+DebugData* cardinalNewDebugger(CardinalVM* vm);
 
 // Free the debugger
-void udogFreeDebugger(UDogVM* vm, DebugData* debugger);
+void cardinalFreeDebugger(CardinalVM* vm, DebugData* debugger);
 
 // Add a breakpoint on line [line] in the debugger
-void udogAddBreakPoint(UDogVM* vm, DebugData* debugger, int line);
+void cardinalAddBreakPoint(CardinalVM* vm, DebugData* debugger, int line);
 
 // Remove all breakpoints
-void udogRemoveAllBreakPoints(UDogVM* vm, DebugData* debugger);
+void cardinalRemoveAllBreakPoints(CardinalVM* vm, DebugData* debugger);
 
 // Remove a breakpoint on line [line]
-void udogRemoveBreakPoint(UDogVM* vm, DebugData* debugger, int line);
+void cardinalRemoveBreakPoint(CardinalVM* vm, DebugData* debugger, int line);
 
 // Check if the debugger has to break on line [line]
-bool udogHasBreakPoint(UDogVM* vm, DebugData* debugger, int line);
+bool cardinalHasBreakPoint(CardinalVM* vm, DebugData* debugger, int line);
 
 /// Set the sate of the debug data [debugger] to [state]
-void udogSetDebugState(DebugData* debugger, DebugState state);
+void cardinalSetDebugState(DebugData* debugger, DebugState state);
 
 // Get the state of the debugdata [debugger]
-DebugState udogGetDebugState(DebugData* debugger);
+DebugState cardinalGetDebugState(DebugData* debugger);
 
 // Set extra data in the debugger
-void udogSetExtraDebugData(DebugData* debugger, void* data);
+void cardinalSetExtraDebugData(DebugData* debugger, void* data);
 
 // Get extra data from the debugger
-void* udogGetExtraDebugData(DebugData* debugger);
+void* cardinalGetExtraDebugData(DebugData* debugger);
 
 
 

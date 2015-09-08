@@ -1,8 +1,8 @@
-#include "udog_io.h"
-#include "udog_value.h"
-#include "udog_vm.h"
+#include "cardinal_io.h"
+#include "cardinal_value.h"
+#include "cardinal_vm.h"
 
-#if UDOG_USE_LIB_IO
+#if CARDINAL_USE_LIB_IO
 
 #include <stdio.h>
 #include <string.h>
@@ -10,7 +10,7 @@
 
 #define MAX_READ_LEN 1024
 
-// This string literal is generated automatically from io.udog. Do not edit.
+// This string literal is generated automatically from io.cdl. Do not edit.
 static const char* libSource =
 "class IO {\n"
 "  static println {\n"
@@ -178,37 +178,37 @@ static const char* libSource =
 "  }\n"
 "}\n";
 
-static void ioWriteString(UDogVM* vm) {
-	const char* s = udogGetArgumentString(vm, 1);
+static void ioWriteString(CardinalVM* vm) {
+	const char* s = cardinalGetArgumentString(vm, 1);
 	vm->printFunction("%s", s);
 }
 
-static void ioRead(UDogVM* vm) {
+static void ioRead(CardinalVM* vm) {
 	char buffer[MAX_READ_LEN];
 	char* result = fgets(buffer, MAX_READ_LEN, stdin);
 
 	if (result == NULL) {
-		udogReturnString(vm, buffer, (int)strlen(buffer));
+		cardinalReturnString(vm, buffer, (int)strlen(buffer));
 		return;
 	}
 
-	udogReturnString(vm, buffer, (int)strlen(buffer));
+	cardinalReturnString(vm, buffer, (int)strlen(buffer));
 }
 
-static void ioClock(UDogVM* vm) {
-	udogReturnDouble(vm, (double)clock() / CLOCKS_PER_SEC);
+static void ioClock(CardinalVM* vm) {
+	cardinalReturnDouble(vm, (double)clock() / CLOCKS_PER_SEC);
 }
 
-static void ioTime(UDogVM* vm) {
-	udogReturnDouble(vm, (double)time(NULL));
+static void ioTime(CardinalVM* vm) {
+	cardinalReturnDouble(vm, (double)time(NULL));
 }
 
-void udogLoadIOLibrary(UDogVM* vm) {
-	udogInterpret(vm, "", libSource);
-	udogDefineStaticMethod(vm, NULL, "IO", "writeString_(_)", ioWriteString);
-	udogDefineStaticMethod(vm, NULL, "IO", "clock", ioClock);
-	udogDefineStaticMethod(vm, NULL, "IO", "time", ioTime);
-	udogDefineStaticMethod(vm, NULL, "IO", "read", ioRead);
+void cardinalLoadIOLibrary(CardinalVM* vm) {
+	cardinalInterpret(vm, "", libSource);
+	cardinalDefineStaticMethod(vm, NULL, "IO", "writeString_(_)", ioWriteString);
+	cardinalDefineStaticMethod(vm, NULL, "IO", "clock", ioClock);
+	cardinalDefineStaticMethod(vm, NULL, "IO", "time", ioTime);
+	cardinalDefineStaticMethod(vm, NULL, "IO", "read", ioRead);
 }
 
 #endif

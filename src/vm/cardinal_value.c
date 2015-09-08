@@ -7,8 +7,8 @@
 #endif
 #include <stdint.h>
 
-#include "udog.h"
-#include "udog_vm.h"
+#include "cardinal.h"
+#include "cardinal_vm.h"
 
 #include <stdarg.h>
 
@@ -16,59 +16,59 @@
 DEFINE_BUFFER(Method, Method)
 DEFINE_BUFFER(Value, Value)
 
-ObjInstance* udogThrowException(UDogVM* vm, ObjString* str) {
-	UDOG_PIN(vm, str);
-	ObjClass* prnt = AS_CLASS(udogFindVariable(vm, "Exception"));
-	UDOG_PIN(vm, prnt);
-	ObjInstance* inst = AS_INSTANCE(udogNewInstance(vm, prnt));
+ObjInstance* cardinalThrowException(CardinalVM* vm, ObjString* str) {
+	CARDINAL_PIN(vm, str);
+	ObjClass* prnt = AS_CLASS(cardinalFindVariable(vm, "Exception"));
+	CARDINAL_PIN(vm, prnt);
+	ObjInstance* inst = AS_INSTANCE(cardinalNewInstance(vm, prnt));
 	
-	UDOG_UNPIN(vm);
-	UDOG_UNPIN(vm);
+	CARDINAL_UNPIN(vm);
+	CARDINAL_UNPIN(vm);
 	inst->fields[0] = OBJ_VAL(str);
 	inst->fields[1] = NULL_VAL;
 	return inst;
 }
 
-ObjInstance* udogInsertStackTrace(ObjInstance* inst, ObjString* str) {
+ObjInstance* cardinalInsertStackTrace(ObjInstance* inst, ObjString* str) {
 	inst->fields[1] = OBJ_VAL(str);
 	return inst;
 }
 
-ObjString* udogGetErrorString(UDogVM* vm, ObjFiber* fiber) {
+ObjString* cardinalGetErrorString(CardinalVM* vm, ObjFiber* fiber) {
 	UNUSED(vm);
 	ObjInstance* inst = fiber->error;
 	return AS_STRING(inst->fields[0]);
 }
 
-bool udogIsObjInstanceOf(UDogVM* vm, Value val, const char* className) {
-	if (!udogIsObjType(val, OBJ_INSTANCE)) return false;
+bool cardinalIsObjInstanceOf(CardinalVM* vm, Value val, const char* className) {
+	if (!cardinalIsObjType(val, OBJ_INSTANCE)) return false;
 	
-	ObjClass* cls = udogGetClass(vm, val);
-	ObjClass* expected = AS_CLASS(udogFindVariable(vm, className));
-	return udogIsSubClass(cls, expected);
+	ObjClass* cls = cardinalGetClass(vm, val);
+	ObjClass* expected = AS_CLASS(cardinalFindVariable(vm, className));
+	return cardinalIsSubClass(cls, expected);
 }
 
-static void initObj(UDogVM* vm, Obj* obj, ObjType type, ObjClass* classObj) {
+static void initObj(CardinalVM* vm, Obj* obj, ObjType type, ObjClass* classObj) {
 	obj->type = type;
 	obj->classObj = classObj;
 	
-	udogAddGCObject(vm, obj);
+	cardinalAddGCObject(vm, obj);
 }
 
 // Creates a new "raw" class. It has no metaclass or superclass whatsoever.
 // This is only used for bootstrapping the initial Object and Class classes,
 // which are a little special.
-ObjClass* udogNewSingleClass(UDogVM* vm, int numFields, ObjString* name) {
+ObjClass* cardinalNewSingleClass(CardinalVM* vm, int numFields, ObjString* name) {
 	ObjClass* obj = ALLOCATE(vm, ObjClass);	
 	initObj(vm, &obj->obj, OBJ_CLASS, NULL);
 	obj->name = name;
 	obj->superclass = 0;
 	obj->superclasses = NULL;
 	
-	UDOG_PIN(vm, obj);
-	udogMethodBufferInit(vm, &obj->methods);
-	obj->superclasses = udogNewList(vm, 0);
-	UDOG_UNPIN(vm);
+	CARDINAL_PIN(vm, obj);
+	cardinalMethodBufferInit(vm, &obj->methods);
+	obj->superclasses = cardinalNewList(vm, 0);
+	CARDINAL_UNPIN(vm);
 	
 	obj->numFields = numFields;
 	obj->destructor = NULL;
@@ -76,14 +76,14 @@ ObjClass* udogNewSingleClass(UDogVM* vm, int numFields, ObjString* name) {
 	return obj;
 }
 
-bool udogIsSubClass(ObjClass* actual, ObjClass* expected) {
+bool cardinalIsSubClass(ObjClass* actual, ObjClass* expected) {
 	// Walk the superclass chain looking for the class.
 	while (actual != NULL) {
 		if (actual == expected) {
 			return true;
 		}
 		for(int i=0; i<actual->superclasses->count; i++) {
-			if (udogIsSubClass(AS_CLASS(actual->superclasses->elements[i]), expected))
+			if (cardinalIsSubClass(AS_CLASS(actual->superclasses->elements[i]), expected))
 				return true;
 		}
 	}
@@ -93,14 +93,14 @@ bool udogIsSubClass(ObjClass* actual, ObjClass* expected) {
 // Makes [superclass] the superclass of [subclass], and causes subclass to
 // inherit its methods. This should be called before any methods are defined
 // on subclass.
-void udogBindSuperclass(UDogVM* vm, ObjClass* subclass, ObjClass* superclass) {
+void cardinalBindSuperclass(CardinalVM* vm, ObjClass* subclass, ObjClass* superclass) {
 	if (superclass == NULL) return;
 	
 	if (subclass->superclasses == NULL) {
-		subclass->superclasses = udogNewList(vm, 0);
+		subclass->superclasses = cardinalNewList(vm, 0);
 	}
 
-	udogListAdd(vm, subclass->superclasses, OBJ_VAL(superclass));
+	cardinalListAdd(vm, subclass->superclasses, OBJ_VAL(superclass));
 
 	subclass->superclass += superclass->numFields;
 	
@@ -110,11 +110,11 @@ void udogBindSuperclass(UDogVM* vm, ObjClass* subclass, ObjClass* superclass) {
 	// Inherit methods from its superclass.
 	for (int i = superclass->methods.count-1; i >= 0; i--) {
 		if (superclass->methods.data[i].type != METHOD_NONE)
-			udogBindMethod(vm, subclass, i, superclass->methods.data[i]);
+			cardinalBindMethod(vm, subclass, i, superclass->methods.data[i]);
 	}
 }
 
-ObjFn* copyMethodBlock(UDogVM* vm, Method method) {
+ObjFn* copyMethodBlock(CardinalVM* vm, Method method) {
 	ObjFn* func = (ObjFn*) method.fn.obj;
 	
 	uint8_t* bytecode = ALLOCATE_ARRAY(vm, uint8_t, func->bytecodeLength);
@@ -128,18 +128,18 @@ ObjFn* copyMethodBlock(UDogVM* vm, Method method) {
 	SymbolTable locals;
 	SymbolTable lines;
 	
-	udogSymbolTableInit(vm, &locals);
-	udogSymbolTableInit(vm, &lines);
+	cardinalSymbolTableInit(vm, &locals);
+	cardinalSymbolTableInit(vm, &lines);
 	for(int i=0; i<func->debug->locals.count; i++) {
-		udogSymbolTableAdd(vm, &locals, func->debug->locals.data[i].buffer, func->debug->locals.data[i].length);
+		cardinalSymbolTableAdd(vm, &locals, func->debug->locals.data[i].buffer, func->debug->locals.data[i].length);
 	}
 	for(int i=0; i<func->debug->lines.count; i++) {
-		udogSymbolTableAdd(vm, &lines, func->debug->lines.data[i].buffer, func->debug->lines.data[i].length);
+		cardinalSymbolTableAdd(vm, &lines, func->debug->lines.data[i].buffer, func->debug->lines.data[i].length);
 	}
 	
-	FnDebug* debug = udogNewDebug(vm, func->debug->sourcePath, func->debug->name, strlen(func->debug->name), sourcelines, locals, lines);
+	FnDebug* debug = cardinalNewDebug(vm, func->debug->sourcePath, func->debug->name, strlen(func->debug->name), sourcelines, locals, lines);
 	
-	return udogNewFunction(vm, func->module,
+	return cardinalNewFunction(vm, func->module,
                        func->constants, func->numConstants,
                        func->numUpvalues, func->numParams,
                        bytecode, func->bytecodeLength,
@@ -147,83 +147,83 @@ ObjFn* copyMethodBlock(UDogVM* vm, Method method) {
 }
 
 
-static ObjClass* bindSuperClassesFirst(UDogVM* vm, ObjClass* superclass, int adjustment, int num) {
+static ObjClass* bindSuperClassesFirst(CardinalVM* vm, ObjClass* superclass, int adjustment, int num) {
 	//if (adjustment == 0 || superclass->numFields == 0) return superclass;
 	
 	// Create a new class with no superclass and correct amount of fields
-	ObjClass* newClass = udogNewClass(vm, NULL, superclass->numFields - superclass->superclass, superclass->name);
-	UDOG_PIN(vm, newClass);
+	ObjClass* newClass = cardinalNewClass(vm, NULL, superclass->numFields - superclass->superclass, superclass->name);
+	CARDINAL_PIN(vm, newClass);
 	// Set the superclass fields for the new class
 	newClass->superclass = adjustment;
 
 	// Bind all super classes from the old superclass
 	for(int i=0; i< superclass->superclasses->count; i++) {
 		/// \todo is this call correct?
-		udogAddSuperclass(vm, i, newClass, AS_CLASS(superclass->superclasses->elements[i]));
+		cardinalAddSuperclass(vm, i, newClass, AS_CLASS(superclass->superclasses->elements[i]));
 	}
 	// Copy methods from the original class
 	for (int i = superclass->methods.count-1; i >= 0; i--) {
 		if (superclass->methods.data[i].type != METHOD_NONE) {
 			if (superclass->methods.data[i].type != METHOD_BLOCK) {
-				udogBindMethod(vm, newClass, i, superclass->methods.data[i]);
+				cardinalBindMethod(vm, newClass, i, superclass->methods.data[i]);
 			}
 			else {
 				Value methodValue = OBJ_VAL(copyMethodBlock(vm, superclass->methods.data[i]));
 				
 				ObjFn* methodFn = AS_FN(methodValue);
-				UDOG_PIN(vm, methodFn);
+				CARDINAL_PIN(vm, methodFn);
 				// Methods are always bound against the class, and not the metaclass, even
 				// for static methods, so that constructors (which are static) get bound like
 				// instance methods.
-				udogBindMethodSuperCode(vm, num, methodFn);
+				cardinalBindMethodSuperCode(vm, num, methodFn);
 				
 				Method method;
 				method.type = METHOD_BLOCK;
 				method.fn.obj = AS_OBJ(methodValue);
 
-				udogBindMethod(vm, newClass, i, method);
-				UDOG_UNPIN(vm);
+				cardinalBindMethod(vm, newClass, i, method);
+				CARDINAL_UNPIN(vm);
 			}
 		}
 	}
-	UDOG_UNPIN(vm);
+	CARDINAL_UNPIN(vm);
 	return newClass;
 }
 
 // Makes [superclass] the superclass of [subclass], and causes subclass to
 // inherit its methods. This should be called before any methods are defined
 // on subclass.
-void udogAddFirstSuper(UDogVM* vm, ObjClass* subclass, ObjClass* superclass) {
+void cardinalAddFirstSuper(CardinalVM* vm, ObjClass* subclass, ObjClass* superclass) {
 	ASSERT(superclass != NULL, "Superclass must exist");
 
 	ObjClass* sprclass = bindSuperClassesFirst(vm, superclass, subclass->superclass, 0);
-	UDOG_PIN(vm, sprclass);
-	udogBindSuperclass(vm, subclass, sprclass);
-	UDOG_UNPIN(vm);
+	CARDINAL_PIN(vm, sprclass);
+	cardinalBindSuperclass(vm, subclass, sprclass);
+	CARDINAL_UNPIN(vm);
 }
 
-static ObjClass* bindSuperClasses(UDogVM* vm, ObjClass* superclass, int adjustment, int num) {
+static ObjClass* bindSuperClasses(CardinalVM* vm, ObjClass* superclass, int adjustment, int num) {
 	//if (adjustment == 0 || superclass->numFields == 0) return superclass;
 	
 	// Create a new class with no superclass and correct amount of fields
-	ObjClass* newClass = udogNewClass(vm, NULL, superclass->numFields - superclass->superclass, superclass->name);
-	UDOG_PIN(vm, newClass);
+	ObjClass* newClass = cardinalNewClass(vm, NULL, superclass->numFields - superclass->superclass, superclass->name);
+	CARDINAL_PIN(vm, newClass);
 	// Set the superclass fields for the new class
 	newClass->superclass = adjustment;
 	
 	if (superclass->superclasses == NULL) {
-		superclass->superclasses = udogNewList(vm, 0);
+		superclass->superclasses = cardinalNewList(vm, 0);
 	}
 
 	// Bind all super classes from the old superclass
 	for(int i=0; i< superclass->superclasses->count; i++) {
-		udogAddSuperclass(vm, i, newClass, AS_CLASS(superclass->superclasses->elements[i]));
+		cardinalAddSuperclass(vm, i, newClass, AS_CLASS(superclass->superclasses->elements[i]));
 	}
 	// Copy methods from the original class
 	for (int i = superclass->methods.count-1; i >= 0; i--) {
 		if (superclass->methods.data[i].type != METHOD_NONE) {
 			if (superclass->methods.data[i].type != METHOD_BLOCK) {
-				udogBindMethod(vm, newClass, i, superclass->methods.data[i]);
+				cardinalBindMethod(vm, newClass, i, superclass->methods.data[i]);
 			}
 			else {
 				Value methodValue = OBJ_VAL(copyMethodBlock(vm, superclass->methods.data[i]));
@@ -233,81 +233,81 @@ static ObjClass* bindSuperClasses(UDogVM* vm, ObjClass* superclass, int adjustme
 				// Methods are always bound against the class, and not the metaclass, even
 				// for static methods, so that constructors (which are static) get bound like
 				// instance methods.
-				udogBindMethodCode(vm, num, newClass, methodFn);
+				cardinalBindMethodCode(vm, num, newClass, methodFn);
 				
 				Method method;
 				method.type = METHOD_BLOCK;
 				method.fn.obj = AS_OBJ(methodValue);
 
-				udogBindMethod(vm, newClass, i, method);
+				cardinalBindMethod(vm, newClass, i, method);
 			}
 		}
 	}
-	UDOG_UNPIN(vm);
+	CARDINAL_UNPIN(vm);
 	return newClass;
 }
 
 // Makes [superclass] the superclass of [subclass], and causes subclass to
 // inherit its methods. This should be called before any methods are defined
 // on subclass.
-void udogAddSuperclass(UDogVM* vm, int num, ObjClass* subclass, ObjClass* superclass) {
+void cardinalAddSuperclass(CardinalVM* vm, int num, ObjClass* subclass, ObjClass* superclass) {
 	ASSERT(superclass != NULL, "Superclass must exist");
 
 	ObjClass* sprclass = bindSuperClasses(vm, superclass, subclass->superclass, num);
-	udogBindSuperclass(vm, subclass, sprclass);
+	cardinalBindSuperclass(vm, subclass, sprclass);
 }
 
 // Creates a new class object as well 
 // as its associated metaclass.
-ObjClass* udogNewClass(UDogVM* vm, ObjClass* superclass, int numFields, ObjString* name) {
-	UDOG_PIN(vm, name);
+ObjClass* cardinalNewClass(CardinalVM* vm, ObjClass* superclass, int numFields, ObjString* name) {
+	CARDINAL_PIN(vm, name);
 	// Create the metaclass.
-	ObjString* metaclassName = udogStringConcat(vm, name->value, name->length,
+	ObjString* metaclassName = cardinalStringConcat(vm, name->value, name->length,
                                               " metaclass", -1);
-	UDOG_PIN(vm, metaclassName);
+	CARDINAL_PIN(vm, metaclassName);
 
-	ObjClass* metaclass = udogNewSingleClass(vm, 0, metaclassName);
+	ObjClass* metaclass = cardinalNewSingleClass(vm, 0, metaclassName);
 	metaclass->obj.classObj = vm->metatable.classClass;
 
-	UDOG_UNPIN(vm);
+	CARDINAL_UNPIN(vm);
 
 	// Make sure the metaclass isn't collected when we allocate the class.
-	UDOG_PIN(vm, metaclass);
+	CARDINAL_PIN(vm, metaclass);
 
 	// Metaclasses always inherit Class and do not parallel the non-metaclass
 	// hierarchy.
-	udogBindSuperclass(vm, metaclass, vm->metatable.classClass);
+	cardinalBindSuperclass(vm, metaclass, vm->metatable.classClass);
 
-	ObjClass* classObj = udogNewSingleClass(vm, numFields, name);
+	ObjClass* classObj = cardinalNewSingleClass(vm, numFields, name);
 
 	// Make sure the class isn't collected while the inherited methods are being
 	// bound.
-	UDOG_PIN(vm, classObj);
+	CARDINAL_PIN(vm, classObj);
 	classObj->obj.classObj = metaclass;
 
 	if (superclass != NULL)
-		udogBindSuperclass(vm, classObj, superclass);
+		cardinalBindSuperclass(vm, classObj, superclass);
 
-	UDOG_UNPIN(vm);
-	UDOG_UNPIN(vm);
-	UDOG_UNPIN(vm);
+	CARDINAL_UNPIN(vm);
+	CARDINAL_UNPIN(vm);
+	CARDINAL_UNPIN(vm);
 
 	return classObj;
 }
 
 // Bind a method to the VM
-void udogBindMethod(UDogVM* vm, ObjClass* classObj, int symbol, Method method) {
+void cardinalBindMethod(CardinalVM* vm, ObjClass* classObj, int symbol, Method method) {
 	// Make sure the buffer is big enough to reach the symbol's index.
 	Method noMethod;
 	noMethod.type = METHOD_NONE;
 	while (symbol >= classObj->methods.count) {
-		udogMethodBufferWrite(vm, &classObj->methods, noMethod);
+		cardinalMethodBufferWrite(vm, &classObj->methods, noMethod);
 	}
 
 	classObj->methods.data[symbol] = method;
 }
 
-ObjMethod* udogNewMethod(UDogVM* vm) {
+ObjMethod* cardinalNewMethod(CardinalVM* vm) {
 	ObjMethod* method = ALLOCATE(vm, ObjMethod);
 	initObj(vm, &method->obj, OBJ_METHOD, vm->metatable.methodClass);
 	
@@ -319,20 +319,20 @@ ObjMethod* udogNewMethod(UDogVM* vm) {
 	return method;
 }
 
-bool methodIsReady(UDogVM* vm, ObjMethod* method) {
+bool methodIsReady(CardinalVM* vm, ObjMethod* method) {
 	UNUSED(vm);
 	return method->symbol >= 0 && method->name != NULL && method->caller != NULL_VAL;
 }
 
-void udogLoadMethod(UDogVM* vm, ObjMethod* method, ObjString* name) {
+void cardinalLoadMethod(CardinalVM* vm, ObjMethod* method, ObjString* name) {
 	//find the correct symbol
-	method->symbol = udogSymbolTableFind(&vm->methodNames, name->value, name->length);
+	method->symbol = cardinalSymbolTableFind(&vm->methodNames, name->value, name->length);
 	method->name = name;	
 }
 
 // Creates a new closure object that invokes [fn]. Allocates room for its
 // upvalues, but assumes outside code will populate it.
-ObjClosure* udogNewClosure(UDogVM* vm, ObjFn* fn) {
+ObjClosure* cardinalNewClosure(CardinalVM* vm, ObjFn* fn) {
 	ObjClosure* closure = ALLOCATE_FLEX(vm, ObjClosure,
                                       Upvalue*, fn->numUpvalues);
 	initObj(vm, &closure->obj, OBJ_CLOSURE, vm->metatable.fnClass);
@@ -348,14 +348,14 @@ ObjClosure* udogNewClosure(UDogVM* vm, ObjFn* fn) {
 
 // Creates a new fiber object that will invoke [fn], which can be a function or
 // closure.
-ObjFiber* udogNewFiber(UDogVM* vm, Obj* fn) {
+ObjFiber* cardinalNewFiber(CardinalVM* vm, Obj* fn) {
 	ObjFiber* fiber = ALLOCATE(vm, ObjFiber);
 	initObj(vm, &fiber->obj, OBJ_FIBER, vm->metatable.fiberClass);
 	
 	fiber->stack = NULL;
 	fiber->frames = NULL;
-	UDOG_PIN(vm, fiber);
-	udogResetFiber(fiber, fn);
+	CARDINAL_PIN(vm, fiber);
+	cardinalResetFiber(fiber, fn);
 	// Initialise stack and callframe
 	fiber->stacksize = STACKSIZE;
 	fiber->stack = ALLOCATE_ARRAY(vm, Value, fiber->stacksize);
@@ -363,13 +363,13 @@ ObjFiber* udogNewFiber(UDogVM* vm, Obj* fn) {
 	fiber->framesize = CALLFRAMESIZE;
 	fiber->frames = ALLOCATE_ARRAY(vm, CallFrame, fiber->framesize);
 
-	udogResetFiber(fiber, fn);
-	UDOG_UNPIN(vm);
+	cardinalResetFiber(fiber, fn);
+	CARDINAL_UNPIN(vm);
 
 	return fiber;
 }
 
-void udogResetFiber(ObjFiber* fiber, Obj* fn) {
+void cardinalResetFiber(ObjFiber* fiber, Obj* fn) {
 	// Push the stack frame for the function.
 	fiber->stacktop = fiber->stack;
 	fiber->numFrames = 1;
@@ -393,7 +393,7 @@ void udogResetFiber(ObjFiber* fiber, Obj* fn) {
 	}
 }
 
-FnDebug* udogNewDebug(UDogVM* vm, ObjString* debugSourcePath, const char* debugName, int debugNameLength, 
+FnDebug* cardinalNewDebug(CardinalVM* vm, ObjString* debugSourcePath, const char* debugName, int debugNameLength, 
 						int* sourceLines, SymbolTable locals, SymbolTable lines) {
 	FnDebug* debug = ALLOCATE(vm, FnDebug);
 
@@ -412,7 +412,7 @@ FnDebug* udogNewDebug(UDogVM* vm, ObjString* debugSourcePath, const char* debugN
 // Creates a new function object with the given code and constants. The new
 // function will take over ownership of [bytecode] and [sourceLines]. It will
 // copy [constants] into its own array.
-ObjFn* udogNewFunction(UDogVM* vm, ObjModule* module,
+ObjFn* cardinalNewFunction(CardinalVM* vm, ObjModule* module,
                        Value* constants, int numConstants,
                        int numUpvalues, int arity,
                        uint8_t* bytecode, int bytecodeLength,
@@ -447,7 +447,7 @@ ObjFn* udogNewFunction(UDogVM* vm, ObjModule* module,
 }
 
 // Creates a new instance of the given [classObj].
-Value udogNewInstance(UDogVM* vm, ObjClass* classObj) {
+Value cardinalNewInstance(CardinalVM* vm, ObjClass* classObj) {
 	ObjInstance* instance = ALLOCATE_FLEX(vm, ObjInstance,
                                         Value, classObj->numFields); 
 	initObj(vm, &instance->obj, OBJ_INSTANCE, classObj);
@@ -492,7 +492,7 @@ static uint32_t hashObject(Obj* object) {
 // Generates a hash code for [value], which must be one of the built-in
 // immutable types: null, bool, class, num, range, or string.
 static uint32_t hashValue(Value value) {
-#if UDOG_NAN_TAGGING
+#if CARDINAL_NAN_TAGGING
 	if (IS_OBJ(value)) return hashObject(AS_OBJ(value));
 
 	// Hash the raw bits of the unboxed value.
@@ -515,7 +515,7 @@ static uint32_t hashValue(Value value) {
 }
 // Creates a new list with [numElements] elements (which are left
 // uninitialized.)
-ObjList* udogNewList(UDogVM* vm, int numElements) {
+ObjList* cardinalNewList(CardinalVM* vm, int numElements) {
 	// Allocate this before the list object in case it triggers a GC which would
 	// free the list.
 	Value* elements = NULL;
@@ -532,35 +532,35 @@ ObjList* udogNewList(UDogVM* vm, int numElements) {
 }
 
 // Grows [list] if needed to ensure it can hold [count] elements.
-static void ensureListCapacity(UDogVM* vm, ObjList* list, int count) {
+static void ensureListCapacity(CardinalVM* vm, ObjList* list, int count) {
 	if (list->capacity >= count) return;
 
 	int capacity = list->capacity * LIST_GROW_FACTOR;
 	if (capacity < LIST_MIN_CAPACITY) capacity = LIST_MIN_CAPACITY;
 
-	list->elements = (Value*) udogReallocate(vm, list->elements, list->capacity * sizeof(Value), capacity * sizeof(Value));
+	list->elements = (Value*) cardinalReallocate(vm, list->elements, list->capacity * sizeof(Value), capacity * sizeof(Value));
 
 	list->capacity = capacity;
 }
 
 // Adds [value] to [list], reallocating and growing its storage if needed.
-void udogListAdd(UDogVM* vm, ObjList* list, Value value) {
-	if (IS_OBJ(value)) UDOG_PIN(vm, AS_OBJ(value));
+void cardinalListAdd(CardinalVM* vm, ObjList* list, Value value) {
+	if (IS_OBJ(value)) CARDINAL_PIN(vm, AS_OBJ(value));
 
 	ensureListCapacity(vm, list, list->count + 1);
 
-	if (IS_OBJ(value)) UDOG_UNPIN(vm);
+	if (IS_OBJ(value)) CARDINAL_UNPIN(vm);
 
 	list->elements[list->count++] = value;
 }
 
 // Inserts [value] in [list] at [index], shifting down the other elements.
-void udogListInsert(UDogVM* vm, ObjList* list, Value value, int index) {
-	if (IS_OBJ(value)) UDOG_PIN(vm, AS_OBJ(value));
+void cardinalListInsert(CardinalVM* vm, ObjList* list, Value value, int index) {
+	if (IS_OBJ(value)) CARDINAL_PIN(vm, AS_OBJ(value));
 
 	ensureListCapacity(vm, list, list->count + 1);
 
-	if (IS_OBJ(value)) UDOG_UNPIN(vm);
+	if (IS_OBJ(value)) CARDINAL_UNPIN(vm);
 
 	// Shift items down.
 	for (int i = list->count; i > index; i--) {
@@ -572,10 +572,10 @@ void udogListInsert(UDogVM* vm, ObjList* list, Value value, int index) {
 }
 
 // Removes and returns the item at [index] from [list].
-Value udogListRemoveAt(UDogVM* vm, ObjList* list, int index) {
+Value cardinalListRemoveAt(CardinalVM* vm, ObjList* list, int index) {
 	Value removed = list->elements[index];
 
-	if (IS_OBJ(removed)) UDOG_PIN(vm, AS_OBJ(removed));
+	if (IS_OBJ(removed)) CARDINAL_PIN(vm, AS_OBJ(removed));
 
 	// Shift items up.
 	for (int i = index; i < list->count - 1; i++) {
@@ -584,22 +584,22 @@ Value udogListRemoveAt(UDogVM* vm, ObjList* list, int index) {
 
 	// If we have too much excess capacity, shrink it.
 	if (list->capacity / LIST_GROW_FACTOR >= list->count) {
-		list->elements = (Value*) udogReallocate(vm, list->elements,
+		list->elements = (Value*) cardinalReallocate(vm, list->elements,
 										sizeof(Value) * list->capacity,
 										sizeof(Value) * (list->capacity / LIST_GROW_FACTOR));
 		list->capacity /= LIST_GROW_FACTOR;
 	}
 
-	if (IS_OBJ(removed)) UDOG_UNPIN(vm);
+	if (IS_OBJ(removed)) CARDINAL_UNPIN(vm);
 
 	list->count--;
 	return removed;
 }
 
-void udogListRemoveLast(UDogVM* vm, ObjList* list) {
+void cardinalListRemoveLast(CardinalVM* vm, ObjList* list) {
 	// If we have too much excess capacity, shrink it.
 	if (list->capacity / LIST_GROW_FACTOR >= list->count) {
-		list->elements = (Value*) udogReallocate(vm, list->elements,
+		list->elements = (Value*) cardinalReallocate(vm, list->elements,
 										sizeof(Value) * list->capacity,
 										sizeof(Value) * (list->capacity / LIST_GROW_FACTOR));
 		list->capacity /= LIST_GROW_FACTOR;
@@ -608,7 +608,7 @@ void udogListRemoveLast(UDogVM* vm, ObjList* list) {
 	list->count--;
 }
 
-ObjMap* udogNewMap(UDogVM* vm) {
+ObjMap* cardinalNewMap(CardinalVM* vm) {
 	ObjMap* map = ALLOCATE(vm, ObjMap);
 	initObj(vm, &map->obj, OBJ_MAP, vm->metatable.mapClass);
 	map->capacity = 0;
@@ -642,7 +642,7 @@ static bool addEntry(MapEntry* entries, uint32_t capacity,
 				return true;
 			}
 		}
-		else if (udogValuesEqual(entry->key, key)) {
+		else if (cardinalValuesEqual(entry->key, key)) {
 			// If the key already exists, just replace the value.
 			entry->value = value;
 			return false;
@@ -654,7 +654,7 @@ static bool addEntry(MapEntry* entries, uint32_t capacity,
 }
 
 // Updates [map]'s entry array to [capacity].
-static void resizeMap(UDogVM* vm, ObjMap* map, uint32_t capacity) {
+static void resizeMap(CardinalVM* vm, ObjMap* map, uint32_t capacity) {
 	
 	// Create the new empty hash table.
 	MapEntry* entries = ALLOCATE_ARRAY(vm, MapEntry, capacity);
@@ -674,12 +674,12 @@ static void resizeMap(UDogVM* vm, ObjMap* map, uint32_t capacity) {
 	}
 
 	// Replace the array.
-	udogReallocate(vm, map->entries, 0, 0);
+	cardinalReallocate(vm, map->entries, 0, 0);
 	map->entries = entries;
 	map->capacity = capacity;
 }
 
-uint32_t udogMapFind(ObjMap* map, Value key) {
+uint32_t cardinalMapFind(ObjMap* map, Value key) {
 	// If there is no entry array (an empty map), we definitely won't find it.
 	if (map->capacity == 0) return UINT32_MAX;
 
@@ -697,7 +697,7 @@ uint32_t udogMapFind(ObjMap* map, Value key) {
 			// slot that contains a deleted key, we have to keep looking.
 			if (IS_FALSE(entry->value)) return UINT32_MAX;
 		}
-		else if (udogValuesEqual(entry->key, key)) {
+		else if (cardinalValuesEqual(entry->key, key)) {
 			// If the key matches, we found it.
 			return index;
 		}
@@ -725,7 +725,7 @@ static MapEntry* findEntry(ObjMap* map, Value key) {
 			// slot that contains a deleted key, we have to keep looking.
 			if (IS_FALSE(entry->value)) return NULL;
 		}
-		else if (udogValuesEqual(entry->key, key)) {
+		else if (cardinalValuesEqual(entry->key, key)) {
 			// If the key matches, we found it.
 			return entry;
 		}
@@ -735,18 +735,18 @@ static MapEntry* findEntry(ObjMap* map, Value key) {
 	}
 }
 
-Value udogMapGet(ObjMap* map, Value key) {
+Value cardinalMapGet(ObjMap* map, Value key) {
 	MapEntry *entry = findEntry(map, key);
 	if (entry != NULL) return entry->value;
   
 	return UNDEFINED_VAL;
 }
 
-Value udogMapGetInd(ObjMap* map, uint32_t ind) {
+Value cardinalMapGetInd(ObjMap* map, uint32_t ind) {
 	return map->entries[ind].value;
 }
 
-void udogMapSet(UDogVM* vm, ObjMap* map, Value key, Value value) {
+void cardinalMapSet(CardinalVM* vm, ObjMap* map, Value key, Value value) {
 	// If the map is getting too full, make room first.
 	if (map->count + 5 > map->capacity * MAP_LOAD_PERCENT / 100) {
 		// Figure out the new hash table size.
@@ -761,14 +761,14 @@ void udogMapSet(UDogVM* vm, ObjMap* map, Value key, Value value) {
 	}
 }
 
-void udogMapClear(UDogVM* vm, ObjMap* map) {
-	udogReallocate(vm, map->entries, 0, 0);
+void cardinalMapClear(CardinalVM* vm, ObjMap* map) {
+	cardinalReallocate(vm, map->entries, 0, 0);
 	map->entries = NULL;
 	map->capacity = 0;
 	map->count = 0;
 }
 
-Value udogMapRemoveKey(UDogVM* vm, ObjMap* map, Value key) {
+Value cardinalMapRemoveKey(CardinalVM* vm, ObjMap* map, Value key) {
 	MapEntry *entry = findEntry(map, key);
 	if (entry == NULL) return NULL_VAL;
 
@@ -779,13 +779,13 @@ Value udogMapRemoveKey(UDogVM* vm, ObjMap* map, Value key) {
 	entry->key = UNDEFINED_VAL;
 	entry->value = TRUE_VAL;
 
-	if (IS_OBJ(value)) udogPushRoot(vm, AS_OBJ(value));
+	if (IS_OBJ(value)) cardinalPushRoot(vm, AS_OBJ(value));
 
 	map->count--;
 
 	if (map->count == 0) {
 		// Removed the last item, so free the array.
-		udogMapClear(vm, map);
+		cardinalMapClear(vm, map);
 	}
 	else if (map->capacity > TABLE_MIN_CAPACITY &&
 	         map->count < map->capacity / TABLE_GROW_FACTOR * MAP_LOAD_PERCENT / 100) {
@@ -796,35 +796,35 @@ Value udogMapRemoveKey(UDogVM* vm, ObjMap* map, Value key) {
 		resizeMap(vm, map, capacity);
 	}
 
-	if (IS_OBJ(value)) udogPopRoot(vm);
+	if (IS_OBJ(value)) cardinalPopRoot(vm);
 	return value;
 }
 
-ObjModule* udogNewModule(UDogVM* vm) {
+ObjModule* cardinalNewModule(CardinalVM* vm) {
 	ObjModule* module = ALLOCATE(vm, ObjModule);
 
 	// Modules are never used as first-class objects, so don't need a class.
 	initObj(vm, (Obj*)module, OBJ_MODULE, vm->metatable.moduleClass);
 
-	UDOG_PIN(vm, (Obj*)module);
+	CARDINAL_PIN(vm, (Obj*)module);
 
-	udogSymbolTableInit(vm, &module->variableNames);
-	udogValueBufferInit(vm, &module->variables);
+	cardinalSymbolTableInit(vm, &module->variableNames);
+	cardinalValueBufferInit(vm, &module->variables);
 	module->func = NULL;
 	module->count = 0;
 	module->source = NULL;
 	module->name = NULL;
 	module->name = NULL;
-	module->name = AS_STRING(udogNewString(vm, "module", 6));
+	module->name = AS_STRING(cardinalNewString(vm, "module", 6));
 
-	UDOG_UNPIN(vm);
+	CARDINAL_UNPIN(vm);
 	return module;
 }
 
 // Find and return a value from this module
-Value udogModuleFind(UDogVM* vm, ObjModule* module, ObjString* key) {
+Value cardinalModuleFind(CardinalVM* vm, ObjModule* module, ObjString* key) {
 	UNUSED(vm);
-	int index = udogSymbolTableFind(&module->variableNames, key->value, key->length);
+	int index = cardinalSymbolTableFind(&module->variableNames, key->value, key->length);
 
 	if (index < 0)
 		return NULL_VAL;
@@ -835,12 +835,12 @@ Value udogModuleFind(UDogVM* vm, ObjModule* module, ObjString* key) {
 }
 
 // Set a value onto a variable
-Value udogModuleSet(UDogVM* vm, ObjModule* module, ObjString* key, Value val) {
-	int index = udogSymbolTableFind(&module->variableNames, key->value, key->length);
+Value cardinalModuleSet(CardinalVM* vm, ObjModule* module, ObjString* key, Value val) {
+	int index = cardinalSymbolTableFind(&module->variableNames, key->value, key->length);
 
 	if (index < 0) {
-		index = udogSymbolTableAdd(vm, &module->variableNames, key->value, key->length);
-		udogValueBufferWrite(vm, &module->variables, val);
+		index = cardinalSymbolTableAdd(vm, &module->variableNames, key->value, key->length);
+		cardinalValueBufferWrite(vm, &module->variables, val);
 		module->count++;
 	}
 	
@@ -849,7 +849,7 @@ Value udogModuleSet(UDogVM* vm, ObjModule* module, ObjString* key, Value val) {
 	return val;
 }
 
-Value udogNewRange(UDogVM* vm, double from, double to, bool isInclusive) {
+Value cardinalNewRange(CardinalVM* vm, double from, double to, bool isInclusive) {
 	ObjRange* range = ALLOCATE(vm, ObjRange);
 	initObj(vm, &range->obj, OBJ_RANGE, vm->metatable.rangeClass);
 	range->from = from;
@@ -864,7 +864,7 @@ Value udogNewRange(UDogVM* vm, double from, double to, bool isInclusive) {
 //
 // The caller is expected to fill in the buffer and then calculate the string's
 // hash.
-static ObjString* allocateString(UDogVM* vm, size_t length) {
+static ObjString* allocateString(CardinalVM* vm, size_t length) {
   ObjString* string = ALLOCATE_FLEX(vm, ObjString, char, length + 1);
   initObj(vm, &string->obj, OBJ_STRING, vm->metatable.stringClass);
   string->length = (int)length;
@@ -891,12 +891,12 @@ static void hashString(ObjString* string) {
 // Creates a new string object of [length] and copies [text] into it.
 //
 // [text] may be NULL if [length] is zero.
-Value udogNewString(UDogVM* vm, const char* text, size_t length) {
+Value cardinalNewString(CardinalVM* vm, const char* text, size_t length) {
 	// Allow NULL if the string is empty since byte buffers don't allocate any
 	// characters for a zero-length string.
 	ASSERT(length == 0 || text != NULL, "Unexpected NULL string.");
 
-	ObjString* string = allocateString(vm, length); //AS_STRING(udogNewUninitializedString(vm, length));
+	ObjString* string = allocateString(vm, length); //AS_STRING(cardinalNewUninitializedString(vm, length));
 
 	// Copy the string (if given one).
 	if (length > 0) strncpy(string->value, text, length);
@@ -912,7 +912,7 @@ Value udogNewString(UDogVM* vm, const char* text, size_t length) {
 // [length] but does no initialization of the buffer.
 //
 // The caller is expected to fully initialize the buffer after calling.
-Value udogNewUninitializedString(UDogVM* vm, size_t length) {
+Value cardinalNewUninitializedString(CardinalVM* vm, size_t length) {
 	// Allocate before the string object in case this triggers a GC which would
 	// free the string object.
 	ObjString* string = ALLOCATE_FLEX(vm, ObjString, char, length + 1);
@@ -924,12 +924,12 @@ Value udogNewUninitializedString(UDogVM* vm, size_t length) {
 }
 
 // Creates a new string that is the concatenation of [left] and [right].
-ObjString* udogStringConcat(UDogVM* vm, const char* left, int leftLength,
+ObjString* cardinalStringConcat(CardinalVM* vm, const char* left, int leftLength,
                             const char* right, int rightLength) {
 	if (leftLength == -1) leftLength = (int)strlen(left);
 	if (rightLength == -1) rightLength = (int)strlen(right);
 
-	Value value = udogNewUninitializedString(vm, leftLength + rightLength);
+	Value value = cardinalNewUninitializedString(vm, leftLength + rightLength);
 	ObjString* string = AS_STRING(value);
 	memcpy(string->value, left, leftLength);
 	memcpy(string->value + leftLength, right, rightLength);
@@ -938,20 +938,20 @@ ObjString* udogStringConcat(UDogVM* vm, const char* left, int leftLength,
 	return string;
 }
 
-Value udogStringFromCodePoint(UDogVM* vm, int value) {
-  int length = udogUtf8NumBytes(value);
+Value cardinalStringFromCodePoint(CardinalVM* vm, int value) {
+  int length = cardinalUtf8NumBytes(value);
   ASSERT(length != 0, "Value out of range.");
 
   ObjString* string = allocateString(vm, length);
 
-  udogUtf8Encode(value, (uint8_t*)string->value);
+  cardinalUtf8Encode(value, (uint8_t*)string->value);
   hashString(string);
 
   return OBJ_VAL(string);
 }
 
-// Format a string [str] into an udog String
-ObjString* udogStringFormat(UDogVM* vm, const char* str, ...) {
+// Format a string [str] into an cardinal String
+ObjString* cardinalStringFormat(CardinalVM* vm, const char* str, ...) {
 	va_list arglist;	
     va_start(arglist, str);
 	
@@ -959,7 +959,7 @@ ObjString* udogStringFormat(UDogVM* vm, const char* str, ...) {
 	int len = vsnprintf (a, 1023, str, arglist);
 	va_end(arglist);
 
-	Value value = udogNewString(vm, a, len+1);
+	Value value = cardinalNewString(vm, a, len+1);
 	ObjString* string = AS_STRING(value);
 	
 	hashString(string);
@@ -1024,7 +1024,7 @@ ObjString* udogStringFormat(UDogVM* vm, const char* str, ...) {
 */
 }
 
-Value udogStringCodePointAt(UDogVM* vm, ObjString* string, int index) {
+Value cardinalStringCodePointAt(CardinalVM* vm, ObjString* string, int index) {
   ASSERT(index < string->length, "Index out of bounds.");
 
   char first = string->value[index];
@@ -1039,11 +1039,11 @@ Value udogStringCodePointAt(UDogVM* vm, ObjString* string, int index) {
   else if ((first & 0xe0) == 0xc0) numBytes = 2;
   else numBytes = 1;
 
-  return udogNewString(vm, string->value + index, numBytes);
+  return cardinalNewString(vm, string->value + index, numBytes);
 }
 
 // Uses the Boyer-Moore-Horspool string matching algorithm.
-uint32_t udogStringFind(UDogVM* vm, ObjString* haystack, ObjString* needle) {
+uint32_t cardinalStringFind(CardinalVM* vm, ObjString* haystack, ObjString* needle) {
 	UNUSED(vm);
 	// Corner case, an empty needle is always found.
 	if (needle->length == 0) return 0;
@@ -1098,7 +1098,7 @@ uint32_t udogStringFind(UDogVM* vm, ObjString* haystack, ObjString* needle) {
 }
 
 // Creates a new open upvalue pointing to [value] on the stack.
-Upvalue* udogNewUpvalue(UDogVM* vm, Value* value) {
+Upvalue* cardinalNewUpvalue(CardinalVM* vm, Value* value) {
 	Upvalue* upvalue = ALLOCATE(vm, Upvalue);
 
 	// Upvalues are never used as first-class objects, so don't need a class.
@@ -1113,28 +1113,28 @@ Upvalue* udogNewUpvalue(UDogVM* vm, Value* value) {
 // Sets the mark flag on [obj]. Returns true if it was already set so that we
 // can avoid recursing into already-processed objects. That ensures we don't
 // crash on an object cycle.
-static bool setMarkedFlag(UDogVM* vm, Obj* obj) {
+static bool setMarkedFlag(CardinalVM* vm, Obj* obj) {
 	UNUSED(vm);
 	if (obj->gcflag & FLAG_MARKED) return true;
 	obj->gcflag = (GCFlag) (obj->gcflag | FLAG_MARKED);
 	return false;
 }
 
-static void markClass(UDogVM* vm, ObjClass* classObj);
-static void markFn(UDogVM* vm, ObjFn* fn);
-static void markList(UDogVM* vm, ObjList* list);
-static void markString(UDogVM* vm, ObjString* string) ;
-static void markClosure(UDogVM* vm, ObjClosure* closure);
-static void markFiber(UDogVM* vm, ObjFiber* fiber);
-static void markInstance(UDogVM* vm, ObjInstance* instance);
-static void markUpvalue(UDogVM* vm, Upvalue* upvalue);
+static void markClass(CardinalVM* vm, ObjClass* classObj);
+static void markFn(CardinalVM* vm, ObjFn* fn);
+static void markList(CardinalVM* vm, ObjList* list);
+static void markString(CardinalVM* vm, ObjString* string) ;
+static void markClosure(CardinalVM* vm, ObjClosure* closure);
+static void markFiber(CardinalVM* vm, ObjFiber* fiber);
+static void markInstance(CardinalVM* vm, ObjInstance* instance);
+static void markUpvalue(CardinalVM* vm, Upvalue* upvalue);
 
-void markTable(UDogVM* vm, ObjTable* value);
-void markTableElement(UDogVM* vm, HashValue* value);
+void markTable(CardinalVM* vm, ObjTable* value);
+void markTableElement(CardinalVM* vm, HashValue* value);
 
 // Mark [value] as reachable and still in use. This should only be called
 // during the sweep phase of a garbage collection.
-void markTable(UDogVM* vm, ObjTable* list) {
+void markTable(CardinalVM* vm, ObjTable* list) {
 	if (setMarkedFlag(vm, &list->obj)) return;
 	
 	// Mark the elements.
@@ -1154,14 +1154,14 @@ void markTable(UDogVM* vm, ObjTable* list) {
 
 // Mark [value] as reachable and still in use. This should only be called
 // during the sweep phase of a garbage collection.
-void markTableElement(UDogVM* vm, HashValue* value) {
+void markTableElement(CardinalVM* vm, HashValue* value) {
 	if (setMarkedFlag(vm, &value->obj)) return;
 	
-	udogMarkValue(vm, value->key);
-	udogMarkValue(vm, value->val);
+	cardinalMarkValue(vm, value->key);
+	cardinalMarkValue(vm, value->val);
 }
 
-static void markClass(UDogVM* vm, ObjClass* classObj) {
+static void markClass(CardinalVM* vm, ObjClass* classObj) {
 	if (setMarkedFlag(vm, &classObj->obj)) return;
 
 	// The metaclass.
@@ -1173,7 +1173,7 @@ static void markClass(UDogVM* vm, ObjClass* classObj) {
 	// Method function objects.
 	for (int i = 0; i < classObj->methods.count; i++) {
 		if (classObj->methods.data[i].type == METHOD_BLOCK) {
-			udogMarkObj(vm, classObj->methods.data[i].fn.obj);
+			cardinalMarkObj(vm, classObj->methods.data[i].fn.obj);
 		}
 	}
 
@@ -1185,15 +1185,15 @@ static void markClass(UDogVM* vm, ObjClass* classObj) {
 	vm->garbageCollector.bytesAllocated += classObj->methods.capacity * sizeof(Method);
 }
 
-static void markFn(UDogVM* vm, ObjFn* fn) {
+static void markFn(CardinalVM* vm, ObjFn* fn) {
 	if (setMarkedFlag(vm, &fn->obj)) return;
 
 	// Mark the constants.
 	for (int i = 0; i < fn->numConstants; i++) {
-		udogMarkValue(vm, fn->constants[i]);
+		cardinalMarkValue(vm, fn->constants[i]);
 	}
 
-	udogMarkObj(vm, (Obj*)fn->debug->sourcePath);
+	cardinalMarkObj(vm, (Obj*)fn->debug->sourcePath);
 
 	// Keep track of how much memory is still in use.
 	vm->garbageCollector.bytesAllocated += sizeof(ObjFn);
@@ -1207,13 +1207,13 @@ static void markFn(UDogVM* vm, ObjFn* fn) {
 	vm->garbageCollector.bytesAllocated += strlen(fn->debug->name);
 }
 
-static void markList(UDogVM* vm, ObjList* list) {
+static void markList(CardinalVM* vm, ObjList* list) {
 	if (setMarkedFlag(vm, &list->obj)) return;
 
 	// Mark the elements.
 	Value* elements = list->elements;
 	for (int i = 0; i < list->count; i++) {
-		udogMarkValue(vm, elements[i]);
+		cardinalMarkValue(vm, elements[i]);
 	}
 
 	// Keep track of how much memory is still in use.
@@ -1223,7 +1223,7 @@ static void markList(UDogVM* vm, ObjList* list) {
 	}
 }
 
-static void markString(UDogVM* vm, ObjString* string) {
+static void markString(CardinalVM* vm, ObjString* string) {
 	if (setMarkedFlag(vm, &string->obj)) return;
 
 	// Keep track of how much memory is still in use.
@@ -1232,7 +1232,7 @@ static void markString(UDogVM* vm, ObjString* string) {
 	vm->garbageCollector.bytesAllocated += string->length;
 }
 
-static void markClosure(UDogVM* vm, ObjClosure* closure) {
+static void markClosure(CardinalVM* vm, ObjClosure* closure) {
 	if (setMarkedFlag(vm, &closure->obj)) return;
 
 	// Mark the function.
@@ -1249,19 +1249,19 @@ static void markClosure(UDogVM* vm, ObjClosure* closure) {
 	vm->garbageCollector.bytesAllocated += sizeof(Upvalue*) * closure->fn->numUpvalues;
 }
 
-static void markFiber(UDogVM* vm, ObjFiber* fiber) {
+static void markFiber(CardinalVM* vm, ObjFiber* fiber) {
 	if (setMarkedFlag(vm, &fiber->obj)) return;
 
 	// Stack functions.
 	if (fiber->frames != NULL)
 		for (int i = 0; i < fiber->numFrames; i++) {
-			udogMarkObj(vm, fiber->frames[i].fn);
+			cardinalMarkObj(vm, fiber->frames[i].fn);
 		}
 	
 	if (fiber->stack != NULL)
 		// Stack variables.
 		for (Value* slot = fiber->stack; slot < fiber->stacktop; slot++) {
-			udogMarkValue(vm, *slot);
+			cardinalMarkValue(vm, *slot);
 		}
 
 	// Open upvalues.
@@ -1280,14 +1280,14 @@ static void markFiber(UDogVM* vm, ObjFiber* fiber) {
 	vm->garbageCollector.bytesAllocated += sizeof(ObjFiber);
 }
 
-static void markInstance(UDogVM* vm, ObjInstance* instance) {
+static void markInstance(CardinalVM* vm, ObjInstance* instance) {
 	if (setMarkedFlag(vm, &instance->obj)) return;
 
 	markClass(vm, instance->obj.classObj);
 
 	// Mark the fields.
 	for (int i = 0; i < instance->obj.classObj->numFields; i++) {
-		udogMarkValue(vm, instance->fields[i]);
+		cardinalMarkValue(vm, instance->fields[i]);
 	}
 
 	// Keep track of how much memory is still in use.
@@ -1295,7 +1295,7 @@ static void markInstance(UDogVM* vm, ObjInstance* instance) {
 	vm->garbageCollector.bytesAllocated += sizeof(Value) * instance->obj.classObj->numFields;
 }
 
-static void markUpvalue(UDogVM* vm, Upvalue* upvalue) {
+static void markUpvalue(CardinalVM* vm, Upvalue* upvalue) {
 	// This can happen if a GC is triggered in the middle of initializing the
 	// closure.
 	if (upvalue == NULL) return;
@@ -1303,21 +1303,21 @@ static void markUpvalue(UDogVM* vm, Upvalue* upvalue) {
 	if (setMarkedFlag(vm, &upvalue->obj)) return;
 
 	// Mark the closed-over object (in case it is closed).
-	udogMarkValue(vm, upvalue->closed);
+	cardinalMarkValue(vm, upvalue->closed);
 
 	// Keep track of how much memory is still in use.
 	vm->garbageCollector.bytesAllocated += sizeof(Upvalue);
 }
 
-static void markMethod(UDogVM* vm, ObjMethod* method) {
+static void markMethod(CardinalVM* vm, ObjMethod* method) {
 	if (setMarkedFlag(vm, &method->obj)) return;
 	
-	udogMarkValue(vm, method->caller);
+	cardinalMarkValue(vm, method->caller);
 	
 	if (method->name != NULL) markString(vm, method->name);
 }
 
-static void markMap(UDogVM* vm, ObjMap* map) {
+static void markMap(CardinalVM* vm, ObjMap* map) {
 	if (setMarkedFlag(vm, &map->obj)) return;
 
 	// Mark the entries.
@@ -1325,20 +1325,20 @@ static void markMap(UDogVM* vm, ObjMap* map) {
 		MapEntry* entry = &map->entries[i];
 		if (IS_UNDEFINED(entry->key)) continue;
 
-		udogMarkValue(vm, entry->key);
-		udogMarkValue(vm, entry->value);
+		cardinalMarkValue(vm, entry->key);
+		cardinalMarkValue(vm, entry->value);
 	}
 
 	// Keep track of how much memory is still in use.
 	vm->garbageCollector.bytesAllocated += sizeof(ObjMap);
 	vm->garbageCollector.bytesAllocated += sizeof(MapEntry) * map->capacity;
 }
-static void markModule(UDogVM* vm, ObjModule* module) {
+static void markModule(CardinalVM* vm, ObjModule* module) {
 	if (setMarkedFlag(vm, &module->obj)) return;
 
 	// Top-level variables.
 	for (int i = 0; i < module->variables.count; i++) {
-		udogMarkValue(vm, module->variables.data[i]);
+		cardinalMarkValue(vm, module->variables.data[i]);
 	}
 	
 	if (module->func != NULL) markFn(vm, module->func);
@@ -1353,20 +1353,20 @@ static void markModule(UDogVM* vm, ObjModule* module) {
 
 // Mark [value] as reachable and still in use. This should only be called
 // during the sweep phase of a garbage collection.
-void udogMarkValue(UDogVM* vm, Value value) {
+void cardinalMarkValue(CardinalVM* vm, Value value) {
 	if (!IS_OBJ(value)) return;
-	udogMarkObj(vm, AS_OBJ(value));
+	cardinalMarkObj(vm, AS_OBJ(value));
 }
 
 // Mark [obj] as reachable and still in use. This should only be called
 // during the sweep phase of a garbage collection.
-void udogMarkObj(UDogVM* vm, Obj* obj) {
-#if UDOG_DEBUG_TRACE_MEMORY
+void cardinalMarkObj(CardinalVM* vm, Obj* obj) {
+#if CARDINAL_DEBUG_TRACE_MEMORY
 	static int indent = 0;
 	indent++;
 	for (int i = 0; i < indent; i++) printf("  ");
 	printf("mark ");
-	udogPrintValue(OBJ_VAL(obj));
+	cardinalPrintValue(OBJ_VAL(obj));
 	printf(" @ %p\n", obj);
 #endif
 	
@@ -1388,61 +1388,61 @@ void udogMarkObj(UDogVM* vm, Obj* obj) {
 		default: break;
 	}	
 
-#if UDOG_DEBUG_TRACE_MEMORY
+#if CARDINAL_DEBUG_TRACE_MEMORY
 	indent--;
 #endif
 }
 
 // Releases all memory owned by [obj], including [obj] itself.
-void udogFreeObj(UDogVM* vm, Obj* obj) {
-#if UDOG_DEBUG_TRACE_MEMORY || UDOG_DEBUG_TRACE_FREE
+void cardinalFreeObj(CardinalVM* vm, Obj* obj) {
+#if CARDINAL_DEBUG_TRACE_MEMORY || CARDINAL_DEBUG_TRACE_FREE
 	printf("free ");
-	udogPrintValue(OBJ_VAL(obj));
+	cardinalPrintValue(OBJ_VAL(obj));
 	printf(" @ %p\n", obj);
 #endif
 
 	switch (obj->type) {
 		case OBJ_CLASS:
-			udogMethodBufferClear(vm, &((ObjClass*)obj)->methods);
+			cardinalMethodBufferClear(vm, &((ObjClass*)obj)->methods);
 			break;
 
 		case OBJ_FN: 
 		{
 			ObjFn* fn = (ObjFn*)obj;
-			udogReallocate(vm, fn->constants, 0, 0);
-			udogReallocate(vm, fn->bytecode, 0, 0);
-			udogReallocate(vm, fn->debug->name, 0, 0);
-			udogReallocate(vm, fn->debug->sourceLines, 0, 0);
+			cardinalReallocate(vm, fn->constants, 0, 0);
+			cardinalReallocate(vm, fn->bytecode, 0, 0);
+			cardinalReallocate(vm, fn->debug->name, 0, 0);
+			cardinalReallocate(vm, fn->debug->sourceLines, 0, 0);
 			
-			udogSymbolTableClear(vm, &(fn->debug->locals));
-			udogSymbolTableClear(vm, &(fn->debug->lines));
+			cardinalSymbolTableClear(vm, &(fn->debug->locals));
+			cardinalSymbolTableClear(vm, &(fn->debug->lines));
 			
-			udogReallocate(vm, fn->debug, 0, 0);
+			cardinalReallocate(vm, fn->debug, 0, 0);
 			break;
 		}
 
 		case OBJ_LIST:
-			udogReallocate(vm, ((ObjList*)obj)->elements, 0, 0);
+			cardinalReallocate(vm, ((ObjList*)obj)->elements, 0, 0);
 			break;
 			
 		case OBJ_MAP:
-			udogReallocate(vm, ((ObjMap*)obj)->entries, 0, 0);
+			cardinalReallocate(vm, ((ObjMap*)obj)->entries, 0, 0);
 			break;
 
 		case OBJ_TABLE:
-			udogReallocate(vm, ((ObjTable*)obj)->hashmap, 0, 0);
+			cardinalReallocate(vm, ((ObjTable*)obj)->hashmap, 0, 0);
 			break;
 		case OBJ_FIBER:
-			udogReallocate(vm, ((ObjFiber*)obj)->stack, 0, 0);
-			udogReallocate(vm, ((ObjFiber*)obj)->frames, 0, 0);
+			cardinalReallocate(vm, ((ObjFiber*)obj)->stack, 0, 0);
+			cardinalReallocate(vm, ((ObjFiber*)obj)->frames, 0, 0);
 			break;
 		case OBJ_MODULE:
-			udogSymbolTableClear(vm, &((ObjModule*)obj)->variableNames);
-			udogValueBufferClear(vm, &((ObjModule*)obj)->variables);
+			cardinalSymbolTableClear(vm, &((ObjModule*)obj)->variableNames);
+			cardinalValueBufferClear(vm, &((ObjModule*)obj)->variables);
 			break;
 		case OBJ_INSTANCE: {
 			// call the foreign destructor
-			ObjClass* cls = udogGetClass(vm, OBJ_VAL(obj));
+			ObjClass* cls = cardinalGetClass(vm, OBJ_VAL(obj));
 			if (cls->destructor != NULL) {
 				// call the destructor
 				cls->destructor(obj+1);
@@ -1459,24 +1459,24 @@ void udogFreeObj(UDogVM* vm, Obj* obj) {
 		  break;
 	}
 
-	udogReallocate(vm, obj, 0, 0);
+	cardinalReallocate(vm, obj, 0, 0);
 }
 
 // Returns the class of [value].
 //
-// Unlike udogGetClassInline in udog_vm.h, this is not inlined. Inlining helps
+// Unlike cardinalGetClassInline in cardinal_vm.h, this is not inlined. Inlining helps
 // performance (significantly) in some cases, but degrades it in others. The
 // ones used by the implementation were chosen to give the best results in the
 // benchmarks.
-ObjClass* udogGetClass(UDogVM* vm, Value value) {
-	return udogGetClassInline(vm, value);
+ObjClass* cardinalGetClass(CardinalVM* vm, Value value) {
+	return cardinalGetClassInline(vm, value);
 }
 
 static void printList(ObjList* list) {
 	printf("[");
 	for (int i = 0; i < list->count; i++) {
 		if (i > 0) printf(", ");
-		udogPrintValue(list->elements[i]);
+		cardinalPrintValue(list->elements[i]);
 	}
 	printf("]");
 }
@@ -1503,8 +1503,8 @@ static void printObject(Obj* obj) {
 	}
 }
 
-void udogPrintValue(Value value) {
-#if UDOG_NAN_TAGGING
+void cardinalPrintValue(Value value) {
+#if CARDINAL_NAN_TAGGING
 	if (IS_NUM(value)) {
 		printf("%.14g", AS_NUM(value));
 	}
@@ -1534,12 +1534,12 @@ void udogPrintValue(Value value) {
 #endif
 }
 
-bool compareFloat(udog_number a, udog_number b) {
+bool compareFloat(cardinal_number a, cardinal_number b) {
 	return fabs(a - b) < EPSILON;
 }
 
-bool udogValuesEqual(Value a, Value b) {
-	if (udogValuesSame(a, b)) return true;
+bool cardinalValuesEqual(Value a, Value b) {
+	if (cardinalValuesSame(a, b)) return true;
 
 	// If we get here, it's only possible for two heap-allocated immutable objects
 	// to be equal.
@@ -1575,40 +1575,40 @@ bool udogValuesEqual(Value a, Value b) {
 	}
 }
 
-Value udogGetHostObject(UDogVM* vm, UDogValue* key) {
-	//int ind = udogMapFind(vm->hostObjects.hostObjects, NUM_VAL(key->value));
+Value cardinalGetHostObject(CardinalVM* vm, CardinalValue* key) {
+	//int ind = cardinalMapFind(vm->hostObjects.hostObjects, NUM_VAL(key->value));
 	//return vm->hostObjects.hostObjects->entries[ind].value;
-	return udogTableFind(vm, vm->hostObjects.hostObjects, NUM_VAL(key->value));
+	return cardinalTableFind(vm, vm->hostObjects.hostObjects, NUM_VAL(key->value));
 }
 
-void udogSetHostObject(UDogVM* vm, Value val, UDogValue* key) {
-	udogTableAdd(vm, vm->hostObjects.hostObjects, NUM_VAL(key->value), val);
+void cardinalSetHostObject(CardinalVM* vm, Value val, CardinalValue* key) {
+	cardinalTableAdd(vm, vm->hostObjects.hostObjects, NUM_VAL(key->value), val);
 }
 
-UDogValue* udogCreateHostObject(UDogVM* vm, Value val) {
-	if (IS_OBJ(val)) UDOG_PIN(vm, AS_OBJ(val));
-	UDogValue* ret = ALLOCATE(vm, UDogValue);
+CardinalValue* cardinalCreateHostObject(CardinalVM* vm, Value val) {
+	if (IS_OBJ(val)) CARDINAL_PIN(vm, AS_OBJ(val));
+	CardinalValue* ret = ALLOCATE(vm, CardinalValue);
 
 	if (vm->hostObjects.freeNums->count > 0)
-		ret->value = udogListRemoveAt(vm, vm->hostObjects.freeNums, vm->hostObjects.freeNums->count-1);
+		ret->value = cardinalListRemoveAt(vm, vm->hostObjects.freeNums, vm->hostObjects.freeNums->count-1);
 	else {
 		ret->value = vm->hostObjects.max;
 		vm->hostObjects.max++;
 	}	
 
-	udogTableAdd(vm, vm->hostObjects.hostObjects, NUM_VAL(ret->value), val);
-	if (IS_OBJ(val)) UDOG_UNPIN(vm);
+	cardinalTableAdd(vm, vm->hostObjects.hostObjects, NUM_VAL(ret->value), val);
+	if (IS_OBJ(val)) CARDINAL_UNPIN(vm);
 	return ret;
 }
 
-void udogRemoveHostObject(UDogVM* vm, UDogValue* key) {
+void cardinalRemoveHostObject(CardinalVM* vm, CardinalValue* key) {
 	Value v = NUM_VAL(key->value);
-	if (IS_OBJ(v)) UDOG_PIN(vm, AS_OBJ(v));
-	udogTableRemove(vm, vm->hostObjects.hostObjects, v);
-	udogListAdd(vm, vm->hostObjects.freeNums, NUM_VAL(key->value));
-	if (IS_OBJ(v)) UDOG_UNPIN(vm);
+	if (IS_OBJ(v)) CARDINAL_PIN(vm, AS_OBJ(v));
+	cardinalTableRemove(vm, vm->hostObjects.hostObjects, v);
+	cardinalListAdd(vm, vm->hostObjects.freeNums, NUM_VAL(key->value));
+	if (IS_OBJ(v)) CARDINAL_UNPIN(vm);
 	
-	udogReallocate(vm, key, 0, 0);
+	cardinalReallocate(vm, key, 0, 0);
 }
 
 ///////////////////////////////////////////////////////////////////////////////////
@@ -1617,7 +1617,7 @@ void udogRemoveHostObject(UDogVM* vm, UDogValue* key) {
 
 // Creates a new list with [numElements] elements (which are left
 // uninitialized.)
-ObjTable* udogNewTable(UDogVM* vm, int numElements) {
+ObjTable* cardinalNewTable(CardinalVM* vm, int numElements) {
 	if (numElements < TABLE_MIN_CAPACITY)
 		numElements = TABLE_MIN_CAPACITY;
 
@@ -1641,7 +1641,7 @@ ObjTable* udogNewTable(UDogVM* vm, int numElements) {
 	return list;
 }
 
-static void checkNullTable(UDogVM* vm, ObjTable* list) {
+static void checkNullTable(CardinalVM* vm, ObjTable* list) {
 	if (list->hashmap != NULL) return;
 	
 	int numElements = TABLE_MIN_CAPACITY;
@@ -1658,7 +1658,7 @@ static void checkNullTable(UDogVM* vm, ObjTable* list) {
 	list->hashmap = elements;
 }
 
-void udogTablePrint(UDogVM* vm, ObjTable* list) {
+void cardinalTablePrint(CardinalVM* vm, ObjTable* list) {
 	checkNullTable(vm, list);
 	printf("Table: \n");
 	for(int i=0; i<list->capacity; i++) {
@@ -1666,9 +1666,9 @@ void udogTablePrint(UDogVM* vm, ObjTable* list) {
 		HashValue* ptr = list->hashmap[i];
 		while (ptr != NULL) {
 			printf("Key: ");
-			udogPrintValue(ptr->key);
+			cardinalPrintValue(ptr->key);
 			printf(" Value: ");
-			udogPrintValue(ptr->val);
+			cardinalPrintValue(ptr->val);
 			printf(" at hash: %d\n", i);
 			
 			ptr = ptr->next;
@@ -1677,7 +1677,7 @@ void udogTablePrint(UDogVM* vm, ObjTable* list) {
 }
 
 // Grows [list] if needed to ensure it can hold [count] elements.
-static bool ensureTableCapacity(UDogVM* vm, ObjTable* list) {
+static bool ensureTableCapacity(CardinalVM* vm, ObjTable* list) {
 	HashValue** elements = NULL;
 	int newSize = 0;
 	if (list->count > list->capacity) {
@@ -1698,7 +1698,7 @@ static bool ensureTableCapacity(UDogVM* vm, ObjTable* list) {
 		HashValue* ptr = list->hashmap[i];
 		HashValue* temp;
 		while (ptr != NULL) {
-			udog_uinteger hash = hashValue(ptr->key);
+			cardinal_uinteger hash = hashValue(ptr->key);
 			hash = hash % newSize;
 			
 			temp = ptr->next;
@@ -1710,25 +1710,25 @@ static bool ensureTableCapacity(UDogVM* vm, ObjTable* list) {
 		}
 	}
 	
-	udogReallocate(vm, list->hashmap, 0, 0);
+	cardinalReallocate(vm, list->hashmap, 0, 0);
 	list->hashmap = elements;
 	list->capacity = newSize;
 	return true;
 }
 
 // Adds [value] to [list], reallocating and growing its storage if needed.
-void udogTableAdd(UDogVM* vm, ObjTable* list, Value key, Value value) {
-	if (IS_OBJ(value)) UDOG_PIN(vm, AS_OBJ(value));
-	if (IS_OBJ(key)) UDOG_PIN(vm, AS_OBJ(key));
+void cardinalTableAdd(CardinalVM* vm, ObjTable* list, Value key, Value value) {
+	if (IS_OBJ(value)) CARDINAL_PIN(vm, AS_OBJ(value));
+	if (IS_OBJ(key)) CARDINAL_PIN(vm, AS_OBJ(key));
 	
 	checkNullTable(vm, list);
 	
-	udog_uinteger hash = hashValue(key);
+	cardinal_uinteger hash = hashValue(key);
 	hash = hash % list->capacity;
 	
 	// check if element exists first
 	HashValue* ptr = list->hashmap[hash];
-	while (ptr != NULL && !udogValuesEqual(ptr->key, key)) ptr = ptr->next;
+	while (ptr != NULL && !cardinalValuesEqual(ptr->key, key)) ptr = ptr->next;
 	
 	if (ptr == NULL) {
 		if (ensureTableCapacity(vm, list)) {
@@ -1753,22 +1753,22 @@ void udogTableAdd(UDogVM* vm, ObjTable* list, Value key, Value value) {
 		ptr->val = value;
 	}
 	
-	if (IS_OBJ(key)) UDOG_UNPIN(vm);
-	if (IS_OBJ(value)) UDOG_UNPIN(vm);
+	if (IS_OBJ(key)) CARDINAL_UNPIN(vm);
+	if (IS_OBJ(value)) CARDINAL_UNPIN(vm);
 }
 
 // Find [key] in [list], shifting down the other elements.
-Value udogTableFind(UDogVM* vm, ObjTable* list, Value key) {
-	if (IS_OBJ(key)) UDOG_PIN(vm, AS_OBJ(key));
+Value cardinalTableFind(CardinalVM* vm, ObjTable* list, Value key) {
+	if (IS_OBJ(key)) CARDINAL_PIN(vm, AS_OBJ(key));
 	checkNullTable(vm, list);
-	if (IS_OBJ(key)) UDOG_UNPIN(vm);
+	if (IS_OBJ(key)) CARDINAL_UNPIN(vm);
 	
-	udog_uinteger hash = hashValue(key);
+	cardinal_uinteger hash = hashValue(key);
 	hash = hash % list->capacity;
 
 	HashValue* ptr = list->hashmap[hash];
 	
-	while (ptr != NULL && !udogValuesEqual(ptr->key, key)) ptr = ptr->next;
+	while (ptr != NULL && !cardinalValuesEqual(ptr->key, key)) ptr = ptr->next;
 	
 	if (ptr == NULL)
 		return NULL_VAL;
@@ -1777,18 +1777,18 @@ Value udogTableFind(UDogVM* vm, ObjTable* list, Value key) {
 }
 
 // Removes and returns the item at [index] from [list].
-Value udogTableRemove(UDogVM* vm, ObjTable* list, Value key) {
-	if (IS_OBJ(key)) UDOG_PIN(vm, AS_OBJ(key));
+Value cardinalTableRemove(CardinalVM* vm, ObjTable* list, Value key) {
+	if (IS_OBJ(key)) CARDINAL_PIN(vm, AS_OBJ(key));
 	checkNullTable(vm, list);
-	if (IS_OBJ(key)) UDOG_UNPIN(vm);
+	if (IS_OBJ(key)) CARDINAL_UNPIN(vm);
 	
-	udog_uinteger hash = hashValue(key);
+	cardinal_uinteger hash = hashValue(key);
 	hash = hash % list->capacity;
 	
 	HashValue* ptr = list->hashmap[hash];
 	HashValue* prev = NULL;
 	
-	while (ptr != NULL && !udogValuesEqual(ptr->key, key)) {
+	while (ptr != NULL && !cardinalValuesEqual(ptr->key, key)) {
 		prev = ptr;
 		ptr = ptr->next;
 	}
@@ -1807,7 +1807,7 @@ Value udogTableRemove(UDogVM* vm, ObjTable* list, Value key) {
 	}
 }
 
-HashValue* udogGetTableIndex(ObjTable* list, int ind) {
+HashValue* cardinalGetTableIndex(ObjTable* list, int ind) {
 	HashValue* ptr;
 	int i = 0;
 	int len = 0;

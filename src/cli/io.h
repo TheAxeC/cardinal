@@ -1,7 +1,7 @@
 #ifndef io_h
 #define io_h
 
-#include "udog.h"
+#include "cardinal.h"
 
 // Simple IO functions.
 

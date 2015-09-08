@@ -4,8 +4,8 @@
 #include "io.h"
 #include "vm.h"
 
-UDogVM* createVM(const char* path) {
-	UDogConfiguration config;
+CardinalVM* createVM(const char* path) {
+	CardinalConfiguration config;
 
 	// Since we're running in a standalone process, be generous with memory.
 	config.initialHeapSize = 1024 * 1024 * 100;
@@ -23,7 +23,7 @@ UDogVM* createVM(const char* path) {
 	// Set the path correctly
 	config.rootDirectory = path;
 
-	return udogNewVM(&config);
+	return cardinalNewVM(&config);
 }
 
 void runFile(const char* path, const char* debug) {
@@ -33,34 +33,34 @@ void runFile(const char* path, const char* debug) {
 		exit(66);
 	}
 
-	UDogVM* vm = createVM(path);
+	CardinalVM* vm = createVM(path);
 	
 	if (debug[0] == '1')
-		udogSetDebugMode(vm, true);
+		cardinalSetDebugMode(vm, true);
 
-	UDogLangResult result = udogInterpret(vm, path, source);
+	CardinalLangResult result = cardinalInterpret(vm, path, source);
 
-	udogFreeVM(vm);
+	cardinalFreeVM(vm);
 	free(source);
 
 	// Exit with an error code if the script failed.
-	if (result == UDOG_COMPILE_ERROR) exit(65); // EX_DATAERR.
-	if (result == UDOG_RUNTIME_ERROR) exit(70); // EX_SOFTWARE.
+	if (result == CARDINAL_COMPILE_ERROR) exit(65); // EX_DATAERR.
+	if (result == CARDINAL_RUNTIME_ERROR) exit(70); // EX_SOFTWARE.
 }
 
 // Runs input on the Repl
-void runReplInput(UDogVM* vm, const char* input) {
+void runReplInput(CardinalVM* vm, const char* input) {
 	if (strlen(input) <= 1) return;
-	UDogLangResult result = udogInterpret(vm, "Prompt", input);
+	CardinalLangResult result = cardinalInterpret(vm, "Prompt", input);
 		
 	switch (result) {
-		case UDOG_COMPILE_ERROR:
+		case CARDINAL_COMPILE_ERROR:
 			printf("\x1b[0m\n  \x1b[1m\x1b[31merror:\x1b[0m compile error\n");
 			break;
-		case UDOG_RUNTIME_ERROR:
+		case CARDINAL_RUNTIME_ERROR:
 			printf("\x1b[0m\n  \x1b[1m\x1b[31merror:\x1b[0m runtime error\n");
 			break;
-		case UDOG_SUCCESS:
+		case CARDINAL_SUCCESS:
 		default:
 			break;
 	}

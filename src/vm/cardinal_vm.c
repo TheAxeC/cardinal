@@ -8,35 +8,35 @@
 #endif
 #include <stdint.h>
 
-#include "udog.h"
-#include "udog_config.h"
-#include "udog_compiler.h"
-#include "udog_core.h"
-#include "udog_debug.h"
-#include "udog_vm.h"
+#include "cardinal.h"
+#include "cardinal_config.h"
+#include "cardinal_compiler.h"
+#include "cardinal_core.h"
+#include "cardinal_debug.h"
+#include "cardinal_vm.h"
 
-#if UDOG_USE_LIB_IO
-  #include "udog_io.h"
+#if CARDINAL_USE_LIB_IO
+  #include "cardinal_io.h"
 #endif
 
-#if UDOG_DEBUG_TRACE_MEMORY || UDOG_DEBUG_TRACE_GC
+#if CARDINAL_DEBUG_TRACE_MEMORY || CARDINAL_DEBUG_TRACE_GC
   #include <time.h>
 #endif
 
-#if UDOG_USE_DEFAULT_FILE_LOADER
-	#include "udog_file.h"
+#if CARDINAL_USE_DEFAULT_FILE_LOADER
+	#include "cardinal_file.h"
 #endif
 
-#if UDOG_BYTECODE
-	#include "udog_bytecode.h"
+#if CARDINAL_BYTECODE
+	#include "cardinal_bytecode.h"
 #endif
 
-#if UDOG_DEBUGGER
-	#include "udog_debugger.h"
+#if CARDINAL_DEBUGGER
+	#include "cardinal_debugger.h"
 #endif
 
-#if UDOG_USE_REGEX
-	#include "udog_regex.h"
+#if CARDINAL_USE_REGEX
+	#include "cardinal_regex.h"
 #endif
 
 ///////////////////////////////////////////////////////////////////////////////////
@@ -44,49 +44,49 @@
 ///////////////////////////////////////////////////////////////////////////////////
 
 static void* defaultReallocate(void* memory, size_t oldSize, size_t newSize);
-static void initGarbageCollector(UDogVM* vm, UDogConfiguration* configuration);
+static void initGarbageCollector(CardinalVM* vm, CardinalConfiguration* configuration);
 
-static Upvalue* captureUpvalue(UDogVM* vm, ObjFiber* fiber, Value* local);
+static Upvalue* captureUpvalue(CardinalVM* vm, ObjFiber* fiber, Value* local);
 static void closeUpvalue(ObjFiber* fiber);
 
-static void bindMethod(UDogVM* vm, int methodType, int symbol, ObjClass* classObj, Value methodValue);
-static void callForeign(UDogVM* vm, ObjFiber* fiber, udogForeignMethodFn foreign, int numArgs);
-static ObjFiber* runtimeError(UDogVM* vm, ObjFiber* fiber, ObjString* error);
-static ObjFiber* runtimeThrow(UDogVM* vm, ObjFiber* fiber, Value error);
+static void bindMethod(CardinalVM* vm, int methodType, int symbol, ObjClass* classObj, Value methodValue);
+static void callForeign(CardinalVM* vm, ObjFiber* fiber, cardinalForeignMethodFn foreign, int numArgs);
+static ObjFiber* runtimeError(CardinalVM* vm, ObjFiber* fiber, ObjString* error);
+static ObjFiber* runtimeThrow(CardinalVM* vm, ObjFiber* fiber, Value error);
 static void callFunction(ObjFiber* fiber, Obj* function, int numArgs);
 
-static void defineMethod(UDogVM* vm, const char* module, const char* className,
+static void defineMethod(CardinalVM* vm, const char* module, const char* className,
                          const char* signature,
-                         udogForeignMethodFn methodFn, bool isStatic);
+                         cardinalForeignMethodFn methodFn, bool isStatic);
 
-static void collectGarbage(UDogVM* vm);
+static void collectGarbage(CardinalVM* vm);
 
 ///////////////////////////////////////////////////////////////////////////////////
 //// VIRTUAL MACHINE INITIALISATION
 ///////////////////////////////////////////////////////////////////////////////////
 
-static void udogLoadLibraries(UDogVM* vm) {
-#if UDOG_USE_LIB_IO
-	udogLoadIOLibrary(vm);
+static void cardinalLoadLibraries(CardinalVM* vm) {
+#if CARDINAL_USE_LIB_IO
+	cardinalLoadIOLibrary(vm);
 #endif
-#if UDOG_USE_DEFAULT_FILE_LOADER
-	udogLoadFileLibrary(vm);
+#if CARDINAL_USE_DEFAULT_FILE_LOADER
+	cardinalLoadFileLibrary(vm);
 #endif
-#if UDOG_USE_REGEX
-	udogLoadRegexLibrary(vm);
+#if CARDINAL_USE_REGEX
+	cardinalLoadRegexLibrary(vm);
 #endif
 }
 
-static void loadCallBacks(UDogConfiguration* configuration, UDogVM* vm) {
+static void loadCallBacks(CardinalConfiguration* configuration, CardinalVM* vm) {
 	
-	udogPrintCallBack print = printf;
-	udogLoadModuleFn moduleLoader = NULL;
-	udogCallBack callback = NULL;
+	cardinalPrintCallBack print = printf;
+	cardinalLoadModuleFn moduleLoader = NULL;
+	cardinalCallBack callback = NULL;
 	
-#if UDOG_USE_DEFAULT_FILE_LOADER
+#if CARDINAL_USE_DEFAULT_FILE_LOADER
 	moduleLoader = defaultModuleLoader;
 #endif
-#if UDOG_DEBUGGER
+#if CARDINAL_DEBUGGER
 	callback = defaultDebugCallBack;
 #endif
 	
@@ -114,13 +114,13 @@ static void loadCallBacks(UDogConfiguration* configuration, UDogVM* vm) {
 	vm->callBackFunction = callback; 
 }
 
-UDogVM* udogNewVM(UDogConfiguration* configuration) {
+CardinalVM* cardinalNewVM(CardinalConfiguration* configuration) {
 	// Load the memory allocation and the VM
-	udogReallocateFn reallocate = defaultReallocate;
+	cardinalReallocateFn reallocate = defaultReallocate;
 	if (configuration->reallocateFn != NULL) {
 		reallocate = configuration->reallocateFn;
 	}
-	UDogVM* vm = (UDogVM*) reallocate(NULL, 0, sizeof(UDogVM));
+	CardinalVM* vm = (CardinalVM*) reallocate(NULL, 0, sizeof(CardinalVM));
 	vm->reallocate = reallocate;
 	
 	// Set some callbacks
@@ -130,48 +130,48 @@ UDogVM* udogNewVM(UDogConfiguration* configuration) {
 	initGarbageCollector(vm, configuration);
 	
 	// Initiate the method table
-	udogSymbolTableInit(vm, &vm->methodNames);
+	cardinalSymbolTableInit(vm, &vm->methodNames);
 	
 	// Create a new debugger
-	vm->debugger = udogNewDebugger(vm);
+	vm->debugger = cardinalNewDebugger(vm);
 	vm->debugMode = false;
 	
 	// Set the root directory
-	setRootDirectory(vm, configuration->rootDirectory);
+	cardinalSetRootDirectory(vm, configuration->rootDirectory);
 	
 	// Implicitly create a "main" module for the REPL or entry script.
-	ObjModule* mainModule = udogNewModule(vm);
-	udogPushRoot(vm, (Obj*)mainModule);
-	vm->modules = udogNewMap(vm);
-	udogMapSet(vm, vm->modules, NULL_VAL, OBJ_VAL(mainModule));
-	udogPopRoot(vm);
+	ObjModule* mainModule = cardinalNewModule(vm);
+	cardinalPushRoot(vm, (Obj*)mainModule);
+	vm->modules = cardinalNewMap(vm);
+	cardinalMapSet(vm, vm->modules, NULL_VAL, OBJ_VAL(mainModule));
+	cardinalPopRoot(vm);
 	
 	// Create the script specific libraries
-	udogInitializeCore(vm);
-	udogLoadLibraries(vm);
+	cardinalInitializeCore(vm);
+	cardinalLoadLibraries(vm);
 	
-	udogFlushHostObjects(vm);
+	cardinalFlushHostObjects(vm);
 	
 	return vm;
 }
 
 
 
-void udogFreeVM(UDogVM* vm) {
+void cardinalFreeVM(CardinalVM* vm) {
 	if( vm == NULL || vm->methodNames.count == 0 ) return;
 	
 	// Free all of the GC objects.
 	Obj* obj = vm->garbageCollector.first;
 	while (obj != NULL) {
 		Obj* next = obj->next;
-		udogFreeObj(vm, obj);
+		cardinalFreeObj(vm, obj);
 		obj = next;
 	}
 	
-	udogSymbolTableClear(vm, &vm->methodNames);
-	udogFreeDebugger(vm, vm->debugger);
+	cardinalSymbolTableClear(vm, &vm->methodNames);
+	cardinalFreeDebugger(vm, vm->debugger);
 	
-#if UDOG_DEBUG_TRACE_MEMORY || UDOG_DEBUG_TRACE_GC
+#if CARDINAL_DEBUG_TRACE_MEMORY || CARDINAL_DEBUG_TRACE_GC
 	vm->printFunction("Memory in use: %ld\n", vm->garbageCollector.bytesAllocated);
 	vm->printFunction("Nb of allocations: %ld\n", vm->garbageCollector.nbAllocations);
 	vm->printFunction("Nb of frees: %ld\n", vm->garbageCollector.nbFrees);
@@ -181,7 +181,7 @@ void udogFreeVM(UDogVM* vm) {
 }
 
 // Set the root directory
-void setRootDirectory(UDogVM* vm, const char* path) {
+void cardinalSetRootDirectory(CardinalVM* vm, const char* path) {
 	vm->rootDirectory = NULL;
 	if (path == NULL) return;
 	
@@ -189,7 +189,7 @@ void setRootDirectory(UDogVM* vm, const char* path) {
 	// relative to.
 	const char* lastSlash = strrchr(path, '/');
 	if (lastSlash != NULL) {
-		vm->rootDirectory = AS_STRING(udogNewString(vm, path, lastSlash - path + 1));
+		vm->rootDirectory = AS_STRING(cardinalNewString(vm, path, lastSlash - path + 1));
 	}
 }
 
@@ -203,7 +203,7 @@ static void* defaultReallocate(void* buffer , size_t oldSize, size_t newSize) {
 }
 
 
-static void initMetaClasses(UDogVM* vm) {
+static void initMetaClasses(CardinalVM* vm) {
 	vm->metatable.stringClass = NULL;
 	vm->metatable.classClass = NULL;
 	vm->metatable.fiberClass = NULL;
@@ -220,7 +220,7 @@ static void initMetaClasses(UDogVM* vm) {
 	vm->metatable.tableClass = NULL;
 }
 
-static void initGarbageCollector(UDogVM* vm, UDogConfiguration* configuration) {
+static void initGarbageCollector(CardinalVM* vm, CardinalConfiguration* configuration) {
 	vm->garbageCollector.bytesAllocated = 0;
 
 	vm->garbageCollector.nextGC = 1024 * 1024 * 10;
@@ -273,10 +273,10 @@ static void initGarbageCollector(UDogVM* vm, UDogConfiguration* configuration) {
 // ensure that multiple closures closing over the same variable actually see
 // the same variable.) Otherwise, it will create a new open upvalue and add it
 // the fiber's list of upvalues.
-static Upvalue* captureUpvalue(UDogVM* vm, ObjFiber* fiber, Value* local) {
+static Upvalue* captureUpvalue(CardinalVM* vm, ObjFiber* fiber, Value* local) {
 	// If there are no open upvalues at all, we must need a new one.
 	if (fiber->openUpvalues == NULL) {
-		fiber->openUpvalues = udogNewUpvalue(vm, local);
+		fiber->openUpvalues = cardinalNewUpvalue(vm, local);
 		return fiber->openUpvalues;
 	}
 
@@ -296,7 +296,7 @@ static Upvalue* captureUpvalue(UDogVM* vm, ObjFiber* fiber, Value* local) {
 	// We've walked past this local on the stack, so there must not be an
 	// upvalue for it already. Make a new one and link it in in the right
 	// place to keep the list sorted.
-	Upvalue* createdUpvalue = udogNewUpvalue(vm, local);
+	Upvalue* createdUpvalue = cardinalNewUpvalue(vm, local);
 	if (prevUpvalue == NULL) {
 		// The new one is the first one in the list.
 		fiber->openUpvalues = createdUpvalue;
@@ -320,13 +320,13 @@ static void closeUpvalue(ObjFiber* fiber) {
 	fiber->openUpvalues = upvalue->next;
 }
 
-static void bindMethod(UDogVM* vm, int methodType, int symbol, ObjClass* classObj, Value methodValue) {
+static void bindMethod(CardinalVM* vm, int methodType, int symbol, ObjClass* classObj, Value methodValue) {
 	ObjFn* methodFn = IS_FN(methodValue) ? AS_FN(methodValue) : AS_CLOSURE(methodValue)->fn;
 
 	// Methods are always bound against the class, and not the metaclass, even
 	// for static methods, so that constructors (which are static) get bound like
 	// instance methods.
-	udogBindMethodCode(vm, -1, classObj, methodFn);
+	cardinalBindMethodCode(vm, -1, classObj, methodFn);
 
 	Method method;
 	method.type = METHOD_BLOCK;
@@ -336,10 +336,10 @@ static void bindMethod(UDogVM* vm, int methodType, int symbol, ObjClass* classOb
 		classObj = classObj->obj.classObj;
 	}
 
-	udogBindMethod(vm, classObj, symbol, method);
+	cardinalBindMethod(vm, classObj, symbol, method);
 }
 
-static void callForeign(UDogVM* vm, ObjFiber* fiber, udogForeignMethodFn foreign, int numArgs) {
+static void callForeign(CardinalVM* vm, ObjFiber* fiber, cardinalForeignMethodFn foreign, int numArgs) {
 	vm->fiber->foreignCallSlot = fiber->stacktop - numArgs;
 	vm->fiber->foreignCallNumArgs = numArgs;
 
@@ -384,12 +384,12 @@ static void callFunction(ObjFiber* fiber, Obj* function, int numArgs) {
 //
 // Returns the fiber that should receive the error or `NULL` if no fiber
 // caught it.
-static ObjFiber* runtimeError(UDogVM* vm, ObjFiber* fiber, ObjString* error) {
+static ObjFiber* runtimeError(CardinalVM* vm, ObjFiber* fiber, ObjString* error) {
 	ASSERT(fiber->error == NULL, "Can only fail once.");
 
 	// Store the error in the fiber so it can be accessed later.
-	fiber->error = udogThrowException(vm, error);
-	udogInsertStackTrace(fiber->error, udogDebugGetStackTrace(vm, fiber));
+	fiber->error = cardinalThrowException(vm, error);
+	cardinalInsertStackTrace(fiber->error, cardinalDebugGetStackTrace(vm, fiber));
 
 	// If the caller ran this fiber using "try", give it the error.
 	if (fiber->callerIsTrying) {
@@ -401,18 +401,18 @@ static ObjFiber* runtimeError(UDogVM* vm, ObjFiber* fiber, ObjString* error) {
 	}
 
 	// If we got here, nothing caught the error, so show the stack trace.
-	udogDebugPrintStackTrace(vm, fiber);
+	cardinalDebugPrintStackTrace(vm, fiber);
 	return NULL;
 }
 
-static ObjFiber* runtimeThrow(UDogVM* vm, ObjFiber* fiber, Value error) {
+static ObjFiber* runtimeThrow(CardinalVM* vm, ObjFiber* fiber, Value error) {
 	if (IS_STRING(error)) return runtimeError(vm, fiber, AS_STRING(error));
 	
 	ASSERT(fiber->error == NULL, "Can only fail once.");
 
 	// Store the error in the fiber so it can be accessed later.
 	fiber->error = AS_INSTANCE(error);
-	udogInsertStackTrace(fiber->error, udogDebugGetStackTrace(vm, fiber));
+	cardinalInsertStackTrace(fiber->error, cardinalDebugGetStackTrace(vm, fiber));
 
 	// If the caller ran this fiber using "try", give it the error.
 	if (fiber->callerIsTrying) {
@@ -424,30 +424,30 @@ static ObjFiber* runtimeThrow(UDogVM* vm, ObjFiber* fiber, Value error) {
 	}
 
 	// If we got here, nothing caught the error, so show the stack trace.
-	udogDebugPrintStackTrace(vm, fiber);
+	cardinalDebugPrintStackTrace(vm, fiber);
 	return NULL;
 }
 
 // Generates an error at runtime and stops execution at once
-static void runtimeCrash(UDogVM* vm, ObjFiber* fiber, const char* error) {
+static void runtimeCrash(CardinalVM* vm, ObjFiber* fiber, const char* error) {
 	ASSERT(fiber->error == NULL, "Can only fail once.");
 
 	// Store the error in the fiber so it can be accessed later.
-	fiber->error =  udogThrowException(vm, AS_STRING(udogNewString(vm, error, strlen(error))));
+	fiber->error =  cardinalThrowException(vm, AS_STRING(cardinalNewString(vm, error, strlen(error))));
 
 	// If we got here, nothing caught the error, so show the stack trace.
-	udogDebugPrintStackTrace(vm, fiber);
+	cardinalDebugPrintStackTrace(vm, fiber);
 }
 
 // Creates a string containing an appropriate method not found error for a
 // method with [symbol] on [classObj].
-static ObjString* methodNotFound(UDogVM* vm, ObjClass* classObj, int symbol) {
+static ObjString* methodNotFound(CardinalVM* vm, ObjClass* classObj, int symbol) {
 	char message[MAX_VARIABLE_NAME + MAX_METHOD_NAME + 24];
 	sprintf(message, "%s does not implement '%s'.",
 		classObj->name->value,
 		vm->methodNames.data[symbol].buffer);
 
-	return AS_STRING(udogNewString(vm, message, strlen(message)));
+	return AS_STRING(cardinalNewString(vm, message, strlen(message)));
 }
 
 // Verifies that [superclass] is a valid object to inherit from. That means it
@@ -455,11 +455,11 @@ static ObjString* methodNotFound(UDogVM* vm, ObjClass* classObj, int symbol) {
 //
 // If successful, returns NULL. Otherwise, returns a string for the runtime
 // error message.
-static ObjString* validateSuperclass(UDogVM* vm, ObjString* name,
+static ObjString* validateSuperclass(CardinalVM* vm, ObjString* name,
                                      Value superclassValue) {
 	// Make sure the superclass is a class.
 	if (!IS_CLASS(superclassValue)) {
-		return AS_STRING(udogNewString(vm, "Must inherit from a class.", 26));
+		return AS_STRING(cardinalNewString(vm, "Must inherit from a class.", 26));
 	}
 
 	// Make sure it doesn't inherit from a sealed built-in type. Primitive methods
@@ -476,7 +476,7 @@ static ObjString* validateSuperclass(UDogVM* vm, ObjString* name,
 		char message[70 + MAX_VARIABLE_NAME];
 		sprintf(message, "%s cannot inherit from %s.",
 		        name->value, superclass->name->value);
-		return AS_STRING(udogNewString(vm, message, strlen(message)));
+		return AS_STRING(cardinalNewString(vm, message, strlen(message)));
 	}
 
 	return NULL;
@@ -489,9 +489,9 @@ static ObjString* validateSuperclass(UDogVM* vm, ObjString* name,
 // Checks whether a module with the given name exists, and if so
 // Replaces it with the given module
 // Otherwise the module is added to the module list
-void udogSaveModule(UDogVM* vm, ObjModule* module, ObjString* name) {
+void cardinalSaveModule(CardinalVM* vm, ObjModule* module, ObjString* name) {
 	// If the module is already loaded, we don't need to do anything.
-	uint32_t index = udogMapFind(vm->modules, OBJ_VAL(name));
+	uint32_t index = cardinalMapFind(vm->modules, OBJ_VAL(name));
 	if (index != UINT32_MAX) {
 		vm->modules->entries[index].value = OBJ_VAL(module);
 		return;
@@ -500,47 +500,47 @@ void udogSaveModule(UDogVM* vm, ObjModule* module, ObjString* name) {
 	// Store it in the VM's module registry so we don't load the same module
 	// multiple times.
 	module->name = name;
-	udogMapSet(vm, vm->modules, OBJ_VAL(name), OBJ_VAL(module));
+	cardinalMapSet(vm, vm->modules, OBJ_VAL(name), OBJ_VAL(module));
 }
 
 // Looks up the core module in the module map.
-static ObjModule* getCoreModule(UDogVM* vm) {
-	uint32_t entry = udogMapFind(vm->modules, NULL_VAL);
+static ObjModule* getCoreModule(CardinalVM* vm) {
+	uint32_t entry = cardinalMapFind(vm->modules, NULL_VAL);
 	ASSERT(entry != UINT32_MAX, "Could not find core module.");
 	return AS_MODULE(vm->modules->entries[entry].value);
 }
 
 // Ready a new module
-ObjModule* udogReadyNewModule(UDogVM* vm) {
-	ObjModule* module = udogNewModule(vm);
+ObjModule* cardinalReadyNewModule(CardinalVM* vm) {
+	ObjModule* module = cardinalNewModule(vm);
 	
-	UDOG_PIN(vm, module);
+	CARDINAL_PIN(vm, module);
 	// Implicitly import the core module.
 	ObjModule* coreModule = getCoreModule(vm);
 	for (int i = 0; i < coreModule->variables.count; i++) {
-		udogDefineVariable(vm, module,
+		cardinalDefineVariable(vm, module,
 						   coreModule->variableNames.data[i].buffer,
 						   coreModule->variableNames.data[i].length,
 						   coreModule->variables.data[i]);
 		module->count--;
 	}
-	UDOG_UNPIN(vm);
+	CARDINAL_UNPIN(vm);
 	return module;
 }
 
-static ObjModule* loadModule(UDogVM* vm, Value name, Value source) {
+static ObjModule* loadModule(CardinalVM* vm, Value name, Value source) {
 	ObjModule* module = NULL;
 
 	// See if the module has already been loaded.
-	uint32_t index = udogMapFind(vm->modules, name);
+	uint32_t index = cardinalMapFind(vm->modules, name);
 	if (index == UINT32_MAX) {
-		module = udogReadyNewModule(vm);
+		module = cardinalReadyNewModule(vm);
 		module->name = AS_STRING(name);
 		// Store it in the VM's module registry so we don't load the same module
 		// multiple times.
-		UDOG_PIN(vm, module);
-		udogMapSet(vm, vm->modules, name, OBJ_VAL(module));
-		UDOG_UNPIN(vm);
+		CARDINAL_PIN(vm, module);
+		cardinalMapSet(vm, vm->modules, name, OBJ_VAL(module));
+		CARDINAL_UNPIN(vm);
 		if (source == NULL_VAL) return module;
 	}
 	else {
@@ -550,9 +550,9 @@ static ObjModule* loadModule(UDogVM* vm, Value name, Value source) {
 		if (source == NULL_VAL) return module;
 	}
 	
-	UDOG_PIN(vm, module);
-	ObjFn* fn = udogCompile(vm, module, AS_CSTRING(name), AS_CSTRING(source));
-	UDOG_UNPIN(vm);
+	CARDINAL_PIN(vm, module);
+	ObjFn* fn = cardinalCompile(vm, module, AS_CSTRING(name), AS_CSTRING(source));
+	CARDINAL_UNPIN(vm);
 	if (fn == NULL) return NULL;
 
 	module->func = fn;
@@ -560,81 +560,81 @@ static ObjModule* loadModule(UDogVM* vm, Value name, Value source) {
 	return module;
 }
 
-ObjFiber* loadModuleFiber(UDogVM* vm, Value name, Value source) {
+ObjFiber* loadModuleFiber(CardinalVM* vm, Value name, Value source) {
 	ObjModule* module = loadModule(vm, name, source);
-	UDOG_PIN(vm, module);
-	ObjFiber* moduleFiber = udogNewFiber(vm, (Obj*)module->func);
-	UDOG_UNPIN(vm);
+	CARDINAL_PIN(vm, module);
+	ObjFiber* moduleFiber = cardinalNewFiber(vm, (Obj*)module->func);
+	CARDINAL_UNPIN(vm);
 
 	// Return the fiber that executes the module.
 	return moduleFiber;
 }
 
-ObjModule* udogImportModuleVar(UDogVM* vm, Value nameValue) {
+ObjModule* cardinalImportModuleVar(CardinalVM* vm, Value nameValue) {
 	// If the module is already loaded, we don't need to do anything.
-	uint32_t index = udogMapFind(vm->modules, nameValue);
+	uint32_t index = cardinalMapFind(vm->modules, nameValue);
 	if (index != UINT32_MAX) {
 		return AS_MODULE(vm->modules->entries[index].value);
 	}
 
 	// Load the module's source code from the embedder.
-	UDogValue* source = vm->loadModule(vm, AS_CSTRING(nameValue));
+	CardinalValue* source = vm->loadModule(vm, AS_CSTRING(nameValue));
 	if (source == NULL) {
 		// Couldn't load the module, create a new Module.
-		ObjModule* module = udogReadyNewModule(vm);
-		UDOG_PIN(vm, module);
+		ObjModule* module = cardinalReadyNewModule(vm);
+		CARDINAL_PIN(vm, module);
 		// Store it in the VM's module registry so we don't load the same module
 		// multiple times.
-		udogMapSet(vm, vm->modules, nameValue, OBJ_VAL(module));
-		UDOG_UNPIN(vm);
+		cardinalMapSet(vm, vm->modules, nameValue, OBJ_VAL(module));
+		CARDINAL_UNPIN(vm);
 		return module;
 	}
 
-	ObjModule* module = loadModule(vm, nameValue, udogGetHostObject(vm, source));
-	UDOG_PIN(vm, module);
-	udogReleaseObject(vm, source);
-	UDOG_UNPIN(vm);
+	ObjModule* module = loadModule(vm, nameValue, cardinalGetHostObject(vm, source));
+	CARDINAL_PIN(vm, module);
+	cardinalReleaseObject(vm, source);
+	CARDINAL_UNPIN(vm);
 	// Return the module.
 	return module;
 }
 
-static ObjFiber* loadModuleNoMemory(UDogVM* vm, Value name, const char* source) {
+static ObjFiber* loadModuleNoMemory(CardinalVM* vm, Value name, const char* source) {
 	ObjModule* module = loadModule(vm, name, NULL_VAL);
-	ObjFn* fn = udogCompile(vm, module, AS_CSTRING(name), source);
+	ObjFn* fn = cardinalCompile(vm, module, AS_CSTRING(name), source);
 	if (fn == NULL) return NULL;
 	module->func = fn;
 	
 	// Return the fiber that executes the module.
-	return udogNewFiber(vm, (Obj*)module->func);
+	return cardinalNewFiber(vm, (Obj*)module->func);
 }
 
-static Value importModule(UDogVM* vm, Value name) {
+static Value importModule(CardinalVM* vm, Value name) {
 	// If the module is already loaded, we don't need to do anything.
-	uint32_t index = udogMapFind(vm->modules, name);
+	uint32_t index = cardinalMapFind(vm->modules, name);
 	if (index != UINT32_MAX) return NULL_VAL;
 
 	// Load the module's source code from the embedder.
-	UDogValue* source = vm->loadModule(vm, AS_CSTRING(name));
+	CardinalValue* source = vm->loadModule(vm, AS_CSTRING(name));
 	if (source == NULL) {
 		// Couldn't load the module.
-		Value error = udogNewUninitializedString(vm, 25 + AS_STRING(name)->length);
+		Value error = cardinalNewUninitializedString(vm, 25 + AS_STRING(name)->length);
 		sprintf(AS_STRING(error)->value, "Could not find module '%s'.",
 		        AS_CSTRING(name));
 		return error;
 	}
 
-	ObjFiber* moduleFiber = loadModuleFiber(vm, name, udogGetHostObject(vm, source));
-	UDOG_PIN(vm, moduleFiber);
-	udogReleaseObject(vm, source);
-	UDOG_UNPIN(vm);
+	ObjFiber* moduleFiber = loadModuleFiber(vm, name, cardinalGetHostObject(vm, source));
+	CARDINAL_PIN(vm, moduleFiber);
+	cardinalReleaseObject(vm, source);
+	CARDINAL_UNPIN(vm);
 	// Return the fiber that executes the module.
 	return OBJ_VAL(moduleFiber);
 }
 
-static bool importVariable(UDogVM* vm, Value moduleName, Value variableName,
+static bool importVariable(CardinalVM* vm, Value moduleName, Value variableName,
                            Value* result) {
 	UNUSED(variableName);
-	uint32_t moduleEntry = udogMapFind(vm->modules, moduleName);
+	uint32_t moduleEntry = cardinalMapFind(vm->modules, moduleName);
 	ASSERT(moduleEntry != UINT32_MAX, "Should only look up loaded modules.");
 
 	ObjModule* module = AS_MODULE(vm->modules->entries[moduleEntry].value);
@@ -647,7 +647,7 @@ static bool importVariable(UDogVM* vm, Value moduleName, Value variableName,
 //// CHECKING STACK AND CALLFRAME
 ///////////////////////////////////////////////////////////////////////////////////
 
-bool udogFiberStack(UDogVM* vm, ObjFiber* fiber, Value** stackstart) {
+bool cardinalFiberStack(CardinalVM* vm, ObjFiber* fiber, Value** stackstart) {
 	Value* oldStackBegin = fiber->stack;
 	int stacktop = (fiber->stacktop - fiber->stack);
 	int newSize = 0;
@@ -666,7 +666,7 @@ bool udogFiberStack(UDogVM* vm, ObjFiber* fiber, Value** stackstart) {
 		return false; 
 	}
 	
-	fiber->stack = (Value*) udogReallocate(vm, fiber->stack, fiber->stacksize * sizeof(Value), newSize * sizeof(Value));
+	fiber->stack = (Value*) cardinalReallocate(vm, fiber->stack, fiber->stacksize * sizeof(Value), newSize * sizeof(Value));
 	fiber->stacksize = newSize;
 	
 	// reset stacktop
@@ -692,7 +692,7 @@ bool udogFiberStack(UDogVM* vm, ObjFiber* fiber, Value** stackstart) {
 }
 
 // Check if we need to grow or shrink the callframe size
-bool udogFiberCallFrame(UDogVM* vm, ObjFiber* fiber, CallFrame** frame) {
+bool cardinalFiberCallFrame(CardinalVM* vm, ObjFiber* fiber, CallFrame** frame) {
 	int newSize = 0;
 	// Stack is too short, increase the length
 	if (fiber->numFrames + 2 > (int) fiber->framesize) {
@@ -709,7 +709,7 @@ bool udogFiberCallFrame(UDogVM* vm, ObjFiber* fiber, CallFrame** frame) {
 		return false; 
 	}
 
-	fiber->frames = (CallFrame*) udogReallocate(vm, fiber->frames, fiber->framesize * sizeof(CallFrame), newSize * sizeof(CallFrame));
+	fiber->frames = (CallFrame*) cardinalReallocate(vm, fiber->frames, fiber->framesize * sizeof(CallFrame), newSize * sizeof(CallFrame));
 	fiber->framesize = newSize;
 	
 	// reset frame variable
@@ -722,14 +722,14 @@ bool udogFiberCallFrame(UDogVM* vm, ObjFiber* fiber, CallFrame** frame) {
 //// INTERPRETER
 ///////////////////////////////////////////////////////////////////////////////////
 
-bool runInterpreter(UDogVM* vm) {
+bool runInterpreter(CardinalVM* vm) {
 	//Load the DispatchTable
 #ifdef COMPUTED_GOTO
 	// Note that the order of instructions here must exacly match the Code enum
-	// in udog_vm.h or horrendously bad things happen.
+	// in cardinal_vm.h or horrendously bad things happen.
 	static void* dispatchTable[] = {
 		#define OPCODE(name) &&code_##name,
-		#include "udog_opcodes.h"
+		#include "cardinal_opcodes.h"
 		#undef OPCODE
 	};
 
@@ -738,12 +738,12 @@ bool runInterpreter(UDogVM* vm) {
 #ifdef COMPUTED_GOTO
 	#define INTERPRET_LOOP DISPATCH();
 
-	#if UDOG_DEBUG_TRACE_INSTRUCTIONS
+	#if CARDINAL_DEBUG_TRACE_INSTRUCTIONS
 		// Prints the stack and instruction before each instruction is executed.
 		#define DISPATCH() \
 			{ \
-			  udogDebugPrintStack(vm, fiber); \
-			  udogDebugPrintInstruction(vm, fn, (int)(ip - fn->bytecode)); \
+			  cardinalDebugPrintStack(vm, fiber); \
+			  cardinalDebugPrintInstruction(vm, fn, (int)(ip - fn->bytecode)); \
 			  instruction = (Code) *ip++; \
 			  goto *dispatchTable[instruction]; \
 			}
@@ -781,12 +781,12 @@ bool runInterpreter(UDogVM* vm) {
 		DISPATCH(); \
 	} while (false)
 
-#define CHECK_STACK() if (udogFiberStack(vm, fiber, &stackStart)) { \
+#define CHECK_STACK() if (cardinalFiberStack(vm, fiber, &stackStart)) { \
 							runtimeCrash(vm, fiber, "Stack size limit reached"); \
 							return false; \
 						}
 
-#define CHECK_CALLFRAME() if (udogFiberCallFrame(vm, fiber, &frame)) { \
+#define CHECK_CALLFRAME() if (cardinalFiberCallFrame(vm, fiber, &frame)) { \
 							runtimeCrash(vm, fiber, "Callframe size limit reached"); \
 							return false; \
 						}					
@@ -957,7 +957,7 @@ bool runInterpreter(UDogVM* vm) {
 		// This lets you invoke methods on "yourself".
 		CASECODE(LOAD_FIELD_THIS):
 		{
-			udog_integer field = READ_FIELD();
+			cardinal_integer field = READ_FIELD();
 			Value receiver = stackStart[0];
 			ASSERT(IS_INSTANCE(receiver), "Receiver should be instance.");
 			ObjInstance* instance = AS_INSTANCE(receiver);
@@ -1004,10 +1004,10 @@ bool runInterpreter(UDogVM* vm) {
 		{
 			// Add one for the implicit receiver argument.
 			int numArgs = instruction - CODE_CALL_0 + 1;
-			udog_integer symbol = READ_METHOD();
+			cardinal_integer symbol = READ_METHOD();
 
 			Value* args = fiber->stacktop - numArgs;
-			ObjClass* classObj = udogGetClassInline(vm, args[0]);
+			ObjClass* classObj = cardinalGetClassInline(vm, args[0]);
 			
 			// If the class's method table doesn't include the symbol, bail.
 			if (symbol >= classObj->methods.count) {
@@ -1102,10 +1102,10 @@ bool runInterpreter(UDogVM* vm) {
 		{
 			// Add one for the implicit receiver argument.
 			int numArgs = instruction - CODE_SUPER_0 + 1;
-			udog_integer symbol = READ_METHOD();
+			cardinal_integer symbol = READ_METHOD();
 
 			Value* args = fiber->stacktop - numArgs;
-			ObjClass* receive = udogGetClassInline(vm, args[0]);
+			ObjClass* receive = cardinalGetClassInline(vm, args[0]);
 
 			// Ignore methods defined on the receiver's immediate class.
 			//int super = READ_CONSTANT();
@@ -1203,7 +1203,7 @@ bool runInterpreter(UDogVM* vm) {
 		// Store a field from the this class
 		CASECODE(STORE_FIELD_THIS):
 		{
-			udog_integer field = READ_FIELD();
+			cardinal_integer field = READ_FIELD();
 			Value receiver = stackStart[0];
 			ASSERT(IS_INSTANCE(receiver), "Receiver should be instance.");
 			ObjInstance* instance = AS_INSTANCE(receiver);
@@ -1215,7 +1215,7 @@ bool runInterpreter(UDogVM* vm) {
 		// Load a field
 		CASECODE(LOAD_FIELD):
 		{
-			udog_integer field = READ_FIELD();
+			cardinal_integer field = READ_FIELD();
 			Value receiver = POP();
 			ASSERT(IS_INSTANCE(receiver), "Receiver should be instance.");
 			ObjInstance* instance = AS_INSTANCE(receiver);
@@ -1228,7 +1228,7 @@ bool runInterpreter(UDogVM* vm) {
 		// Store a field into an instance
 		CASECODE(STORE_FIELD):
 		{
-			udog_integer field = READ_FIELD();
+			cardinal_integer field = READ_FIELD();
 			Value receiver = POP();
 			ASSERT(IS_INSTANCE(receiver), "Receiver should be instance.");
 			ObjInstance* instance = AS_INSTANCE(receiver);
@@ -1240,7 +1240,7 @@ bool runInterpreter(UDogVM* vm) {
 		// Jump around in the bytecode
 		CASECODE(JUMP):
 		{
-			udog_integer offset = READ_OFFSET();
+			cardinal_integer offset = READ_OFFSET();
 			ip += offset;
 			DISPATCH();
 		}
@@ -1249,7 +1249,7 @@ bool runInterpreter(UDogVM* vm) {
 		CASECODE(LOOP):
 		{
 			// Jump back to the top of the loop.
-			udog_integer offset = READ_OFFSET();
+			cardinal_integer offset = READ_OFFSET();
 			ip -= offset;
 			DISPATCH();
 		}
@@ -1257,7 +1257,7 @@ bool runInterpreter(UDogVM* vm) {
 		// Jump if the top of the stack is [false] or [null], and pop the top
 		CASECODE(JUMP_IF):
 		{
-			udog_integer offset = READ_OFFSET();
+			cardinal_integer offset = READ_OFFSET();
 			Value condition = POP();
 
 			if (IS_FALSE(condition) || IS_NULL(condition)) ip += offset;
@@ -1267,7 +1267,7 @@ bool runInterpreter(UDogVM* vm) {
 		// Jump if top of the stack is [false] or [null], else pop the top of the stack
 		CASECODE(AND):
 		{
-			udog_integer offset = READ_OFFSET();
+			cardinal_integer offset = READ_OFFSET();
 			Value condition = PEEK();
 
 			if (IS_FALSE(condition) || IS_NULL(condition)) {
@@ -1284,7 +1284,7 @@ bool runInterpreter(UDogVM* vm) {
 		// Pop the top if top of the stack is [false] or [null], else jump
 		CASECODE(OR):
 		{
-			udog_integer offset = READ_OFFSET();
+			cardinal_integer offset = READ_OFFSET();
 			Value condition = PEEK();
 
 			if (IS_FALSE(condition) || IS_NULL(condition)) {
@@ -1307,11 +1307,11 @@ bool runInterpreter(UDogVM* vm) {
 			Value expected = POP();
 			if (!IS_CLASS(expected)) {
 				const char* message = "Right operand must be a class.";
-				RUNTIME_ERROR(AS_STRING(udogNewString(vm, message, strlen(message))));
+				RUNTIME_ERROR(AS_STRING(cardinalNewString(vm, message, strlen(message))));
 			}
 			
-			ObjClass* actual = udogGetClass(vm, POP());
-			bool isInstance = udogIsSubClass(actual, AS_CLASS(expected));
+			ObjClass* actual = cardinalGetClass(vm, POP());
+			bool isInstance = cardinalIsSubClass(actual, AS_CLASS(expected));
 			
 			PUSH(BOOL_VAL(isInstance));
 			CHECK_STACK();
@@ -1379,13 +1379,13 @@ bool runInterpreter(UDogVM* vm) {
 
 			// Create the closure and push it on the stack before creating upvalues
 			// so that it doesn't get collected.
-			ObjClosure* closure = udogNewClosure(vm, prototype);
+			ObjClosure* closure = cardinalNewClosure(vm, prototype);
 			PUSH(OBJ_VAL(closure));
 
 			// Capture upvalues.
 			for (int i = 0; i < prototype->numUpvalues; i++) {
 				bool isLocal = READ_BOOL();
-				udog_integer index = READ_LOCAL();
+				cardinal_integer index = READ_LOCAL();
 				if (isLocal) {
 					// Make an new upvalue to close over the parent's local variable.
 					closure->upvalues[i] = captureUpvalue(vm, fiber, frame->top + index);
@@ -1407,7 +1407,7 @@ bool runInterpreter(UDogVM* vm) {
 			// NULL or first superclass
 			// Name
 			ObjString* name = AS_STRING(POP());
-			UDOG_PIN(vm, name);
+			CARDINAL_PIN(vm, name);
 			ObjClass* superclass = vm->metatable.objectClass;
 
 			// Use implicit Object superclass if none given.
@@ -1418,21 +1418,21 @@ bool runInterpreter(UDogVM* vm) {
 			}
 			DROP();
 			
-			udog_integer numFields = READ_FIELD();
-			udog_integer numSuperClasses = READ_CONSTANT() - 1;
+			cardinal_integer numFields = READ_FIELD();
+			cardinal_integer numSuperClasses = READ_CONSTANT() - 1;
 
 			ObjClass* classObj;
 			if (superclass == vm->metatable.objectClass)  
-				classObj = udogNewClass(vm, superclass, numFields, name);
+				classObj = cardinalNewClass(vm, superclass, numFields, name);
 			else {
-				classObj = udogNewClass(vm, NULL, numFields, name);
-				UDOG_PIN(vm, classObj);
-				udogAddFirstSuper(vm, classObj, superclass);
-				UDOG_UNPIN(vm);
+				classObj = cardinalNewClass(vm, NULL, numFields, name);
+				CARDINAL_PIN(vm, classObj);
+				cardinalAddFirstSuper(vm, classObj, superclass);
+				CARDINAL_UNPIN(vm);
 			}
 			
-			UDOG_UNPIN(vm);
-			UDOG_PIN(vm, classObj);
+			CARDINAL_UNPIN(vm);
+			CARDINAL_PIN(vm, classObj);
 			int i = 1;
 			while (numSuperClasses > 0) {
 				if (!IS_NULL(PEEK())) {
@@ -1440,7 +1440,7 @@ bool runInterpreter(UDogVM* vm) {
 					if (error != NULL) RUNTIME_ERROR(error);
 					superclass = AS_CLASS(PEEK());
 				
-					udogAddSuperclass(vm, i, classObj, superclass);
+					cardinalAddSuperclass(vm, i, classObj, superclass);
 				}
 				DROP();
 				i++;
@@ -1455,9 +1455,9 @@ bool runInterpreter(UDogVM* vm) {
 					"Class '%s' may not have more than %d fields, including inherited "
 					"ones.", name->value, MAX_FIELDS);
 
-				RUNTIME_ERROR(AS_STRING(udogNewString(vm, message, strlen(message))));
+				RUNTIME_ERROR(AS_STRING(cardinalNewString(vm, message, strlen(message))));
 			}
-			UDOG_UNPIN(vm);
+			CARDINAL_UNPIN(vm);
 			PUSH(OBJ_VAL(classObj));
 			CHECK_STACK();
 			DISPATCH();
@@ -1467,7 +1467,7 @@ bool runInterpreter(UDogVM* vm) {
 		CASECODE(METHOD_INSTANCE):
 		CASECODE(METHOD_STATIC):
 		{
-			udog_integer symbol = READ_METHOD();
+			cardinal_integer symbol = READ_METHOD();
 			ObjClass* classObj = AS_CLASS(PEEK());
 			Value method = PEEK2();
 			// Binds the code of methodValue to the classObj (not the metaclass)
@@ -1557,66 +1557,66 @@ bool runInterpreter(UDogVM* vm) {
 ///////////////////////////////////////////////////////////////////////////////////
 
 // Sets the current Compiler being run to [compiler].
-void udogSetCompiler(UDogVM* vm, UDogCompiler* compiler) {
+void cardinalSetCompiler(CardinalVM* vm, CardinalCompiler* compiler) {
 	vm->compiler = compiler;
 }
 
 // Execute [source] in the context of the core module.
-static UDogLangResult loadIntoCore(UDogVM* vm, const char* source) {
+static CardinalLangResult loadIntoCore(CardinalVM* vm, const char* source) {
 	ObjModule* coreModule = getCoreModule(vm);
 
-	ObjFn* fn = udogCompile(vm, coreModule, "", source);
-	if (fn == NULL) return UDOG_COMPILE_ERROR;
+	ObjFn* fn = cardinalCompile(vm, coreModule, "", source);
+	if (fn == NULL) return CARDINAL_COMPILE_ERROR;
 
-	udogPushRoot(vm, (Obj*)fn);
-	vm->fiber = udogNewFiber(vm, (Obj*)fn);
-	udogPopRoot(vm); // fn.
+	cardinalPushRoot(vm, (Obj*)fn);
+	vm->fiber = cardinalNewFiber(vm, (Obj*)fn);
+	cardinalPopRoot(vm); // fn.
 
-	return runInterpreter(vm) ? UDOG_SUCCESS : UDOG_RUNTIME_ERROR;
+	return runInterpreter(vm) ? CARDINAL_SUCCESS : CARDINAL_RUNTIME_ERROR;
 }
 
-UDogLangResult udogInterpret(UDogVM* vm, const char* sourcePath, const char* source) {
-	return udogInterpretModule(vm, sourcePath, source, "main");
+CardinalLangResult cardinalInterpret(CardinalVM* vm, const char* sourcePath, const char* source) {
+	return cardinalInterpretModule(vm, sourcePath, source, "main");
 }
 
-Value udogFindVariable(UDogVM* vm, const char* name) {
+Value cardinalFindVariable(CardinalVM* vm, const char* name) {
 	ObjModule* coreModule = getCoreModule(vm);
-	int symbol = udogSymbolTableFind(&coreModule->variableNames,
+	int symbol = cardinalSymbolTableFind(&coreModule->variableNames,
 	                                 name, strlen(name));
 	return coreModule->variables.data[symbol];
 }
 
-int udogFindVariableSymbol(UDogVM* vm, ObjModule* module, const char* name, int length) {
+int cardinalFindVariableSymbol(CardinalVM* vm, ObjModule* module, const char* name, int length) {
 	if (module == NULL) module = getCoreModule(vm);
 
-	return udogSymbolTableFind(&module->variableNames,
+	return cardinalSymbolTableFind(&module->variableNames,
 	                                 name, length);
 }
 
-int udogDeclareVariable(UDogVM* vm, ObjModule* module, const char* name,
+int cardinalDeclareVariable(CardinalVM* vm, ObjModule* module, const char* name,
                         size_t length) {
 	if (module == NULL) module = getCoreModule(vm);
 	if (module->variables.count == MAX_GLOBALS) return -2;
 
 	module->count++;
-	udogValueBufferWrite(vm, &module->variables, UNDEFINED_VAL);
-	return udogSymbolTableAdd(vm, &module->variableNames, name, length);
+	cardinalValueBufferWrite(vm, &module->variables, UNDEFINED_VAL);
+	return cardinalSymbolTableAdd(vm, &module->variableNames, name, length);
 }
 
-int udogDefineVariable(UDogVM* vm, ObjModule* module, const char* name,
+int cardinalDefineVariable(CardinalVM* vm, ObjModule* module, const char* name,
                        size_t length, Value value) {
 	if (module == NULL) module = getCoreModule(vm);
 	if (module->variables.count == MAX_GLOBALS) return -2;
 
-	if (IS_OBJ(value)) udogPushRoot(vm, AS_OBJ(value));
+	if (IS_OBJ(value)) cardinalPushRoot(vm, AS_OBJ(value));
 
 	// See if the variable is already explicitly or implicitly declared.
-	int symbol = udogSymbolTableFind(&module->variableNames, name, length);
+	int symbol = cardinalSymbolTableFind(&module->variableNames, name, length);
 
 	if (symbol == -1) {
 		// Brand new variable.
-		symbol = udogSymbolTableAdd(vm, &module->variableNames, name, length);
-		udogValueBufferWrite(vm, &module->variables, value);
+		symbol = cardinalSymbolTableAdd(vm, &module->variableNames, name, length);
+		cardinalValueBufferWrite(vm, &module->variables, value);
 		module->count++;
 	}
 	else if (IS_UNDEFINED(module->variables.data[symbol])) {
@@ -1628,7 +1628,7 @@ int udogDefineVariable(UDogVM* vm, ObjModule* module, const char* name,
 		symbol = -1;
 	}
 
-	if (IS_OBJ(value)) udogPopRoot(vm);
+	if (IS_OBJ(value)) cardinalPopRoot(vm);
 
 	return symbol;
 }
@@ -1637,17 +1637,17 @@ int udogDefineVariable(UDogVM* vm, ObjModule* module, const char* name,
 //// GARBAGE COLLECTOR
 ///////////////////////////////////////////////////////////////////////////////////
 
-void udogPushRoot(UDogVM* vm, Obj* obj) {
-	ASSERT(vm->garbageCollector.numTempRoots < UDOG_MAX_TEMP_ROOTS, "Too many temporary roots.");
+void cardinalPushRoot(CardinalVM* vm, Obj* obj) {
+	ASSERT(vm->garbageCollector.numTempRoots < CARDINAL_MAX_TEMP_ROOTS, "Too many temporary roots.");
 	vm->garbageCollector.tempRoots[vm->garbageCollector.numTempRoots++] = obj;
 }
 
-void udogPopRoot(UDogVM* vm) {
+void cardinalPopRoot(CardinalVM* vm) {
 	ASSERT(vm->garbageCollector.numTempRoots > 0, "No temporary roots to release.");
 	vm->garbageCollector.numTempRoots--;
 }
 
-void udogAddGCObject(UDogVM* vm, Obj* obj) {
+void cardinalAddGCObject(CardinalVM* vm, Obj* obj) {
 	obj->gcflag = (GCFlag) 0;
 	
 	obj->next = vm->garbageCollector.first;
@@ -1655,7 +1655,7 @@ void udogAddGCObject(UDogVM* vm, Obj* obj) {
 }
 
 /// Used to get statistics from the Garbage collector
-void udogGetGCStatistics(UDogVM* vm, int* size, int* destroyed, int* detected, int* newObj, int* nextCycle, int* nbHosts) {
+void cardinalGetGCStatistics(CardinalVM* vm, int* size, int* destroyed, int* detected, int* newObj, int* nextCycle, int* nbHosts) {
 	*size = vm->garbageCollector.bytesAllocated;
 	*destroyed = vm->garbageCollector.destroyed;
 	*detected = vm->garbageCollector.destroyed;
@@ -1664,9 +1664,9 @@ void udogGetGCStatistics(UDogVM* vm, int* size, int* destroyed, int* detected, i
 	*nbHosts = vm->hostObjects.hostObjects->count;
 }
 
-static void collectGarbage(UDogVM* vm) {
+static void collectGarbage(CardinalVM* vm) {
 	if (vm->garbageCollector.isWorking) return;
-#if UDOG_DEBUG_TRACE_MEMORY || UDOG_DEBUG_TRACE_GC
+#if CARDINAL_DEBUG_TRACE_MEMORY || CARDINAL_DEBUG_TRACE_GC
 	vm->printFunction("-- gc --\n");
 
 	size_t before = vm->garbageCollector.bytesAllocated;
@@ -1685,25 +1685,25 @@ static void collectGarbage(UDogVM* vm) {
 	// already been freed.
 	vm->garbageCollector.bytesAllocated = 0;
 	
-	if (vm->rootDirectory != NULL) udogMarkObj(vm, (Obj*)vm->rootDirectory);
+	if (vm->rootDirectory != NULL) cardinalMarkObj(vm, (Obj*)vm->rootDirectory);
 	
-	if (vm->modules != NULL) udogMarkObj(vm, (Obj*)vm->modules);
+	if (vm->modules != NULL) cardinalMarkObj(vm, (Obj*)vm->modules);
 
 	// Temporary roots.
 	for (int i = 0; i < vm->garbageCollector.numTempRoots; i++) {
-		udogMarkObj(vm, vm->garbageCollector.tempRoots[i]);
+		cardinalMarkObj(vm, vm->garbageCollector.tempRoots[i]);
 	}
 	
 	if (vm->hostObjects.freeNums != NULL)
-		udogMarkObj(vm, (Obj*) vm->hostObjects.freeNums);
+		cardinalMarkObj(vm, (Obj*) vm->hostObjects.freeNums);
 	if (vm->hostObjects.hostObjects != NULL)
-		udogMarkObj(vm, (Obj*) vm->hostObjects.hostObjects);
+		cardinalMarkObj(vm, (Obj*) vm->hostObjects.hostObjects);
 	
 	// The current fiber.
-	if (vm->fiber != NULL) udogMarkObj(vm, (Obj*)vm->fiber);
+	if (vm->fiber != NULL) cardinalMarkObj(vm, (Obj*)vm->fiber);
 
 	// Any object the compiler is using (if there is one).
-	if (vm->compiler != NULL) udogMarkCompiler(vm, vm->compiler);
+	if (vm->compiler != NULL) cardinalMarkCompiler(vm, vm->compiler);
 	
 	// Collect any unmarked objects.
 	Obj** obj = &vm->garbageCollector.first;
@@ -1712,7 +1712,7 @@ static void collectGarbage(UDogVM* vm) {
 			// This object wasn't reached, so remove it from the list and free it.
 			Obj* unreached = *obj;
 			*obj = unreached->next;
-			udogFreeObj(vm, unreached);
+			cardinalFreeObj(vm, unreached);
 		}
 		else {
 			// This object was reached, so unmark it (for the next GC) and move on to
@@ -1727,7 +1727,7 @@ static void collectGarbage(UDogVM* vm) {
 	
 	vm->garbageCollector.isWorking = false;
 	
-#if UDOG_DEBUG_TRACE_MEMORY || UDOG_DEBUG_TRACE_GC
+#if CARDINAL_DEBUG_TRACE_MEMORY || CARDINAL_DEBUG_TRACE_GC
 	double elapsed = ((double)clock() / CLOCKS_PER_SEC) - startTime;
 	vm->printFunction("GC %ld before, %ld after (%ld collected), next at %ld. Took %.3fs.\n",
          before, vm->garbageCollector.bytesAllocated, before - vm->garbageCollector.bytesAllocated, vm->garbageCollector.nextGC,
@@ -1740,12 +1740,12 @@ static void collectGarbage(UDogVM* vm) {
 //// MEMORY ALLOCATOR
 ///////////////////////////////////////////////////////////////////////////////////
 
-void* udogReallocate(UDogVM* vm, void* buffer, size_t oldSize, size_t newSize) {
-#if UDOG_DEBUG_TRACE_MEMORY
+void* cardinalReallocate(CardinalVM* vm, void* buffer, size_t oldSize, size_t newSize) {
+#if CARDINAL_DEBUG_TRACE_MEMORY
 	vm->printFunction("reallocate %p %ld -> %ld\n", buffer, oldSize, newSize);
 	
 #endif
-#if UDOG_DEBUG_TRACE_MEMORY || UDOG_DEBUG_TRACE_GC
+#if CARDINAL_DEBUG_TRACE_MEMORY || CARDINAL_DEBUG_TRACE_GC
 	if (newSize != 0)
 		vm->garbageCollector.nbAllocations++;
 	
@@ -1765,7 +1765,7 @@ void* udogReallocate(UDogVM* vm, void* buffer, size_t oldSize, size_t newSize) {
 	// during the next GC.
 	vm->garbageCollector.bytesAllocated += newSize - oldSize;
 	
-#if UDOG_DEBUG_GC_STRESS
+#if CARDINAL_DEBUG_GC_STRESS
 	// Since collecting calls this function to free things, make sure we don't
 	// recurse.
 	if (newSize > 0) collectGarbage(vm);
@@ -1780,25 +1780,25 @@ void* udogReallocate(UDogVM* vm, void* buffer, size_t oldSize, size_t newSize) {
 //// THE API
 ///////////////////////////////////////////////////////////////////////////////////
 
-void udogCollectGarbage(UDogVM* vm) {
+void cardinalCollectGarbage(CardinalVM* vm) {
 	collectGarbage(vm);
 }
 
 // Set the garbage collector enabled or disabled
-void udogEnableGC(UDogVM* vm, bool enable) {
+void cardinalEnableGC(CardinalVM* vm, bool enable) {
 	vm->garbageCollector.isWorking = enable;
 }
 
-static Value* findVariable(UDogVM* vm, ObjModule* module, const char* name) {
+static Value* findVariable(CardinalVM* vm, ObjModule* module, const char* name) {
 	UNUSED(vm);
-	int symbol = udogSymbolTableFind(&module->variableNames, name, strlen(name));
+	int symbol = cardinalSymbolTableFind(&module->variableNames, name, strlen(name));
 	if (symbol != -1) return &module->variables.data[symbol];
 	return NULL;
 }
 
-static void defineMethod(UDogVM* vm, const char* module, const char* className,
+static void defineMethod(CardinalVM* vm, const char* module, const char* className,
                          const char* signature,
-                         udogForeignMethodFn methodFn, bool isStatic) {
+                         cardinalForeignMethodFn methodFn, bool isStatic) {
 	ASSERT(className != NULL, "Must provide class name.");
 
 	int length = (int)strlen(signature);
@@ -1809,8 +1809,8 @@ static void defineMethod(UDogVM* vm, const char* module, const char* className,
 	
 	ObjModule* coreModule = getCoreModule(vm);
 	if (module != NULL) {
-		Value moduleName = udogNewString(vm, module, strlen(module));
-		uint32_t moduleEntry = udogMapFind(vm->modules, moduleName);
+		Value moduleName = cardinalNewString(vm, module, strlen(module));
+		uint32_t moduleEntry = cardinalMapFind(vm->modules, moduleName);
 		
 		if (moduleEntry != UINT32_MAX) {
 			coreModule = AS_MODULE(vm->modules->entries[moduleEntry].value);
@@ -1819,7 +1819,7 @@ static void defineMethod(UDogVM* vm, const char* module, const char* className,
 	
 	//ObjModule* coreModule = getCoreModule(vm);
 	// Find or create the class to bind the method to.
-	int classSymbol = udogSymbolTableFind(&coreModule->variableNames,
+	int classSymbol = cardinalSymbolTableFind(&coreModule->variableNames,
 										  className, strlen(className));
 	ObjClass* classObj;
 
@@ -1829,16 +1829,16 @@ static void defineMethod(UDogVM* vm, const char* module, const char* className,
 	else {
 		// The class doesn't already exist, so create it.
 		size_t len = strlen(className);
-		ObjString* nameString = AS_STRING(udogNewString(vm, className, len));
+		ObjString* nameString = AS_STRING(cardinalNewString(vm, className, len));
 		
-		udogPushRoot(vm, (Obj*)nameString);
+		cardinalPushRoot(vm, (Obj*)nameString);
 		
-		classObj = udogNewClass(vm, vm->metatable.objectClass, 0, nameString);
-		udogDefineVariable(vm, coreModule, className, len, OBJ_VAL(classObj));
-		udogPopRoot(vm);
+		classObj = cardinalNewClass(vm, vm->metatable.objectClass, 0, nameString);
+		cardinalDefineVariable(vm, coreModule, className, len, OBJ_VAL(classObj));
+		cardinalPopRoot(vm);
 	}
 	// Bind the method.
-	int methodSymbol = udogSymbolTableEnsure(vm, &vm->methodNames,
+	int methodSymbol = cardinalSymbolTableEnsure(vm, &vm->methodNames,
 					   signature, length);
 
 	Method method;
@@ -1847,68 +1847,68 @@ static void defineMethod(UDogVM* vm, const char* module, const char* className,
 
 	if (isStatic) classObj = classObj->obj.classObj;
 
-	udogBindMethod(vm, classObj, methodSymbol, method);
+	cardinalBindMethod(vm, classObj, methodSymbol, method);
 }
 
-// Compiles [source], a string of UDog source code, to an [ObjFn] that will
+// Compiles [source], a string of Cardinal source code, to an [ObjFn] that will
 // execute that code when invoked.
-UDogValue* udogCompileScript(UDogVM* vm, const char* sourcePath, const char* source) {
-	return udogCompileScriptModule(vm, sourcePath, source, "main");
+CardinalValue* cardinalCompileScript(CardinalVM* vm, const char* sourcePath, const char* source) {
+	return cardinalCompileScriptModule(vm, sourcePath, source, "main");
 }
 
-// Runs [source], a string of UDog source code in a new fiber in [vm].
-UDogLangResult udogInterpretModule(UDogVM* vm, const char* sourcePath, const char* source, const char* module) {
+// Runs [source], a string of Cardinal source code in a new fiber in [vm].
+CardinalLangResult cardinalInterpretModule(CardinalVM* vm, const char* sourcePath, const char* source, const char* module) {
 	if (strlen(sourcePath) == 0) return loadIntoCore(vm, source);
 	
-	Value name = udogNewString(vm, module, strlen(module));
-	udogPushRoot(vm, AS_OBJ(name));
+	Value name = cardinalNewString(vm, module, strlen(module));
+	cardinalPushRoot(vm, AS_OBJ(name));
 	
 	ObjFiber* fiber = loadModuleNoMemory(vm, name, source);
 	
 	if (fiber == NULL) {
-		udogPopRoot(vm);
-		return UDOG_COMPILE_ERROR;
+		cardinalPopRoot(vm);
+		return CARDINAL_COMPILE_ERROR;
 	}
 	
 	vm->fiber = fiber;
 	
 	bool succeeded = runInterpreter(vm);
 	
-	udogPopRoot(vm); // name
+	cardinalPopRoot(vm); // name
 	
-	return succeeded ? UDOG_SUCCESS : UDOG_RUNTIME_ERROR;
+	return succeeded ? CARDINAL_SUCCESS : CARDINAL_RUNTIME_ERROR;
 }
 
-// Compiles [source], a string of UDog source code, to an [ObjFn] that will
+// Compiles [source], a string of Cardinal source code, to an [ObjFn] that will
 // execute that code when invoked.
-UDogValue* udogCompileScriptModule(UDogVM* vm, const char* sourcePath, const char* source, const char* module) {
+CardinalValue* cardinalCompileScriptModule(CardinalVM* vm, const char* sourcePath, const char* source, const char* module) {
 	UNUSED(sourcePath);
-	Value name = udogNewString(vm, module, strlen(module));
+	Value name = cardinalNewString(vm, module, strlen(module));
 	ObjFiber* fiber = loadModuleNoMemory(vm, name, source);
 	
 	if (fiber == NULL)
 		return NULL;
 
 	// Link the fiber to the GC
-	return udogCreateHostObject(vm, OBJ_VAL((Obj*) fiber));
+	return cardinalCreateHostObject(vm, OBJ_VAL((Obj*) fiber));
 }
 
 // Runs a fiber loaded with a function [key] in the virtual machine [vm].
-UDogLangResult udogRunFunction(UDogVM* vm, UDogValue* key) {
-	Value val = udogGetHostObject(vm, key);
-	if (!IS_FIBER(val)) return UDOG_COMPILE_ERROR;
+CardinalLangResult cardinalRunFunction(CardinalVM* vm, CardinalValue* key) {
+	Value val = cardinalGetHostObject(vm, key);
+	if (!IS_FIBER(val)) return CARDINAL_COMPILE_ERROR;
 	
 	vm->fiber = AS_FIBER(val);
 	if (runInterpreter(vm)) {
-		return UDOG_SUCCESS;
+		return CARDINAL_SUCCESS;
 	}
 	else {
-		return UDOG_RUNTIME_ERROR;
+		return CARDINAL_RUNTIME_ERROR;
 	}
 }
 
 // Creates an [ObjFn] that invokes a method with [signature] when called.
-static ObjFn* makeCallStub(UDogVM* vm, ObjModule* module, const char* signature) {
+static ObjFn* makeCallStub(CardinalVM* vm, ObjModule* module, const char* signature) {
 	int signatureLength = (int)strlen(signature);
 
 	// Count the number parameters the method expects.
@@ -1917,7 +1917,7 @@ static ObjFn* makeCallStub(UDogVM* vm, ObjModule* module, const char* signature)
 		if (*s == '_') numParams++;
 	}
 
-	int method =  udogSymbolTableEnsure(vm, &vm->methodNames,
+	int method =  cardinalSymbolTableEnsure(vm, &vm->methodNames,
 	                                    signature, signatureLength);
 
 	uint8_t* bytecode = ALLOCATE_ARRAY(vm, uint8_t, 5);
@@ -1942,46 +1942,46 @@ static ObjFn* makeCallStub(UDogVM* vm, ObjModule* module, const char* signature)
 	
 	SymbolTable locals;
 	SymbolTable lines;
-	udogSymbolTableInit(vm, &locals);
-	udogSymbolTableInit(vm, &lines);
-	FnDebug* debug = udogNewDebug(vm, NULL, signature, signatureLength, debugLines, locals, lines);
-	return udogNewFunction(vm, module, NULL, 0, 0, 0, bytecode, end+2, debug);
+	cardinalSymbolTableInit(vm, &locals);
+	cardinalSymbolTableInit(vm, &lines);
+	FnDebug* debug = cardinalNewDebug(vm, NULL, signature, signatureLength, debugLines, locals, lines);
+	return cardinalNewFunction(vm, module, NULL, 0, 0, 0, bytecode, end+2, debug);
 }
 
-static UDogValue* getMethod(UDogVM* vm, ObjModule* moduleObj, Value variable,
+static CardinalValue* getMethod(CardinalVM* vm, ObjModule* moduleObj, Value variable,
                           const char* signature) {
 	ObjFn* fn = makeCallStub(vm, moduleObj, signature);
-	udogPushRoot(vm, (Obj*)fn);
+	cardinalPushRoot(vm, (Obj*)fn);
 
 	// Create a single fiber that we can reuse each time the method is invoked.
-	ObjFiber* fiber = udogNewFiber(vm, (Obj*)fn);
-	udogPushRoot(vm, (Obj*)fiber);
+	ObjFiber* fiber = cardinalNewFiber(vm, (Obj*)fn);
+	cardinalPushRoot(vm, (Obj*)fiber);
 
 	// Create a handle that keeps track of the function that calls the method.
-	UDogValue* ret = udogCreateHostObject(vm, OBJ_VAL(fiber));
+	CardinalValue* ret = cardinalCreateHostObject(vm, OBJ_VAL(fiber));
 
 	// Store the receiver in the fiber's stack so we can use it later in the call.
 	*fiber->stacktop++ = variable;
 
-	udogPopRoot(vm); // fiber.
-	udogPopRoot(vm); // fn.
+	cardinalPopRoot(vm); // fiber.
+	cardinalPopRoot(vm); // fn.
 
 	return ret;
 }
 
-UDogValue* udogGetMethod(UDogVM* vm, const char* module, const char* variable,
+CardinalValue* cardinalGetMethod(CardinalVM* vm, const char* module, const char* variable,
                           const char* signature) {
 	ObjModule* moduleObj = getCoreModule(vm);
 	if (module != NULL) {
-		Value moduleName = udogNewString(vm, module, strlen(module));
-		uint32_t moduleEntry = udogMapFind(vm->modules, moduleName);
+		Value moduleName = cardinalNewString(vm, module, strlen(module));
+		uint32_t moduleEntry = cardinalMapFind(vm->modules, moduleName);
 		
 		if (moduleEntry != UINT32_MAX) {
 			moduleObj = AS_MODULE(vm->modules->entries[moduleEntry].value);
 		}
 	}
 
-	int variableSlot = udogSymbolTableFind(&moduleObj->variableNames,
+	int variableSlot = cardinalSymbolTableFind(&moduleObj->variableNames,
 	                                       variable, strlen(variable));
 	
 	if (variableSlot < 0)
@@ -1990,38 +1990,38 @@ UDogValue* udogGetMethod(UDogVM* vm, const char* module, const char* variable,
 	return getMethod(vm, moduleObj, moduleObj->variables.data[variableSlot], signature);
 }
 
-UDogValue* udogGetMethodObject(UDogVM* vm, const char* module, UDogValue* variable,
+CardinalValue* cardinalGetMethodObject(CardinalVM* vm, const char* module, CardinalValue* variable,
                           const char* signature) {
 	ObjModule* moduleObj = getCoreModule(vm);
 	if (module != NULL) {
-		Value moduleName = udogNewString(vm, module, strlen(module));
-		uint32_t moduleEntry = udogMapFind(vm->modules, moduleName);
+		Value moduleName = cardinalNewString(vm, module, strlen(module));
+		uint32_t moduleEntry = cardinalMapFind(vm->modules, moduleName);
 		
 		if (moduleEntry != UINT32_MAX) {
 			moduleObj = AS_MODULE(vm->modules->entries[moduleEntry].value);
 		}
 	}
 
-	Value val = udogGetHostObject(vm, variable);
+	Value val = cardinalGetHostObject(vm, variable);
 	
 	return getMethod(vm, moduleObj, val, signature);
 }
 
-static UDogValue* staticUDogCall(UDogVM* vm, UDogValue* method, int args, UDogValue* arg, va_list argList) {
+static CardinalValue* staticCardinalCall(CardinalVM* vm, CardinalValue* method, int args, CardinalValue* arg, va_list argList) {
 	// TODO: Validate that the number of arguments matches what the method
 	// expects.
 
 	// Push the arguments.
-	ObjFiber* fiber = AS_FIBER(udogGetHostObject(vm, method));
+	ObjFiber* fiber = AS_FIBER(cardinalGetHostObject(vm, method));
 	
 	Value value = NULL_VAL;
-	value = udogGetHostObject(vm, arg);
+	value = cardinalGetHostObject(vm, arg);
 	*fiber->stacktop++ = value;
 		
 	while (args > 0) {
 		value = NULL_VAL;
 		
-		value = udogGetHostObject(vm, va_arg(argList, UDogValue*));
+		value = cardinalGetHostObject(vm, va_arg(argList, CardinalValue*));
 		
 		*fiber->stacktop++ = value;
 		args--;
@@ -2039,22 +2039,22 @@ static UDogValue* staticUDogCall(UDogVM* vm, UDogValue* method, int args, UDogVa
 	Value returnValue = fiber->stack[1];
 
 	// Reset the fiber to get ready for the next call.
-	udogResetFiber(fiber, fn);
+	cardinalResetFiber(fiber, fn);
 
 	// Push the receiver back on the stack.
 	*fiber->stacktop++ = receiver;
 	
-	return udogCreateHostObject(vm, returnValue);
+	return cardinalCreateHostObject(vm, returnValue);
 }
 
-UDogValue* udogCall(UDogVM* vm, UDogValue* method, int args, ...) {
+CardinalValue* cardinalCall(CardinalVM* vm, CardinalValue* method, int args, ...) {
 	// TODO: Validate that the number of arguments matches what the method
 	// expects.
 
 	// Push the arguments.
 	va_list argList;
 	va_start(argList, args);
-	Value val = udogGetHostObject(vm, method);
+	Value val = cardinalGetHostObject(vm, method);
 	if (val == NULL_VAL)
 		return NULL;
 	ObjFiber* fiber = AS_FIBER(val);
@@ -2062,7 +2062,7 @@ UDogValue* udogCall(UDogVM* vm, UDogValue* method, int args, ...) {
 	while (args > 0) {
 		Value value = NULL_VAL;
 		
-		value = udogGetHostObject(vm, va_arg(argList, UDogValue*));
+		value = cardinalGetHostObject(vm, va_arg(argList, CardinalValue*));
 		
 		*fiber->stacktop++ = value;
 		args--;
@@ -2080,127 +2080,127 @@ UDogValue* udogCall(UDogVM* vm, UDogValue* method, int args, ...) {
 	Value returnValue = fiber->stack[1];
 
 	// Reset the fiber to get ready for the next call.
-	udogResetFiber(fiber, fn);
+	cardinalResetFiber(fiber, fn);
 
 	// Push the receiver back on the stack.
 	*fiber->stacktop++ = receiver;
 	
-	return udogCreateHostObject(vm, returnValue);
+	return cardinalCreateHostObject(vm, returnValue);
 }
 
 // Flush all host objects
-void udogFlushHostObjects(UDogVM* vm) {
-	vm->hostObjects.freeNums = udogNewList(vm, 0);
-	vm->hostObjects.hostObjects = udogNewTable(vm, 0);
+void cardinalFlushHostObjects(CardinalVM* vm) {
+	vm->hostObjects.freeNums = cardinalNewList(vm, 0);
+	vm->hostObjects.hostObjects = cardinalNewTable(vm, 0);
 	vm->hostObjects.max = 0;
 }
 
 // Will create an object with a certain name
-UDogValue* udogCreateObject(UDogVM* vm, const char* module, const char* className, const char* signature, int args, ...) {
-	UDogValue* meth = udogGetMethod(vm, module, className, "<instantiate>");
+CardinalValue* cardinalCreateObject(CardinalVM* vm, const char* module, const char* className, const char* signature, int args, ...) {
+	CardinalValue* meth = cardinalGetMethod(vm, module, className, "<instantiate>");
 	
-	UDogValue* ret = udogCall(vm, meth, 0);
-	udogReleaseObject(vm, meth);
+	CardinalValue* ret = cardinalCall(vm, meth, 0);
+	cardinalReleaseObject(vm, meth);
 	
-	meth = udogGetMethod(vm, module, className, signature);
+	meth = cardinalGetMethod(vm, module, className, signature);
 	va_list argList;
 	va_start(argList, args);
-	UDogValue* actualRet = staticUDogCall(vm, meth, args, ret, argList);
-	udogReleaseObject(vm, meth);
-	udogReleaseObject(vm, ret);
+	CardinalValue* actualRet = staticCardinalCall(vm, meth, args, ret, argList);
+	cardinalReleaseObject(vm, meth);
+	cardinalReleaseObject(vm, ret);
 	
 	return actualRet;
 }
 
 // Bind the object to the VM as an instance
-UDogValue* udogBindObject(UDogVM* vm, const char* module, const char* className, void* obj, size_t size) {
-	udogDefineClass(vm, module, className, size, NULL);
+CardinalValue* cardinalBindObject(CardinalVM* vm, const char* module, const char* className, void* obj, size_t size) {
+	cardinalDefineClass(vm, module, className, size, NULL);
 	
 	ObjModule* moduleObj = getCoreModule(vm);
 	if (module != NULL) {
-		Value moduleName = udogNewString(vm, module, strlen(module));
-		uint32_t moduleEntry = udogMapFind(vm->modules, moduleName);
+		Value moduleName = cardinalNewString(vm, module, strlen(module));
+		uint32_t moduleEntry = cardinalMapFind(vm->modules, moduleName);
 		
 		if (moduleEntry != UINT32_MAX) {
 			moduleObj = AS_MODULE(vm->modules->entries[moduleEntry].value);
 		}
 	}
 
-	int variableSlot = udogSymbolTableFind(&moduleObj->variableNames,
+	int variableSlot = cardinalSymbolTableFind(&moduleObj->variableNames,
 	                                       className, strlen(className));
 	
 	if (variableSlot < 0)
 		return NULL;
 	
 	ObjClass* classObj = AS_CLASS(moduleObj->variables.data[variableSlot]);
-	Value vmObj = udogNewInstance(vm, classObj);
+	Value vmObj = cardinalNewInstance(vm, classObj);
 	memcpy(AS_INSTANCE(vmObj)->fields, obj, classObj->numFields*sizeof(Value));
 	
-	return udogCreateHostObject(vm, vmObj);
+	return cardinalCreateHostObject(vm, vmObj);
 }
 
 // Will create a number with value [num]
-UDogValue* udogCreateNumber(UDogVM* vm, double num) {
-	return udogCreateHostObject(vm, NUM_VAL(num));
+CardinalValue* cardinalCreateNumber(CardinalVM* vm, double num) {
+	return cardinalCreateHostObject(vm, NUM_VAL(num));
 }
 
 // Will create a bool with value [val]
-UDogValue* udogCreateBool(UDogVM* vm, bool val) {
-	return udogCreateHostObject(vm, val ? TRUE_VAL : FALSE_VAL);
+CardinalValue* cardinalCreateBool(CardinalVM* vm, bool val) {
+	return cardinalCreateHostObject(vm, val ? TRUE_VAL : FALSE_VAL);
 }
 
-UDogValue* udogCreateValue(UDogVM* vm) {
-	return udogCreateHostObject(vm, NULL_VAL);
+CardinalValue* cardinalCreateValue(CardinalVM* vm) {
+	return cardinalCreateHostObject(vm, NULL_VAL);
 }
 
 // Will create a string with value [val]
-UDogValue* udogCreateString(UDogVM* vm, const char* text, int length) {
+CardinalValue* cardinalCreateString(CardinalVM* vm, const char* text, int length) {
 	size_t size = length;
 	if (length == -1) size = strlen(text);
 
-	return udogCreateHostObject(vm, udogNewString(vm, text, size));
+	return cardinalCreateHostObject(vm, cardinalNewString(vm, text, size));
 }
 
 // Creates a new list
-UDogValue* udogCreateObjectList(UDogVM* vm) {
-	return udogCreateHostObject(vm, OBJ_VAL(udogNewList(vm, 0)));
+CardinalValue* cardinalCreateObjectList(CardinalVM* vm) {
+	return cardinalCreateHostObject(vm, OBJ_VAL(cardinalNewList(vm, 0)));
 }
 
 // Adds an element to the list
-void udogObjectListAdd(UDogVM* vm, UDogValue* list, UDogValue* variable) {
-	Value l = udogGetHostObject(vm, list);
-	Value elem = udogGetHostObject(vm, variable);
-	udogListAdd(vm, AS_LIST(l), elem);
+void cardinalObjectListAdd(CardinalVM* vm, CardinalValue* list, CardinalValue* variable) {
+	Value l = cardinalGetHostObject(vm, list);
+	Value elem = cardinalGetHostObject(vm, variable);
+	cardinalListAdd(vm, AS_LIST(l), elem);
 }
 
 // Creates a new list
-UDogValue* udogCreateObjectMap(UDogVM* vm) {
-	return udogCreateHostObject(vm, OBJ_VAL(udogNewMap(vm)));
+CardinalValue* cardinalCreateObjectMap(CardinalVM* vm) {
+	return cardinalCreateHostObject(vm, OBJ_VAL(cardinalNewMap(vm)));
 }
 
 // Adds an element to the list
-void udogObjectMapSet(UDogVM* vm, UDogValue* list, UDogValue* key, UDogValue* val) {
-	Value l = udogGetHostObject(vm, list);
-	Value k = udogGetHostObject(vm, key);
-	Value v = udogGetHostObject(vm, val);
-	udogMapSet(vm, AS_MAP(l), k, v);
+void cardinalObjectMapSet(CardinalVM* vm, CardinalValue* list, CardinalValue* key, CardinalValue* val) {
+	Value l = cardinalGetHostObject(vm, list);
+	Value k = cardinalGetHostObject(vm, key);
+	Value v = cardinalGetHostObject(vm, val);
+	cardinalMapSet(vm, AS_MAP(l), k, v);
 }
 
 // Release's a certain object
-void udogReleaseObject(UDogVM* vm, UDogValue* val) {
+void cardinalReleaseObject(CardinalVM* vm, CardinalValue* val) {
 	if (val != NULL)
-		udogRemoveHostObject(vm, val);
+		cardinalRemoveHostObject(vm, val);
 }
 
-void udogDefineMethod(UDogVM* vm, const char* module, const char* className,
+void cardinalDefineMethod(CardinalVM* vm, const char* module, const char* className,
                             const char* signature,
-                            udogForeignMethodFn methodFn) {
+                            cardinalForeignMethodFn methodFn) {
 	defineMethod(vm, module, className, signature, methodFn, false);
 }
 
-void udogDefineStaticMethod(UDogVM* vm, const char* module, const char* className,
+void cardinalDefineStaticMethod(CardinalVM* vm, const char* module, const char* className,
                             const char* signature,
-                            udogForeignMethodFn methodFn) {
+                            cardinalForeignMethodFn methodFn) {
 	defineMethod(vm, module, className, signature, methodFn, true);
 }
 
@@ -2210,14 +2210,14 @@ void udogDefineStaticMethod(UDogVM* vm, const char* module, const char* classNam
 // The exact timing of the destruction can not be known.
 // The destructors purpose is to clean up any manual memory from an instance
 // of [className]
-void udogDefineDestructor(UDogVM* vm, const char* module, const char* className, udogDestructorFn destructor) {
+void cardinalDefineDestructor(CardinalVM* vm, const char* module, const char* className, cardinalDestructorFn destructor) {
 	ASSERT(className != NULL, "Must provide class name.");
 	ASSERT(destructor != NULL, "Must provide method function.");
 	
 	ObjModule* coreModule = getCoreModule(vm);
 	if (module != NULL) {
-		Value moduleName = udogNewString(vm, module, strlen(module));
-		uint32_t moduleEntry = udogMapFind(vm->modules, moduleName);
+		Value moduleName = cardinalNewString(vm, module, strlen(module));
+		uint32_t moduleEntry = cardinalMapFind(vm->modules, moduleName);
 		
 		if (moduleEntry != UINT32_MAX) {
 			coreModule = AS_MODULE(vm->modules->entries[moduleEntry].value);
@@ -2225,7 +2225,7 @@ void udogDefineDestructor(UDogVM* vm, const char* module, const char* className,
 	}
 	
 	// Find or create the class to bind the method to.
-	int classSymbol = udogSymbolTableFind(&coreModule->variableNames,
+	int classSymbol = cardinalSymbolTableFind(&coreModule->variableNames,
 										  className, strlen(className));
 	ObjClass* classObj;
 
@@ -2235,25 +2235,25 @@ void udogDefineDestructor(UDogVM* vm, const char* module, const char* className,
 	else {
 		// The class doesn't already exist, so create it.
 		size_t len = strlen(className);
-		ObjString* nameString = AS_STRING(udogNewString(vm, className, len));
+		ObjString* nameString = AS_STRING(cardinalNewString(vm, className, len));
 		
-		udogPushRoot(vm, (Obj*)nameString);
+		cardinalPushRoot(vm, (Obj*)nameString);
 		
-		classObj = udogNewClass(vm, vm->metatable.objectClass, 0, nameString);
-		udogDefineVariable(vm, coreModule, className, len, OBJ_VAL(classObj));
-		udogPopRoot(vm);
+		classObj = cardinalNewClass(vm, vm->metatable.objectClass, 0, nameString);
+		cardinalDefineVariable(vm, coreModule, className, len, OBJ_VAL(classObj));
+		cardinalPopRoot(vm);
 	}
 	
 	classObj->destructor = destructor;
 }
 
-void udogDefineClass(UDogVM* vm, const char* module, const char* className, size_t size, const char* parent) {
+void cardinalDefineClass(CardinalVM* vm, const char* module, const char* className, size_t size, const char* parent) {
 	ASSERT(className != NULL, "Must provide class name.");
 	
 	ObjModule* moduleObj = getCoreModule(vm);
 	if (module != NULL) {
-		Value moduleName = udogNewString(vm, module, strlen(module));
-		uint32_t moduleEntry = udogMapFind(vm->modules, moduleName);
+		Value moduleName = cardinalNewString(vm, module, strlen(module));
+		uint32_t moduleEntry = cardinalMapFind(vm->modules, moduleName);
 		
 		if (moduleEntry != UINT32_MAX) {
 			moduleObj = AS_MODULE(vm->modules->entries[moduleEntry].value);
@@ -2261,11 +2261,11 @@ void udogDefineClass(UDogVM* vm, const char* module, const char* className, size
 	}
 
 	// Find or create the class to bind the method to.
-	if (udogSymbolTableFind(&moduleObj->variableNames, className, strlen(className)) > 0) return;
+	if (cardinalSymbolTableFind(&moduleObj->variableNames, className, strlen(className)) > 0) return;
 										  
 	// The class doesn't already exist, so create it.
 	size_t length = strlen(className);
-	ObjString* nameString = AS_STRING(udogNewString(vm, className, length));
+	ObjString* nameString = AS_STRING(cardinalNewString(vm, className, length));
 	
 	// Set the number of fields correctly
 	int numFields = (size / sizeof(Value));
@@ -2281,63 +2281,63 @@ void udogDefineClass(UDogVM* vm, const char* module, const char* className, size
 	if (super == NULL) 
 		super = vm->metatable.objectClass;
 
-	UDOG_PIN(vm, nameString);
+	CARDINAL_PIN(vm, nameString);
 
-	ObjClass* classObj = udogNewClass(vm, super, numFields, nameString);
-	udogDefineVariable(vm, moduleObj, className, length, OBJ_VAL(classObj));
+	ObjClass* classObj = cardinalNewClass(vm, super, numFields, nameString);
+	cardinalDefineVariable(vm, moduleObj, className, length, OBJ_VAL(classObj));
 
-	UDOG_UNPIN(vm);
+	CARDINAL_UNPIN(vm);
 }
 
 // Get the object as a void*
 // This assumes that the object is an instance
-void* udogGetInstance(UDogVM* vm, UDogValue* val) {
-	Value obj = udogGetHostObject(vm, val);
+void* cardinalGetInstance(CardinalVM* vm, CardinalValue* val) {
+	Value obj = cardinalGetHostObject(vm, val);
 	return ((Obj*)AS_INSTANCE(obj))+1;
 }
 
 // Get the object as a bool
-bool udogGetBoolean(UDogVM* vm, UDogValue* val) {
-	Value obj = udogGetHostObject(vm, val);
+bool cardinalGetBoolean(CardinalVM* vm, CardinalValue* val) {
+	Value obj = cardinalGetHostObject(vm, val);
 	return AS_BOOL(obj);
 }
 
 // Get the object as a number
-double udogGetNumber(UDogVM* vm, UDogValue* val) {
-	Value obj = udogGetHostObject(vm, val);
+double cardinalGetNumber(CardinalVM* vm, CardinalValue* val) {
+	Value obj = cardinalGetHostObject(vm, val);
 	return AS_NUM(obj);
 }
 
 // Get the object as a void*
-const char* udogGetString(UDogVM* vm, UDogValue* val) {
-	Value obj = udogGetHostObject(vm, val);
+const char* cardinalGetString(CardinalVM* vm, CardinalValue* val) {
+	Value obj = cardinalGetHostObject(vm, val);
 	return AS_CSTRING(obj);
 }
 
 
-void createModule(UDogVM* vm, const char* name) {
-	udogImportModuleVar(vm, udogNewString(vm, name, strlen(name)));
+void createModule(CardinalVM* vm, const char* name) {
+	cardinalImportModuleVar(vm, cardinalNewString(vm, name, strlen(name)));
 }
 
-void removeModule(UDogVM* vm, const char* name) {
-	Value nameValue = udogNewString(vm, name, strlen(name));
-	udogPushRoot(vm, AS_OBJ(nameValue));
+void removeModule(CardinalVM* vm, const char* name) {
+	Value nameValue = cardinalNewString(vm, name, strlen(name));
+	cardinalPushRoot(vm, AS_OBJ(nameValue));
 	
 	// If the module is already loaded, we don't need to do anything.
-	uint32_t index = udogMapFind(vm->modules, nameValue);
+	uint32_t index = cardinalMapFind(vm->modules, nameValue);
 	if (index != UINT32_MAX) {
-		udogMapRemoveKey(vm, vm->modules, nameValue);
+		cardinalMapRemoveKey(vm, vm->modules, nameValue);
 	}
 	
-	udogPopRoot(vm);
+	cardinalPopRoot(vm);
 }
 
 // Removes a variable from the VM
-void udogRemoveVariable(UDogVM* vm, const char* module, const char* variable) {
+void cardinalRemoveVariable(CardinalVM* vm, const char* module, const char* variable) {
 	ObjModule* moduleObj = getCoreModule(vm);
 	if (module != NULL) {
-		Value moduleName = udogNewString(vm, module, strlen(module));
-		uint32_t moduleEntry = udogMapFind(vm->modules, moduleName);
+		Value moduleName = cardinalNewString(vm, module, strlen(module));
+		uint32_t moduleEntry = cardinalMapFind(vm->modules, moduleName);
 		
 		if (moduleEntry != UINT32_MAX) {
 			moduleObj = AS_MODULE(vm->modules->entries[moduleEntry].value);
@@ -2345,18 +2345,18 @@ void udogRemoveVariable(UDogVM* vm, const char* module, const char* variable) {
 	}
 	
 	// Find or create the class to bind the method to.
-	int symbol = udogSymbolTableFind(&moduleObj->variableNames, variable, strlen(variable));
+	int symbol = cardinalSymbolTableFind(&moduleObj->variableNames, variable, strlen(variable));
 	if (symbol > 0) {
 		moduleObj->variables.data[symbol] = NULL_VAL;
 	}
 }
 
 // Get a top-level variable from a given module
-UDogValue* getModuleVariable(UDogVM* vm, const char* module, const char* variable) {
+CardinalValue* getModuleVariable(CardinalVM* vm, const char* module, const char* variable) {
 	ObjModule* moduleObj = getCoreModule(vm);
 	if (module != NULL) {
-		Value moduleName = udogNewString(vm, module, strlen(module));
-		uint32_t moduleEntry = udogMapFind(vm->modules, moduleName);
+		Value moduleName = cardinalNewString(vm, module, strlen(module));
+		uint32_t moduleEntry = cardinalMapFind(vm->modules, moduleName);
 		
 		if (moduleEntry != UINT32_MAX) {
 			moduleObj = AS_MODULE(vm->modules->entries[moduleEntry].value);
@@ -2364,19 +2364,19 @@ UDogValue* getModuleVariable(UDogVM* vm, const char* module, const char* variabl
 	}
 	
 	// Find or create the class to bind the method to.
-	int symbol = udogSymbolTableFind(&moduleObj->variableNames, variable, strlen(variable));
+	int symbol = cardinalSymbolTableFind(&moduleObj->variableNames, variable, strlen(variable));
 	if (symbol > 0) {
-		return udogCreateHostObject(vm, moduleObj->variables.data[symbol]);
+		return cardinalCreateHostObject(vm, moduleObj->variables.data[symbol]);
 	}
 	return NULL;
 }
 
 // Get a method from the VM
-void udogRemoveMethod(UDogVM* vm, const char* module, const char* variable, const char* signature) {
+void cardinalRemoveMethod(CardinalVM* vm, const char* module, const char* variable, const char* signature) {
 	ObjModule* moduleObj = getCoreModule(vm);
 	if (module != NULL) {
-		Value moduleName = udogNewString(vm, module, strlen(module));
-		uint32_t moduleEntry = udogMapFind(vm->modules, moduleName);
+		Value moduleName = cardinalNewString(vm, module, strlen(module));
+		uint32_t moduleEntry = cardinalMapFind(vm->modules, moduleName);
 		
 		if (moduleEntry != UINT32_MAX) {
 			moduleObj = AS_MODULE(vm->modules->entries[moduleEntry].value);
@@ -2384,28 +2384,28 @@ void udogRemoveMethod(UDogVM* vm, const char* module, const char* variable, cons
 	}
 	
 	// Find or create the class to bind the method to.
-	int symbol = udogSymbolTableFind(&moduleObj->variableNames, variable, strlen(variable));
+	int symbol = cardinalSymbolTableFind(&moduleObj->variableNames, variable, strlen(variable));
 	if (symbol > 0) {
 		Value val = moduleObj->variables.data[symbol];
 		
 		if (!IS_CLASS(val)) return;
 		ObjClass* obj = AS_CLASS(val);
 		
-		int method =  udogSymbolTableFind(&vm->methodNames,
+		int method =  cardinalSymbolTableFind(&vm->methodNames,
 	                                    signature, strlen(signature));
 		obj->methods.data[method].type = METHOD_NONE;
 	}
 }
 
 // Get a method from the VM with an host object
-void udogRemoveMethodObject(UDogVM* vm, UDogValue* variable, const char* signature) {
+void cardinalRemoveMethodObject(CardinalVM* vm, CardinalValue* variable, const char* signature) {
 	// Find or create the class to bind the method to.
-	Value val = udogGetHostObject(vm, variable);
+	Value val = cardinalGetHostObject(vm, variable);
 	
 	if (!IS_CLASS(val)) return;
 	ObjClass* obj = AS_CLASS(val);
 	
-	int method =  udogSymbolTableFind(&vm->methodNames,
+	int method =  cardinalSymbolTableFind(&vm->methodNames,
 									signature, strlen(signature));
 	obj->methods.data[method].type = METHOD_NONE;
 }
@@ -2414,23 +2414,23 @@ void udogRemoveMethodObject(UDogVM* vm, UDogValue* variable, const char* signatu
 //// THE GETTERS FOR FOREIGN METHODS
 ///////////////////////////////////////////////////////////////////////////////////
 
-UDogValue* udogGetArgument(UDogVM* vm, int index) {
+CardinalValue* cardinalGetArgument(CardinalVM* vm, int index) {
 	ASSERT(vm->fiber->foreignCallSlot != NULL, "Must be in foreign call.");
 	ASSERT(index >= 0, "index cannot be negative.");
 	ASSERT(index < vm->fiber->foreignCallNumArgs, "Not that many arguments.");
 
-	return udogCreateHostObject(vm, *(vm->fiber->foreignCallSlot + index));
+	return cardinalCreateHostObject(vm, *(vm->fiber->foreignCallSlot + index));
 }
 
-void udogReturnValue(UDogVM* vm, UDogValue* val) {
+void cardinalReturnValue(CardinalVM* vm, CardinalValue* val) {
 	ASSERT(vm->fiber->foreignCallSlot != NULL, "Must be in foreign call.");
 	
-	*vm->fiber->foreignCallSlot = udogGetHostObject(vm, val);
+	*vm->fiber->foreignCallSlot = cardinalGetHostObject(vm, val);
 	vm->fiber->foreignCallSlot = NULL;
-	udogReleaseObject(vm, val);
+	cardinalReleaseObject(vm, val);
 }
 
-bool udogGetArgumentBool(UDogVM* vm, int index) {
+bool cardinalGetArgumentBool(CardinalVM* vm, int index) {
 	ASSERT(vm->fiber->foreignCallSlot != NULL, "Must be in foreign call.");
 	ASSERT(index >= 0, "index cannot be negative.");
 	ASSERT(index < vm->fiber->foreignCallNumArgs, "Not that many arguments.");
@@ -2440,7 +2440,7 @@ bool udogGetArgumentBool(UDogVM* vm, int index) {
 	return AS_BOOL(*(vm->fiber->foreignCallSlot + index));
 }
 
-double udogGetArgumentDouble(UDogVM* vm, int index) {
+double cardinalGetArgumentDouble(CardinalVM* vm, int index) {
 	ASSERT(vm->fiber->foreignCallSlot != NULL, "Must be in foreign call.");
 	ASSERT(index >= 0, "index cannot be negative.");
 	ASSERT(index < vm->fiber->foreignCallNumArgs, "Not that many arguments.");
@@ -2450,7 +2450,7 @@ double udogGetArgumentDouble(UDogVM* vm, int index) {
 	return AS_NUM(*(vm->fiber->foreignCallSlot + index));
 }
 
-const char* udogGetArgumentString(UDogVM* vm, int index) {
+const char* cardinalGetArgumentString(CardinalVM* vm, int index) {
 	ASSERT(vm->fiber->foreignCallSlot != NULL, "Must be in foreign call.");
 	ASSERT(index >= 0, "index cannot be negative.");
 	ASSERT(index < vm->fiber->foreignCallNumArgs, "Not that many arguments.");
@@ -2460,34 +2460,34 @@ const char* udogGetArgumentString(UDogVM* vm, int index) {
 	return AS_CSTRING(*(vm->fiber->foreignCallSlot + index));
 }
 
-void udogReturnDouble(UDogVM* vm, double value) {
+void cardinalReturnDouble(CardinalVM* vm, double value) {
 	ASSERT(vm->fiber->foreignCallSlot != NULL, "Must be in foreign call.");
 
 	*vm->fiber->foreignCallSlot = NUM_VAL(value);
 	vm->fiber->foreignCallSlot = NULL;
 }
 
-void udogReturnNull(UDogVM* vm) {
+void cardinalReturnNull(CardinalVM* vm) {
 	ASSERT(vm->fiber->foreignCallSlot != NULL, "Must be in foreign call.");
 
 	*vm->fiber->foreignCallSlot = NULL_VAL;
 	vm->fiber->foreignCallSlot = NULL;
 }
 
-void udogReturnString(UDogVM* vm, const char* text, int length) {
+void cardinalReturnString(CardinalVM* vm, const char* text, int length) {
 	ASSERT(vm->fiber->foreignCallSlot != NULL, "Must be in foreign call.");
 
 	size_t size = length;
 	if (length == -1) size = strlen(text);
 
-	*vm->fiber->foreignCallSlot = udogNewString(vm, text, size);
+	*vm->fiber->foreignCallSlot = cardinalNewString(vm, text, size);
 	vm->fiber->foreignCallSlot = NULL;
 }
 
 // Provides a boolean return value for a foreign call. This must only be called
-// within a function provided to [udogDefineMethod]. Once this is called, the
+// within a function provided to [cardinalDefineMethod]. Once this is called, the
 // foreign call is done, and no more arguments can be read or return calls made.
-void udogReturnBool(UDogVM* vm, bool value) {
+void cardinalReturnBool(CardinalVM* vm, bool value) {
 	ASSERT(vm->fiber->foreignCallSlot != NULL, "Must be in foreign call.");
 
 	*vm->fiber->foreignCallSlot = BOOL_VAL(value);
@@ -2498,48 +2498,48 @@ void udogReturnBool(UDogVM* vm, bool value) {
 //// THE METHODS FOR BYTECODE
 ///////////////////////////////////////////////////////////////////////////////////
 
-// Loads [source], a string of UDog byte code, to an [ObjValue] that will
+// Loads [source], a string of Cardinal byte code, to an [ObjValue] that will
 // execute that code when invoked.
-UDogValue* udogLoadByteCode(UDogVM* vm, const char* sourcePath, const char* source) {
+CardinalValue* cardinalLoadByteCode(CardinalVM* vm, const char* sourcePath, const char* source) {
 	UNUSED(sourcePath);
-	Value name = udogNewString(vm, "main", 4);
+	Value name = cardinalNewString(vm, "main", 4);
 
 	ObjModule* module = loadModule(vm, name, NULL_VAL);
-	ObjFn* fn = udogCompileFromByteCode(vm, module, AS_CSTRING(name), source);
+	ObjFn* fn = cardinalCompileFromByteCode(vm, module, AS_CSTRING(name), source);
 	if (fn == NULL) return NULL;
 	module->func = fn;
 	
 	// Return the fiber that executes the module.
-	ObjFiber* fiber= udogNewFiber(vm, (Obj*)module->func);
+	ObjFiber* fiber= cardinalNewFiber(vm, (Obj*)module->func);
 	
 	if (fiber == NULL)
 		return NULL;
 
 	// Link the fiber to the GC
-	return udogCreateHostObject(vm, OBJ_VAL((Obj*) fiber));
+	return cardinalCreateHostObject(vm, OBJ_VAL((Obj*) fiber));
 }
 
 // Saves the entire state of the VM to a string
 // The value has to be released by the host application
-UDogValue* udogSaveByteCode(UDogVM* vm) {
+CardinalValue* cardinalSaveByteCode(CardinalVM* vm) {
 	const char* module = "main";
 	ObjModule* moduleObj = getCoreModule(vm);
 	if (module != NULL) {
-		Value moduleName = udogNewString(vm, module, strlen(module));
-		uint32_t moduleEntry = udogMapFind(vm->modules, moduleName);
+		Value moduleName = cardinalNewString(vm, module, strlen(module));
+		uint32_t moduleEntry = cardinalMapFind(vm->modules, moduleName);
 		
 		if (moduleEntry != UINT32_MAX) {
 			moduleObj = AS_MODULE(vm->modules->entries[moduleEntry].value);
 		}
 	}
 	
-	ObjString* bytecode = udogCompileToByteCode(vm, moduleObj);
+	ObjString* bytecode = cardinalCompileToByteCode(vm, moduleObj);
 	
 	// Link the string to the GC
-	return udogCreateHostObject(vm, OBJ_VAL((Obj*) bytecode));
+	return cardinalCreateHostObject(vm, OBJ_VAL((Obj*) bytecode));
 }
 
 // Sets the debug mode of the VM [vm] to boolean value [set]
-void udogSetDebugMode(UDogVM* vm, bool set) {
+void cardinalSetDebugMode(CardinalVM* vm, bool set) {
 	vm->debugMode = set;
 }

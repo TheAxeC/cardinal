@@ -1,8 +1,8 @@
-#ifndef udog_regex_h
-#define udog_regex_h
+#ifndef cardinal_regex_h
+#define cardinal_regex_h
 
-#include "udog.h"
-#include "udog_value.h"
+#include "cardinal.h"
+#include "cardinal_value.h"
 
 // This file defines a couple of functions that form a regex engine
 // The engine is written to be as compact as possible
@@ -57,7 +57,7 @@
 /// Struct containing the compiled regex expression
 /// The inputted string is compiled into binary data that
 /// is easier and faster to read by the regex engine
-typedef struct UDogRegex UDogRegex;
+typedef struct CardinalRegex CardinalRegex;
 
 /// A match in a regex expression
 typedef struct {
@@ -65,21 +65,21 @@ typedef struct {
 	const char* begin;
 	/// Length of the match
 	int len;
-} UDogRegexMatch;
+} CardinalRegexMatch;
 
 /**
- * @brief Compiles a pattern [pattern] into a regex [UDogRegex]
+ * @brief Compiles a pattern [pattern] into a regex [CardinalRegex]
  * @param pattern, the pattern that needs to be compiled
  * @param error, here the error message gets printed into in case of an error
  * @return the compiled pattern or NULL (in case of failure)
  */
-UDogRegex* udogCompileRegex(const char* pattern, const char** error);
+CardinalRegex* cardinalCompileRegex(const char* pattern, const char** error);
 
 /**
  * @brief deallocates an compiled expression [exp]
  * @param exp, the compiled expression
  */
-void udogFreeRegex(UDogRegex* exp);
+void cardinalFreeRegex(CardinalRegex* exp);
 
 /**
  * @brief checks if the string [text] can be matched by the regex [exp]
@@ -87,7 +87,7 @@ void udogFreeRegex(UDogRegex* exp);
  * @param text the string that needs to be matched
  * @return whether the string [text] matches or not
  */
-bool udogMatch(UDogRegex* exp, const char* text);
+bool cardinalMatch(CardinalRegex* exp, const char* text);
 
 /**
  * @brief Searches for a match to regex [exp] in the string [text]
@@ -99,7 +99,7 @@ bool udogMatch(UDogRegex* exp, const char* text);
  * @param outEnd, marks the beginning of the match
  * @return true if a match is found, false otherwise
  */
-bool udogSearch(UDogRegex* exp,const char* text, const char** outBegin, const char** outEnd);
+bool cardinalSearch(CardinalRegex* exp,const char* text, const char** outBegin, const char** outEnd);
 
 /**
  * @brief Searches for a match to regex [exp] in a string marked by
@@ -113,14 +113,14 @@ bool udogSearch(UDogRegex* exp,const char* text, const char** outBegin, const ch
  * @param outEnd, marks the end of a match
  * @return true if a match is found, false otherwise
  */
-bool udogSearchrange(UDogRegex* exp,const char* textBegin,const char* textEnd,const char** outBegin, const char** outEnd);
+bool cardinalSearchrange(CardinalRegex* exp,const char* textBegin,const char* textEnd,const char** outBegin, const char** outEnd);
 
 /**
  * @brief Gets the number of groups that matched within the compiled regex
  * @param exp, the compiled expression
  * @return  the number of matches
  */
-int udogGetGroupCount(UDogRegex* exp);
+int cardinalGetGroupCount(CardinalRegex* exp);
 
 /**
  * @brief searches for matched groups in a compiled expression
@@ -131,11 +131,11 @@ int udogGetGroupCount(UDogRegex* exp);
  * @param subexp, the submatch will be stored within this struct
  * @return whether the subexpression was found or not
  */
-bool udogGetSubexp(UDogRegex* exp, int n, UDogRegexMatch* subexp);
+bool cardinalGetSubexp(CardinalRegex* exp, int n, CardinalRegexMatch* subexp);
 
 // This module defines the Regex class and its associated methods. They are
 // implemented using the C standard library and the above engine
-void udogLoadRegexLibrary(UDogVM* vm);
+void cardinalLoadRegexLibrary(CardinalVM* vm);
 
 
 #endif

@@ -1,4 +1,4 @@
-#include "udog_regex.h"
+#include "cardinal_regex.h"
 
 #include <string.h>
 #include <stdlib.h>
@@ -20,32 +20,32 @@
 #define OP_BOL			(MAX_CHAR+12)
 #define OP_WB			(MAX_CHAR+13)
 
-#define UDOG_SYMBOL_ANY_CHAR ('.')
-#define UDOG_SYMBOL_GREEDY_ONE_OR_MORE ('+')
-#define UDOG_SYMBOL_GREEDY_ZERO_OR_MORE ('*')
-#define UDOG_SYMBOL_GREEDY_ZERO_OR_ONE ('?')
-#define UDOG_SYMBOL_BRANCH ('|')
-#define UDOG_SYMBOL_END_OF_STRING ('$')
-#define UDOG_SYMBOL_BEGINNING_OF_STRING ('^')
-#define UDOG_SYMBOL_ESCAPE_CHAR ('\\')
+#define CARDINAL_SYMBOL_ANY_CHAR ('.')
+#define CARDINAL_SYMBOL_GREEDY_ONE_OR_MORE ('+')
+#define CARDINAL_SYMBOL_GREEDY_ZERO_OR_MORE ('*')
+#define CARDINAL_SYMBOL_GREEDY_ZERO_OR_ONE ('?')
+#define CARDINAL_SYMBOL_BRANCH ('|')
+#define CARDINAL_SYMBOL_END_OF_STRING ('$')
+#define CARDINAL_SYMBOL_BEGINNING_OF_STRING ('^')
+#define CARDINAL_SYMBOL_ESCAPE_CHAR ('\\')
 
 /// Type of a node
-typedef int UDogNodeType;
+typedef int CardinalNodeType;
 
-/// UDog Regex node
-typedef struct UDogRegexNode {
+/// Cardinal Regex node
+typedef struct CardinalRegexNode {
 	/// Indicates the type
-	UDogNodeType type;
+	CardinalNodeType type;
 	/// Left leaf
 	int left;
 	/// right leaf
 	int right;
 	/// next node
 	int next;
-} UDogRegexNode;
+} CardinalRegexNode;
 
 /// Represents an entire compiled regex expression
-struct UDogRegex {
+struct CardinalRegex {
 	/// End of line
 	const char* eol;
 	/// Begin of line
@@ -57,7 +57,7 @@ struct UDogRegex {
 	/// Current opcode
 	int op;
 	/// Used nodes
-	UDogRegexNode* nodes;
+	CardinalRegexNode* nodes;
 	/// Allocated bytes
 	int allocated;
 	/// Size of the regex
@@ -65,7 +65,7 @@ struct UDogRegex {
 	/// Nbr of subexpressions
 	int nbrSubExpr;
 	/// All matches
-	UDogRegexMatch* matches;
+	CardinalRegexMatch* matches;
 	/// Current subexpression
 	int currSubExp;
 	/// Jump buffer
@@ -74,10 +74,10 @@ struct UDogRegex {
 	const char** error;
 };
 
-static int udogList(UDogRegex *exp);
+static int cardinalList(CardinalRegex *exp);
 
-static int udogNewNode(UDogRegex *exp, UDogNodeType type) {
-	UDogRegexNode n;
+static int cardinalNewNode(CardinalRegex *exp, CardinalNodeType type) {
+	CardinalRegexNode n;
 	int newid;
 	n.type = type;
 	n.next = n.right = n.left = -1;
@@ -85,26 +85,26 @@ static int udogNewNode(UDogRegex *exp, UDogNodeType type) {
 		n.right = exp->currSubExp++;
 	if(exp->allocated < (exp->size + 1)) {
 		exp->allocated *= 2;
-		exp->nodes = (UDogRegexNode *)realloc(exp->nodes, exp->allocated * sizeof(UDogRegexNode));
+		exp->nodes = (CardinalRegexNode *)realloc(exp->nodes, exp->allocated * sizeof(CardinalRegexNode));
 	}
 	exp->nodes[exp->size++] = n;
 	newid = exp->size - 1;
 	return (int)newid;
 }
 
-static void udogError(UDogRegex *exp,const char *error) {
+static void cardinalError(CardinalRegex *exp,const char *error) {
 	if(exp->error) *exp->error = error;
 	longjmp(*((jmp_buf*)exp->jmpBuf),-1);
 }
 
-static void udogExpect(UDogRegex *exp, int n) {
+static void cardinalExpect(CardinalRegex *exp, int n) {
 	if((*exp->p) != n) 
-		udogError(exp,  ("expected paren"));
+		cardinalError(exp,  ("expected paren"));
 	exp->p++;
 }
 
-static char udogEscapeChar(UDogRegex *exp) {
-	if(*exp->p == UDOG_SYMBOL_ESCAPE_CHAR){
+static char cardinalEscapeChar(CardinalRegex *exp) {
+	if(*exp->p == CARDINAL_SYMBOL_ESCAPE_CHAR){
 		exp->p++;
 		switch(*exp->p) {
 		case 'v': exp->p++; return '\v';
@@ -114,73 +114,73 @@ static char udogEscapeChar(UDogRegex *exp) {
 		case 'f': exp->p++; return '\f';
 		default: return (*exp->p++);
 		}
-	} else if(!isprint(*exp->p)) udogError(exp, ("letter expected"));
+	} else if(!isprint(*exp->p)) cardinalError(exp, ("letter expected"));
 	return (*exp->p++);
 }
 
-static int udogCharClass(UDogRegex *exp,int classid) {
-	int n = udogNewNode(exp,OP_CCLASS);
+static int cardinalCharClass(CardinalRegex *exp,int classid) {
+	int n = cardinalNewNode(exp,OP_CCLASS);
 	exp->nodes[n].left = classid;
 	return n;
 }
 
-static int udogCharNode(UDogRegex *exp,bool isclass) {
+static int cardinalCharNode(CardinalRegex *exp,bool isclass) {
 	char t;
-	if(*exp->p == UDOG_SYMBOL_ESCAPE_CHAR) {
+	if(*exp->p == CARDINAL_SYMBOL_ESCAPE_CHAR) {
 		exp->p++;
 		switch(*exp->p) {
-			case 'n': exp->p++; return udogNewNode(exp,'\n');
-			case 't': exp->p++; return udogNewNode(exp,'\t');
-			case 'r': exp->p++; return udogNewNode(exp,'\r');
-			case 'f': exp->p++; return udogNewNode(exp,'\f');
-			case 'v': exp->p++; return udogNewNode(exp,'\v');
+			case 'n': exp->p++; return cardinalNewNode(exp,'\n');
+			case 't': exp->p++; return cardinalNewNode(exp,'\t');
+			case 'r': exp->p++; return cardinalNewNode(exp,'\r');
+			case 'f': exp->p++; return cardinalNewNode(exp,'\f');
+			case 'v': exp->p++; return cardinalNewNode(exp,'\v');
 			case 'a': case 'A': case 'w': case 'W': case 's': case 'S': 
 			case 'd': case 'D': case 'x': case 'X': case 'c': case 'C': 
 			case 'p': case 'P': case 'l': case 'u': 
 				{
 				t = *exp->p; exp->p++; 
-				return udogCharClass(exp,t);
+				return cardinalCharClass(exp,t);
 				}
 			case 'b': 
 			case 'B':
 				if(!isclass) {
-					int node = udogNewNode(exp,OP_WB);
+					int node = cardinalNewNode(exp,OP_WB);
 					exp->nodes[node].left = *exp->p;
 					exp->p++; 
 					return node;
 				} //else default
 			default: 
 				t = *exp->p; exp->p++; 
-				return udogNewNode(exp,t);
+				return cardinalNewNode(exp,t);
 		}
 	}
 	else if(!isprint(*exp->p)) {
 		
-		udogError(exp, ("letter expected"));
+		cardinalError(exp, ("letter expected"));
 	}
 	t = *exp->p; exp->p++; 
-	return udogNewNode(exp,t);
+	return cardinalNewNode(exp,t);
 }
 
-static int udogClass(UDogRegex *exp) {
+static int cardinalClass(CardinalRegex *exp) {
 	int ret = -1;
 	int first = -1,chain;
-	if(*exp->p == UDOG_SYMBOL_BEGINNING_OF_STRING){
-		ret = udogNewNode(exp,OP_NCLASS);
+	if(*exp->p == CARDINAL_SYMBOL_BEGINNING_OF_STRING){
+		ret = cardinalNewNode(exp,OP_NCLASS);
 		exp->p++;
-	}else ret = udogNewNode(exp,OP_CLASS);
+	}else ret = cardinalNewNode(exp,OP_CLASS);
 	
-	if(*exp->p == ']') udogError(exp, ("empty class"));
+	if(*exp->p == ']') cardinalError(exp, ("empty class"));
 	chain = ret;
 	while(*exp->p != ']' && exp->p != exp->eol) {
 		if(*exp->p == '-' && first != -1){ 
 			int r,t;
-			if(*exp->p++ == ']') udogError(exp, ("unfinished range"));
-			r = udogNewNode(exp,OP_RANGE);
-			if(first>*exp->p) udogError(exp, ("invalid range"));
-			if(exp->nodes[first].type == OP_CCLASS) udogError(exp, ("cannot use character classes in ranges"));
+			if(*exp->p++ == ']') cardinalError(exp, ("unfinished range"));
+			r = cardinalNewNode(exp,OP_RANGE);
+			if(first>*exp->p) cardinalError(exp, ("invalid range"));
+			if(exp->nodes[first].type == OP_CCLASS) cardinalError(exp, ("cannot use character classes in ranges"));
 			exp->nodes[r].left = exp->nodes[first].type;
-			t = udogEscapeChar(exp);
+			t = cardinalEscapeChar(exp);
 			exp->nodes[r].right = t;
             exp->nodes[chain].next = r;
 			chain = r;
@@ -191,10 +191,10 @@ static int udogClass(UDogRegex *exp) {
 				int c = first;
 				exp->nodes[chain].next = c;
 				chain = c;
-				first = udogCharNode(exp,true);
+				first = cardinalCharNode(exp,true);
 			}
 			else{
-				first = udogCharNode(exp,true);
+				first = cardinalCharNode(exp,true);
 			}
 		}
 	}
@@ -210,19 +210,19 @@ static int udogClass(UDogRegex *exp) {
 	return ret;
 }
 
-static int udogParseNumber(UDogRegex *exp) {
+static int cardinalParseNumber(CardinalRegex *exp) {
 	int ret = *exp->p-'0';
 	int positions = 10;
 	exp->p++;
 	while(isdigit(*exp->p)) {
 		ret = ret*10+(*exp->p++-'0');
-		if(positions==1000000000) udogError(exp, ("overflow in numeric constant"));
+		if(positions==1000000000) cardinalError(exp, ("overflow in numeric constant"));
 		positions *= 10;
 	};
 	return ret;
 }
 
-static int udogElement(UDogRegex *exp) {
+static int cardinalElement(CardinalRegex *exp) {
 	int ret = -1;
 	switch(*exp->p)
 	{
@@ -233,26 +233,26 @@ static int udogElement(UDogRegex *exp) {
 
 		if(*exp->p =='?') {
 			exp->p++;
-			udogExpect(exp,':');
-			expr = udogNewNode(exp,OP_NOCAPEXPR);
+			cardinalExpect(exp,':');
+			expr = cardinalNewNode(exp,OP_NOCAPEXPR);
 		}
 		else
-			expr = udogNewNode(exp,OP_EXPR);
-		newn = udogList(exp);
+			expr = cardinalNewNode(exp,OP_EXPR);
+		newn = cardinalList(exp);
 		exp->nodes[expr].left = newn;
 		ret = expr;
-		udogExpect(exp,')');
+		cardinalExpect(exp,')');
 			  }
 			  break;
 	case '[':
 		exp->p++;
-		ret = udogClass(exp);
-		udogExpect(exp,']');
+		ret = cardinalClass(exp);
+		cardinalExpect(exp,']');
 		break;
-	case UDOG_SYMBOL_END_OF_STRING: exp->p++; ret = udogNewNode(exp,OP_EOL);break;
-	case UDOG_SYMBOL_ANY_CHAR: exp->p++; ret = udogNewNode(exp,OP_DOT);break;
+	case CARDINAL_SYMBOL_END_OF_STRING: exp->p++; ret = cardinalNewNode(exp,OP_EOL);break;
+	case CARDINAL_SYMBOL_ANY_CHAR: exp->p++; ret = cardinalNewNode(exp,OP_DOT);break;
 	default:
-		ret = udogCharNode(exp,false);
+		ret = cardinalCharNode(exp,false);
 		break;
 	}
 
@@ -261,13 +261,13 @@ static int udogElement(UDogRegex *exp) {
 		bool isgreedy = false;
 		unsigned short p0 = 0, p1 = 0;
 		switch(*exp->p) {
-			case UDOG_SYMBOL_GREEDY_ZERO_OR_MORE: p0 = 0; p1 = 0xFFFF; exp->p++; isgreedy = true; break;
-			case UDOG_SYMBOL_GREEDY_ONE_OR_MORE: p0 = 1; p1 = 0xFFFF; exp->p++; isgreedy = true; break;
-			case UDOG_SYMBOL_GREEDY_ZERO_OR_ONE: p0 = 0; p1 = 1; exp->p++; isgreedy = true; break;
+			case CARDINAL_SYMBOL_GREEDY_ZERO_OR_MORE: p0 = 0; p1 = 0xFFFF; exp->p++; isgreedy = true; break;
+			case CARDINAL_SYMBOL_GREEDY_ONE_OR_MORE: p0 = 1; p1 = 0xFFFF; exp->p++; isgreedy = true; break;
+			case CARDINAL_SYMBOL_GREEDY_ZERO_OR_ONE: p0 = 0; p1 = 1; exp->p++; isgreedy = true; break;
 			case '{':
 				exp->p++;
-				if(!isdigit(*exp->p)) udogError(exp, ("number expected"));
-				p0 = (unsigned short)udogParseNumber(exp);
+				if(!isdigit(*exp->p)) cardinalError(exp, ("number expected"));
+				p0 = (unsigned short)cardinalParseNumber(exp);
 				////////////////////////////////
 				switch(*exp->p) {
 					case '}':
@@ -277,12 +277,12 @@ static int udogElement(UDogRegex *exp) {
 						exp->p++;
 						p1 = 0xFFFF;
 						if(isdigit(*exp->p)){
-							p1 = (unsigned short)udogParseNumber(exp);
+							p1 = (unsigned short)cardinalParseNumber(exp);
 						}
-						udogExpect(exp,'}');
+						cardinalExpect(exp,'}');
 						break;
 					default:
-						udogError(exp, (", or } expected"));
+						cardinalError(exp, (", or } expected"));
 				}
 				//////////////////////////////////
 				isgreedy = true; 
@@ -291,46 +291,46 @@ static int udogElement(UDogRegex *exp) {
 				break;
 		}
 		if(isgreedy) {
-			int nnode = udogNewNode(exp,OP_GREEDY);
+			int nnode = cardinalNewNode(exp,OP_GREEDY);
 			//op = OP_GREEDY;
 			exp->nodes[nnode].left = ret;
 			exp->nodes[nnode].right = ((p0)<<16)|p1;
 			ret = nnode;
 		}
 	}
-	if((*exp->p != UDOG_SYMBOL_BRANCH) && (*exp->p != ')') && (*exp->p != UDOG_SYMBOL_GREEDY_ZERO_OR_MORE) && (*exp->p != UDOG_SYMBOL_GREEDY_ONE_OR_MORE) && (*exp->p != '\0')) {
-		int nnode = udogElement(exp);
+	if((*exp->p != CARDINAL_SYMBOL_BRANCH) && (*exp->p != ')') && (*exp->p != CARDINAL_SYMBOL_GREEDY_ZERO_OR_MORE) && (*exp->p != CARDINAL_SYMBOL_GREEDY_ONE_OR_MORE) && (*exp->p != '\0')) {
+		int nnode = cardinalElement(exp);
 		exp->nodes[ret].next = nnode;
 	}
 
 	return ret;
 }
 
-static int udogList(UDogRegex *exp) {
+static int cardinalList(CardinalRegex *exp) {
 	int ret=-1,e;
-	if(*exp->p == UDOG_SYMBOL_BEGINNING_OF_STRING) {
+	if(*exp->p == CARDINAL_SYMBOL_BEGINNING_OF_STRING) {
 		exp->p++;
-		ret = udogNewNode(exp,OP_BOL);
+		ret = cardinalNewNode(exp,OP_BOL);
 	}
-	e = udogElement(exp);
+	e = cardinalElement(exp);
 	if(ret != -1) {
 		exp->nodes[ret].next = e;
 	}
 	else ret = e;
 
-	if(*exp->p == UDOG_SYMBOL_BRANCH) {
+	if(*exp->p == CARDINAL_SYMBOL_BRANCH) {
 		int temp,tright;
 		exp->p++;
-		temp = udogNewNode(exp,OP_OR);
+		temp = cardinalNewNode(exp,OP_OR);
 		exp->nodes[temp].left = ret;
-		tright = udogList(exp);
+		tright = cardinalList(exp);
 		exp->nodes[temp].right = tright;
 		ret = temp;
 	}
 	return ret;
 }
 
-static bool udogMatchCClass(int cclass, char c) {
+static bool cardinalMatchCClass(int cclass, char c) {
 	switch(cclass) {
 	case 'a': return isalpha(c)?true:false;
 	case 'A': return !isalpha(c)?true:false;
@@ -354,14 +354,14 @@ static bool udogMatchCClass(int cclass, char c) {
 	return false; //cannot happen//
 }
 
-static bool udogMatchClass(UDogRegex* exp,UDogRegexNode *node,char c) {
+static bool cardinalMatchClass(CardinalRegex* exp,CardinalRegexNode *node,char c) {
 	do {
 		switch(node->type) {
 			case OP_RANGE:
 				if(c >= node->left && c <= node->right) return true;
 				break;
 			case OP_CCLASS:
-				if(udogMatchCClass(node->left,c)) return true;
+				if(cardinalMatchCClass(node->left,c)) return true;
 				break;
 			default:
 				if(c == node->type)return true;
@@ -370,13 +370,13 @@ static bool udogMatchClass(UDogRegex* exp,UDogRegexNode *node,char c) {
 	return false;
 }
 
-static const char *udogMatchNode(UDogRegex* exp,UDogRegexNode *node,const char *str,UDogRegexNode *next) {
+static const char *cardinalMatchNode(CardinalRegex* exp,CardinalRegexNode *node,const char *str,CardinalRegexNode *next) {
 	
-	UDogNodeType type = node->type;
+	CardinalNodeType type = node->type;
 	switch(type) {
 	case OP_GREEDY: {
-		//UDogRegexNode *greedystop = (node->next != -1) ? &exp->nodes[node->next] : NULL;
-		UDogRegexNode *greedystop = NULL;
+		//CardinalRegexNode *greedystop = (node->next != -1) ? &exp->nodes[node->next] : NULL;
+		CardinalRegexNode *greedystop = NULL;
 		int p0 = (node->right >> 16)&0x0000FFFF, p1 = node->right&0x0000FFFF, nmaches = 0;
 		const char *s=str, *good = str;
 
@@ -390,7 +390,7 @@ static const char *udogMatchNode(UDogRegex* exp,UDogRegexNode *node,const char *
 		while((nmaches == 0xFFFF || nmaches < p1)) {
 
 			const char *stop;
-			if(!(s = udogMatchNode(exp,&exp->nodes[node->left],s,greedystop)))
+			if(!(s = cardinalMatchNode(exp,&exp->nodes[node->left],s,greedystop)))
 				break;
 			nmaches++;
 			good=s;
@@ -400,13 +400,13 @@ static const char *udogMatchNode(UDogRegex* exp,UDogRegexNode *node,const char *
 				if(greedystop->type != OP_GREEDY ||
 				(greedystop->type == OP_GREEDY && ((greedystop->right >> 16)&0x0000FFFF) != 0))
 				{
-					UDogRegexNode *gnext = NULL;
+					CardinalRegexNode *gnext = NULL;
 					if(greedystop->next != -1) {
 						gnext = &exp->nodes[greedystop->next];
 					}else if(next && next->next != -1){
 						gnext = &exp->nodes[next->next];
 					}
-					stop = udogMatchNode(exp,greedystop,s,gnext);
+					stop = cardinalMatchNode(exp,greedystop,s,gnext);
 					if(stop) {
 						//if satisfied stop it
 						if(p0 == p1 && p0 == nmaches) break;
@@ -426,8 +426,8 @@ static const char *udogMatchNode(UDogRegex* exp,UDogRegexNode *node,const char *
 	}
 	case OP_OR: {
 			const char *asd = str;
-			UDogRegexNode *temp=&exp->nodes[node->left];
-			while( (asd = udogMatchNode(exp,temp,asd,NULL)) ) {
+			CardinalRegexNode *temp=&exp->nodes[node->left];
+			while( (asd = cardinalMatchNode(exp,temp,asd,NULL)) ) {
 				if(temp->next != -1)
 					temp = &exp->nodes[temp->next];
 				else
@@ -435,7 +435,7 @@ static const char *udogMatchNode(UDogRegex* exp,UDogRegexNode *node,const char *
 			}
 			asd = str;
 			temp = &exp->nodes[node->right];
-			while( (asd = udogMatchNode(exp,temp,asd,NULL)) ) {
+			while( (asd = cardinalMatchNode(exp,temp,asd,NULL)) ) {
 				if(temp->next != -1)
 					temp = &exp->nodes[temp->next];
 				else
@@ -446,7 +446,7 @@ static const char *udogMatchNode(UDogRegex* exp,UDogRegexNode *node,const char *
 	}
 	case OP_EXPR:
 	case OP_NOCAPEXPR:{
-			UDogRegexNode *n = &exp->nodes[node->left];
+			CardinalRegexNode *n = &exp->nodes[node->left];
 			const char *cur = str;
 			int capture = -1;
 			if(node->type != OP_NOCAPEXPR && node->right == exp->currSubExp) {
@@ -456,13 +456,13 @@ static const char *udogMatchNode(UDogRegex* exp,UDogRegexNode *node,const char *
 			}
 			
 			do {
-				UDogRegexNode *subnext = NULL;
+				CardinalRegexNode *subnext = NULL;
 				if(n->next != -1) {
 					subnext = &exp->nodes[n->next];
 				}else {
 					subnext = next;
 				}
-				if(!(cur = udogMatchNode(exp,n,cur,subnext))) {
+				if(!(cur = cardinalMatchNode(exp,n,cur,subnext))) {
 					if(capture != -1){
 						exp->matches[capture].begin = 0;
 						exp->matches[capture].len = 0;
@@ -495,13 +495,13 @@ static const char *udogMatchNode(UDogRegex* exp,UDogRegexNode *node,const char *
 		return str;
 	case OP_NCLASS:
 	case OP_CLASS:
-		if(udogMatchClass(exp,&exp->nodes[node->left],*str)?(type == OP_CLASS?true:false):(type == OP_NCLASS?true:false)) {
+		if(cardinalMatchClass(exp,&exp->nodes[node->left],*str)?(type == OP_CLASS?true:false):(type == OP_NCLASS?true:false)) {
 			UNUSED(*str++);
 			return str;
 		}
 		return NULL;
 	case OP_CCLASS:
-		if(udogMatchCClass(node->left,*str)) {
+		if(cardinalMatchCClass(node->left,*str)) {
 			UNUSED(*str++);
 			return str;
 		}
@@ -515,34 +515,34 @@ static const char *udogMatchNode(UDogRegex* exp,UDogRegexNode *node,const char *
 }
 
 /**
- * @brief Compiles a pattern [pattern] into a regex [UDogRegex]
+ * @brief Compiles a pattern [pattern] into a regex [CardinalRegex]
  * @param pattern, the pattern that needs to be compiled
  * @param error, here the error message gets printed into in case of an error
  * @return the compiled pattern or NULL (in case of failure)
  */
-UDogRegex* udogCompileRegex(const char* pattern, const char** error) {
-	UDogRegex* exp = (UDogRegex *)malloc(sizeof(UDogRegex));
+CardinalRegex* cardinalCompileRegex(const char* pattern, const char** error) {
+	CardinalRegex* exp = (CardinalRegex *)malloc(sizeof(CardinalRegex));
 	exp->eol = exp->bol = NULL;
 	exp->p = pattern;
 	exp->allocated = (int)strlen(pattern) * sizeof(char);
-	exp->nodes = (UDogRegexNode *)malloc(exp->allocated * sizeof(UDogRegexNode));
+	exp->nodes = (CardinalRegexNode *)malloc(exp->allocated * sizeof(CardinalRegexNode));
 	exp->size = 0;
 	exp->matches = 0;
 	exp->nbrSubExpr = 0;
 	exp->currSubExp = 0;
-	exp->first = udogNewNode(exp,OP_EXPR);
+	exp->first = cardinalNewNode(exp,OP_EXPR);
 	exp->error = error;
 	exp->jmpBuf = malloc(sizeof(jmp_buf));
 	if(setjmp(*((jmp_buf*)exp->jmpBuf)) == 0) {
-		int res = udogList(exp);
+		int res = cardinalList(exp);
 		exp->nodes[exp->first].left = res;
 		if(*exp->p!='\0')
-			udogError(exp, ("unexpected character"));
-		exp->matches = (UDogRegexMatch *) malloc(exp->currSubExp * sizeof(UDogRegexMatch));
-		memset(exp->matches,0,exp->currSubExp * sizeof(UDogRegexMatch));
+			cardinalError(exp, ("unexpected character"));
+		exp->matches = (CardinalRegexMatch *) malloc(exp->currSubExp * sizeof(CardinalRegexMatch));
+		memset(exp->matches,0,exp->currSubExp * sizeof(CardinalRegexMatch));
 	}
 	else{
-		udogFreeRegex(exp);
+		cardinalFreeRegex(exp);
 		return NULL;
 	}
 	return exp;
@@ -552,7 +552,7 @@ UDogRegex* udogCompileRegex(const char* pattern, const char** error) {
  * @brief deallocates an compiled expression [exp]
  * @param exp, the compiled expression
  */
-void udogFreeRegex(UDogRegex* exp) {
+void cardinalFreeRegex(CardinalRegex* exp) {
 	if(exp)	{
 		if(exp->nodes) free(exp->nodes);
 		if(exp->jmpBuf) free(exp->jmpBuf);
@@ -567,12 +567,12 @@ void udogFreeRegex(UDogRegex* exp) {
  * @param text the string that needs to be matched
  * @return whether the string [text] matches or not
  */
-bool udogMatch(UDogRegex* exp, const char* text) {
+bool cardinalMatch(CardinalRegex* exp, const char* text) {
 	const char* res = NULL;
 	exp->bol = text;
 	exp->eol = text + strlen(text);
 	exp->currSubExp = 0;
-	res = udogMatchNode(exp,exp->nodes,text,NULL);
+	res = cardinalMatchNode(exp,exp->nodes,text,NULL);
 	if(res == NULL || res != exp->eol)
 		return false;
 	return true;
@@ -588,8 +588,8 @@ bool udogMatch(UDogRegex* exp, const char* text) {
  * @param outEnd, marks the beginning of the match
  * @return true if a match is found, false otherwise
  */
-bool udogSearch(UDogRegex* exp,const char* text, const char** outBegin, const char** outEnd) {
-	return udogSearchrange(exp, text, text + strlen(text), outBegin, outEnd);
+bool cardinalSearch(CardinalRegex* exp,const char* text, const char** outBegin, const char** outEnd) {
+	return cardinalSearchrange(exp, text, text + strlen(text), outBegin, outEnd);
 }
 
 /**
@@ -604,7 +604,7 @@ bool udogSearch(UDogRegex* exp,const char* text, const char** outBegin, const ch
  * @param outEnd, marks the end of a match
  * @return true if a match is found, false otherwise
  */
-bool udogSearchrange(UDogRegex* exp,const char* textBegin,const char* textEnd,const char** outBegin, const char** outEnd) {
+bool cardinalSearchrange(CardinalRegex* exp,const char* textBegin,const char* textEnd,const char** outBegin, const char** outEnd) {
 	const char* cur = NULL;
 	int node = exp->first;
 	if(textBegin >= textEnd) return false;
@@ -614,7 +614,7 @@ bool udogSearchrange(UDogRegex* exp,const char* textBegin,const char* textEnd,co
 		cur = textBegin;
 		while(node != -1) {
 			exp->currSubExp = 0;
-			cur = udogMatchNode(exp,&exp->nodes[node],cur,NULL);
+			cur = cardinalMatchNode(exp,&exp->nodes[node],cur,NULL);
 			if(!cur)
 				break;
 			node = exp->nodes[node].next;
@@ -637,7 +637,7 @@ bool udogSearchrange(UDogRegex* exp,const char* textBegin,const char* textEnd,co
  * @param exp, the compiled expression
  * @return  the number of matches
  */
-int udogGetGroupCount(UDogRegex* exp) {
+int cardinalGetGroupCount(CardinalRegex* exp) {
 	return exp->nbrSubExpr;
 }
 
@@ -650,7 +650,7 @@ int udogGetGroupCount(UDogRegex* exp) {
  * @param subexp, the submatch will be stored within this struct
  * @return whether the subexpression was found or not
  */
-bool udogGetSubexp(UDogRegex* exp, int n, UDogRegexMatch* subexp) {
+bool cardinalGetSubexp(CardinalRegex* exp, int n, CardinalRegexMatch* subexp) {
 	if(n < 0 || n >= exp->nbrSubExpr) return false;
 	*subexp = exp->matches[n];
 	return true;
@@ -660,134 +660,134 @@ bool udogGetSubexp(UDogRegex* exp, int n, UDogRegexMatch* subexp) {
 //// REGEX LIBRARY
 ///////////////////////////////////////////////////////////////////////////////////
 
-/// Defines the struct used in UDog
+/// Defines the struct used in Cardinal
 typedef struct ScriptRegex {
 	/// The regex
-	UDogRegex* regex;
+	CardinalRegex* regex;
 	/// Set if the regex is being used or not
 	bool inUse;
 } ScriptRegex;
 
 // Creates a new regex expression
-static void newRegex(UDogVM* vm) {
-	UDogValue* val = udogGetArgument(vm, 0);
-	ScriptRegex* regex = (ScriptRegex*) udogGetInstance(vm, val);
+static void newRegex(CardinalVM* vm) {
+	CardinalValue* val = cardinalGetArgument(vm, 0);
+	ScriptRegex* regex = (ScriptRegex*) cardinalGetInstance(vm, val);
 	
 	regex->inUse = false;
 	regex->regex = NULL;
 	
-	udogReturnValue(vm, val);
+	cardinalReturnValue(vm, val);
 }
 
 // Destroys regex expression
 static void destructRegex(void* obj) {
 	ScriptRegex* regex = (ScriptRegex*) obj;
 	
-	if (regex->inUse) udogFreeRegex(regex->regex);
+	if (regex->inUse) cardinalFreeRegex(regex->regex);
 }
 
 // Gets the number of groups that matched within the compiled regex
-static void getGroupCountRegex(UDogVM* vm) {
-	UDogValue* val = udogGetArgument(vm, 0);
-	ScriptRegex* regex = (ScriptRegex*) udogGetInstance(vm, val);
+static void getGroupCountRegex(CardinalVM* vm) {
+	CardinalValue* val = cardinalGetArgument(vm, 0);
+	ScriptRegex* regex = (ScriptRegex*) cardinalGetInstance(vm, val);
 	
 	int nbGroups = -1;
-	if (regex->inUse) nbGroups = udogGetGroupCount(regex->regex);
+	if (regex->inUse) nbGroups = cardinalGetGroupCount(regex->regex);
 	
-	udogReturnDouble(vm, nbGroups);
-	udogReleaseObject(vm, val);
+	cardinalReturnDouble(vm, nbGroups);
+	cardinalReleaseObject(vm, val);
 }
 
-// Compiles a pattern [pattern] into a regex [UDogRegex]
-static void compileRegex(UDogVM* vm) {
-	UDogValue* val = udogGetArgument(vm, 0);
-	ScriptRegex* regex = (ScriptRegex*) udogGetInstance(vm, val);
-	const char* pattern = udogGetArgumentString(vm, 1);
+// Compiles a pattern [pattern] into a regex [CardinalRegex]
+static void compileRegex(CardinalVM* vm) {
+	CardinalValue* val = cardinalGetArgument(vm, 0);
+	ScriptRegex* regex = (ScriptRegex*) cardinalGetInstance(vm, val);
+	const char* pattern = cardinalGetArgumentString(vm, 1);
 	
 	if (regex->inUse)
-		udogFreeRegex(regex->regex);
+		cardinalFreeRegex(regex->regex);
 	
 	const char* error = NULL;
-	UDogRegex* x = udogCompileRegex(pattern, &error);
+	CardinalRegex* x = cardinalCompileRegex(pattern, &error);
 	
 	if (x) {
 		regex->regex = x;
 		regex->inUse = true;
-		udogReturnValue(vm, val);
+		cardinalReturnValue(vm, val);
 	}
 	else {
-		udogReturnString(vm, error, strlen(error));
-		udogReleaseObject(vm, val);
+		cardinalReturnString(vm, error, strlen(error));
+		cardinalReleaseObject(vm, val);
 	}
 }
 
 // checks if the string [text] can be matched by the regex [exp]
-static void matchRegex(UDogVM* vm) {
-	UDogValue* val = udogGetArgument(vm, 0);
-	ScriptRegex* regex = (ScriptRegex*) udogGetInstance(vm, val);
-	const char* pattern = udogGetArgumentString(vm, 1);
+static void matchRegex(CardinalVM* vm) {
+	CardinalValue* val = cardinalGetArgument(vm, 0);
+	ScriptRegex* regex = (ScriptRegex*) cardinalGetInstance(vm, val);
+	const char* pattern = cardinalGetArgumentString(vm, 1);
 	bool match = false;
 	if (regex->inUse)
-		match = udogMatch(regex->regex, pattern);
-	udogReturnBool(vm, match);
-	udogReleaseObject(vm, val);
+		match = cardinalMatch(regex->regex, pattern);
+	cardinalReturnBool(vm, match);
+	cardinalReleaseObject(vm, val);
 }
 
 // Searches for a match to regex [exp] in the string [text]
-static void searchRegex(UDogVM* vm) {
-	UDogValue* val = udogGetArgument(vm, 0);
-	ScriptRegex* regex = (ScriptRegex*) udogGetInstance(vm, val);
+static void searchRegex(CardinalVM* vm) {
+	CardinalValue* val = cardinalGetArgument(vm, 0);
+	ScriptRegex* regex = (ScriptRegex*) cardinalGetInstance(vm, val);
 	const char* begin = NULL;
 	const char* end = NULL;
-	const char* text = udogGetArgumentString(vm, 1);
+	const char* text = cardinalGetArgumentString(vm, 1);
 	
 	bool match = false;
 	if (regex->inUse)
-		match = udogSearch(regex->regex, text, &begin, &end);
+		match = cardinalSearch(regex->regex, text, &begin, &end);
 	if (match) {
-		udogReturnString(vm, begin, end-begin);
+		cardinalReturnString(vm, begin, end-begin);
 	}
-	else udogReturnNull(vm);
+	else cardinalReturnNull(vm);
 	
-	udogReleaseObject(vm, val);
+	cardinalReleaseObject(vm, val);
 }
 
 // searches for matched groups in a compiled expression
-static void getGroupRegex(UDogVM* vm) {
-	UDogValue* val = udogGetArgument(vm, 0);
-	ScriptRegex* regex = (ScriptRegex*) udogGetInstance(vm, val);
-	double nb = udogGetArgumentDouble(vm, 1);
+static void getGroupRegex(CardinalVM* vm) {
+	CardinalValue* val = cardinalGetArgument(vm, 0);
+	ScriptRegex* regex = (ScriptRegex*) cardinalGetInstance(vm, val);
+	double nb = cardinalGetArgumentDouble(vm, 1);
 	
 	if (regex->inUse) {
-		UDogRegexMatch subExp;
+		CardinalRegexMatch subExp;
 		subExp.len = -1;
 		subExp.begin = "empty";
-		udogGetSubexp(regex->regex, nb, &subExp);
+		cardinalGetSubexp(regex->regex, nb, &subExp);
 		
 		// Put subExp into a string and return
-		udogReturnString(vm, subExp.begin, subExp.len);
+		cardinalReturnString(vm, subExp.begin, subExp.len);
 	} else {
-		udogReturnNull(vm);
+		cardinalReturnNull(vm);
 	}
 	
-	udogReleaseObject(vm, val);
+	cardinalReleaseObject(vm, val);
 }
 
 // This module defines the Regex class and its associated methods. They are
 // implemented using the C standard library and the above engine
-void udogLoadRegexLibrary(UDogVM* vm) {
+void cardinalLoadRegexLibrary(CardinalVM* vm) {
 	// Defines the regex class
-	udogDefineClass(vm, NULL, "Regex", sizeof(ScriptRegex), NULL);
+	cardinalDefineClass(vm, NULL, "Regex", sizeof(ScriptRegex), NULL);
 	
 	// Defines the constructor and destructor
-	udogDefineMethod(vm, NULL, "Regex", "new", newRegex);
-	udogDefineDestructor(vm, NULL, "Regex", destructRegex);
+	cardinalDefineMethod(vm, NULL, "Regex", "new", newRegex);
+	cardinalDefineDestructor(vm, NULL, "Regex", destructRegex);
 	
 	// Define the methods on the Regex class
-	udogDefineMethod(vm, NULL, "Regex", "match(_)", matchRegex);
-	udogDefineMethod(vm, NULL, "Regex", "search(_)", searchRegex);
-	udogDefineMethod(vm, NULL, "Regex", "getGroup(_)", getGroupRegex);
-	udogDefineMethod(vm, NULL, "Regex", "compile(_)", compileRegex);
-	udogDefineMethod(vm, NULL, "Regex", "getGroupCount()", getGroupCountRegex);
+	cardinalDefineMethod(vm, NULL, "Regex", "match(_)", matchRegex);
+	cardinalDefineMethod(vm, NULL, "Regex", "search(_)", searchRegex);
+	cardinalDefineMethod(vm, NULL, "Regex", "getGroup(_)", getGroupRegex);
+	cardinalDefineMethod(vm, NULL, "Regex", "compile(_)", compileRegex);
+	cardinalDefineMethod(vm, NULL, "Regex", "getGroupCount()", getGroupCountRegex);
 }
 

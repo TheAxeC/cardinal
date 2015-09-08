@@ -1,24 +1,23 @@
 /*
  * main.cpp
  *
- *  Created on: 27 Nov 2014
- *      Author: axel
- *
+ *  Created on: 8 september 2015
+ *      Author: Axel Faes
  */
 #include <stdio.h>
 #include <string.h>
 
 #include "io.h"
 #include "vm.h"
-#include "udog.h"
-#include "../vm/udog_vm.h"
-#include "../vm/udog_value.h"
-#include "../vm/udog_debug.h"
+#include "cardinal.h"
+#include "../vm/cardinal_vm.h"
+#include "../vm/cardinal_value.h"
+#include "../vm/cardinal_debug.h"
 
 #define MAX_LINE_LENGTH 1024 // TODO: Something less arbitrary.
 
 static int runRepl() {
-	UDogVM* vm = createVM(NULL);
+	CardinalVM* vm = createVM(NULL);
 
 	printReplIntro();
 	
@@ -30,13 +29,13 @@ static int runRepl() {
 		runReplInput(vm, line);
 	}
 
-	udogFreeVM(vm);
+	cardinalFreeVM(vm);
 	return 0;
 }
 
 int main(int argc, const char* argv[]) {
 	if (argc < 1 || argc > 3) {
-		fprintf(stderr, "Usage: udog [debug] [file]\n");
+		fprintf(stderr, "Usage: cardinal [debug] [file]\n");
 		return 64; // EX_USAGE.
 	}
 

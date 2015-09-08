@@ -4,10 +4,10 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "udog_config.h"
-#include "udog_compiler.h"
-#include "udog_vm.h"
-#include "udog_debug.h"
+#include "cardinal_config.h"
+#include "cardinal_compiler.h"
+#include "cardinal_vm.h"
+#include "cardinal_debug.h"
 
 
 // This is written in bottom-up order, so the tokenization comes first, then
@@ -108,7 +108,7 @@ typedef struct Token {
 /// Parser responsible for translating the source code into tokens
 typedef struct Parser {
 	/// The VM for which the parser works
-	UDogVM* vm;
+	CardinalVM* vm;
 	
 	/// The module being parsed.
 	ObjModule* module;
@@ -233,14 +233,14 @@ typedef struct {
 
 } ClassCompiler;
 
-/// Main Compiler for UDog Source code
-typedef struct UDogCompiler {
+/// Main Compiler for Cardinal Source code
+typedef struct CardinalCompiler {
 	/// The parser used to parse the source code
 	Parser* parser;
 
 	/// The compiler for the function enclosing this one, or NULL if it's the
 	/// top level.
-	struct UDogCompiler* parent;
+	struct CardinalCompiler* parent;
 
 	/// The constants that have been defined in this function so far.
 	ObjList* constants;
@@ -415,7 +415,7 @@ static void error(Compiler* compiler, const char* format, ...) {
 // Adds [constant] to the constant pool and returns its index.
 static int addConstant(Compiler* compiler, Value constant) {
 	if (compiler->constants->count < MAX_CONSTANTS) {
-		udogListAdd(compiler->parser->vm, compiler->constants, constant);
+		cardinalListAdd(compiler->parser->vm, compiler->constants, constant);
 	}
 	else {
 		error(compiler, "A function may only contain %d unique constants.", MAX_CONSTANTS);
@@ -440,15 +440,15 @@ static void initCompiler(Compiler* compiler, Parser* parser, Compiler* parent, b
 	compiler->undefined = NULL;
 	compiler->constants = NULL;
 	
-	compiler->undefined = udogNewMap(compiler->parser->vm);
+	compiler->undefined = cardinalNewMap(compiler->parser->vm);
 	
 	compiler->anonClass = 0;
 	compiler->compilingClass = false;
 
-	udogSetCompiler(parser->vm, compiler);
+	cardinalSetCompiler(parser->vm, compiler);
 
 	// Create a growable list for the constants used by this function.
-	compiler->constants = udogNewList(parser->vm, 0);
+	compiler->constants = cardinalNewList(parser->vm, 0);
 
 	if (parent == NULL) {
 		compiler->numLocals = 0;
@@ -483,11 +483,11 @@ static void initCompiler(Compiler* compiler, Parser* parser, Compiler* parent, b
 		compiler->debug = parent->debug;
 	}
 
-	udogByteBufferInit(parser->vm, &compiler->bytecode);
-	udogIntBufferInit(parser->vm, &compiler->debugSourceLines);
+	cardinalByteBufferInit(parser->vm, &compiler->bytecode);
+	cardinalIntBufferInit(parser->vm, &compiler->debugSourceLines);
 	
-	udogSymbolTableInit(parser->vm, &compiler->debugLocals);
-	udogSymbolTableInit(parser->vm, &compiler->debugSource);
+	cardinalSymbolTableInit(parser->vm, &compiler->debugLocals);
+	cardinalSymbolTableInit(parser->vm, &compiler->debugSource);
 }
 
 // Get the top compiler
@@ -694,7 +694,7 @@ static void readName(Parser* parser, TokenType type) {
 
 // Adds [c] to the current string literal being tokenized.
 static void addStringChar(Parser* parser, uint32_t c) {
-	udogByteBufferWrite(parser->vm, &parser->string, c);
+	cardinalByteBufferWrite(parser->vm, &parser->string, c);
 }
 
 // Reads a four hex digit Unicode escape sequence in a string literal.
@@ -724,25 +724,25 @@ static void readUnicodeEscape(Parser* parser) {
 	// UTF-8 encode the value.
 	if (value <= 0x7f) {
 		// Single byte (i.e. fits in ASCII).
-		udogByteBufferWrite(parser->vm, buffer, value);
+		cardinalByteBufferWrite(parser->vm, buffer, value);
 	}
 	else if (value <= 0x7ff) {
 		// Two byte sequence: 110xxxxx	 10xxxxxx.
-		udogByteBufferWrite(parser->vm, buffer, 0xc0 | ((value & 0x7c0) >> 6));
-		udogByteBufferWrite(parser->vm, buffer, 0x80 | (value & 0x3f));
+		cardinalByteBufferWrite(parser->vm, buffer, 0xc0 | ((value & 0x7c0) >> 6));
+		cardinalByteBufferWrite(parser->vm, buffer, 0x80 | (value & 0x3f));
 	}
 	else if (value <= 0xffff) {
 		// Three byte sequence: 1110xxxx	 10xxxxxx 10xxxxxx.
-		udogByteBufferWrite(parser->vm, buffer, 0xe0 | ((value & 0xf000) >> 12));
-		udogByteBufferWrite(parser->vm, buffer, 0x80 | ((value & 0xfc0) >> 6));
-		udogByteBufferWrite(parser->vm, buffer, 0x80 | (value & 0x3f));
+		cardinalByteBufferWrite(parser->vm, buffer, 0xe0 | ((value & 0xf000) >> 12));
+		cardinalByteBufferWrite(parser->vm, buffer, 0x80 | ((value & 0xfc0) >> 6));
+		cardinalByteBufferWrite(parser->vm, buffer, 0x80 | (value & 0x3f));
 	}
 	else if (value <= 0x10ffff) {
 		// Four byte sequence: 11110xxx 10xxxxxx 10xxxxxx 10xxxxxx.
-		udogByteBufferWrite(parser->vm, buffer, 0xf0 | ((value & 0x1c0000) >> 18));
-		udogByteBufferWrite(parser->vm, buffer, 0x80 | ((value & 0x3f000) >> 12));
-		udogByteBufferWrite(parser->vm, buffer, 0x80 | ((value & 0xfc0) >> 6));
-		udogByteBufferWrite(parser->vm, buffer, 0x80 | (value & 0x3f));
+		cardinalByteBufferWrite(parser->vm, buffer, 0xf0 | ((value & 0x1c0000) >> 18));
+		cardinalByteBufferWrite(parser->vm, buffer, 0x80 | ((value & 0x3f000) >> 12));
+		cardinalByteBufferWrite(parser->vm, buffer, 0x80 | ((value & 0xfc0) >> 6));
+		cardinalByteBufferWrite(parser->vm, buffer, 0x80 | (value & 0x3f));
 	}
 	else {
 		// Invalid Unicode value. See: http://tools.ietf.org/html/rfc3629
@@ -752,7 +752,7 @@ static void readUnicodeEscape(Parser* parser) {
 
 // Finishes lexing a string literal.
 static void readString(Parser* parser) {
-	udogByteBufferClear(parser->vm, &parser->string);
+	cardinalByteBufferClear(parser->vm, &parser->string);
 
 	for (;;) {
 		char c = nextChar(parser);
@@ -1014,17 +1014,17 @@ static void consumeLine(Compiler* compiler, const char* errorMessage) {
 
 static void emitBreak(Compiler* compiler) {
 	if (compiler->parser->vm->debugMode) {
-		udogByteBufferWrite(compiler->parser->vm, &compiler->bytecode, CODE_BREAK);
-		udogIntBufferWrite(compiler->parser->vm, &compiler->debugSourceLines,
+		cardinalByteBufferWrite(compiler->parser->vm, &compiler->bytecode, CODE_BREAK);
+		cardinalIntBufferWrite(compiler->parser->vm, &compiler->debugSourceLines,
 	                   compiler->parser->previous.line);
 	}
 }
 
 static int emitArg(Compiler* compiler, Code code) {
-	udogByteBufferWrite(compiler->parser->vm, &compiler->bytecode, code);
+	cardinalByteBufferWrite(compiler->parser->vm, &compiler->bytecode, code);
 
 	// Assume the instruction is associated with the most recently consumed token.
-	udogIntBufferWrite(compiler->parser->vm, &compiler->debugSourceLines,
+	cardinalIntBufferWrite(compiler->parser->vm, &compiler->debugSourceLines,
 	                   compiler->parser->previous.line);
 
 	return compiler->bytecode.count - 1;
@@ -1038,19 +1038,19 @@ static int emit(Compiler* compiler, Code code) {
 
 // Emits one bytecode instruction followed by a 8-bit argument. Returns the
 // index of the argument in the bytecode.
-static int emitByteArg(Compiler* compiler, udogByte arg) {
+static int emitByteArg(Compiler* compiler, cardinalByte arg) {
 	return emitArg(compiler, (Code) arg);
 }
 
 // Emits one bytecode instruction followed by a 16-bit argument, which will be
 // written big endian.
-static int emitShortArg(Compiler* compiler, udogShort arg) {
+static int emitShortArg(Compiler* compiler, cardinalShort arg) {
 	int ret = emitArg(compiler, (Code) ((arg >> 8) & 0xff));
 	emitArg(compiler, (Code) (arg & 0xff));
 	return ret;
 }
 
-static int emitIntArg(Compiler* compiler, udog_integer arg) {
+static int emitIntArg(Compiler* compiler, cardinal_integer arg) {
 	int ret = emitArg(compiler, (Code) ((arg >> 24) & 0xff));
 	emitArg(compiler, (Code) ((arg >> 16) & 0xff));
 	emitArg(compiler, (Code) ((arg >> 8) & 0xff));
@@ -1058,8 +1058,8 @@ static int emitIntArg(Compiler* compiler, udog_integer arg) {
 	return ret;
 }
 
-static int emitLongArg(Compiler* compiler, udog_integer arg) {
-	udogLong num = arg;
+static int emitLongArg(Compiler* compiler, cardinal_integer arg) {
+	cardinalLong num = arg;
 	int ret = emitArg(compiler, (Code) ((num >> 56) & 0xff));
 	emitArg(compiler, (Code) ((num >> 48) & 0xff));
 	emitArg(compiler, (Code) ((num >> 40) & 0xff));
@@ -1071,7 +1071,7 @@ static int emitLongArg(Compiler* compiler, udog_integer arg) {
 	return ret;
 }
 
-static int emitValueArg(Compiler* compiler, udog_integer arg, int bytes) {
+static int emitValueArg(Compiler* compiler, cardinal_integer arg, int bytes) {
 	if (bytes == 0) {
 		return 0;
 	}
@@ -1089,7 +1089,7 @@ static int emitValueArg(Compiler* compiler, udog_integer arg, int bytes) {
 	}
 }
 
-static int emitValue(Compiler* compiler, Code instruction, udog_integer arg, int bytes) {
+static int emitValue(Compiler* compiler, Code instruction, cardinal_integer arg, int bytes) {
 	if (bytes == 0) {
 		return emit(compiler, instruction);
 	}
@@ -1099,24 +1099,24 @@ static int emitValue(Compiler* compiler, Code instruction, udog_integer arg, int
 	}
 }
 
-static void writeByte(uint8_t* bytecode, int position, udog_integer arg) {
+static void writeByte(uint8_t* bytecode, int position, cardinal_integer arg) {
 	bytecode[position] = arg;
 }
 
-static void writeShort(uint8_t* bytecode, int position, udog_integer arg) {
+static void writeShort(uint8_t* bytecode, int position, cardinal_integer arg) {
 	bytecode[position] = ((arg >> 8) & 0xff);
 	bytecode[position+1] = arg;
 }
 
-static void writeInt(uint8_t* bytecode, int position, udog_integer arg) {
+static void writeInt(uint8_t* bytecode, int position, cardinal_integer arg) {
 	bytecode[position] = ((arg >> 24) & 0xff);
 	bytecode[position+1] = ((arg >> 16) & 0xff);
 	bytecode[position+2] = ((arg >> 8) & 0xff);
 	bytecode[position+3] = (arg & 0xff);
 }
 
-static void writeLong(uint8_t* bytecode, int position, udog_integer arg) {
-	udogLong num = arg;
+static void writeLong(uint8_t* bytecode, int position, cardinal_integer arg) {
+	cardinalLong num = arg;
 	bytecode[position] = ((num >> 56) & 0xff);
 	bytecode[position+1] = ((num >> 48) & 0xff);
 	bytecode[position+2] = ((num >> 40) & 0xff);
@@ -1128,7 +1128,7 @@ static void writeLong(uint8_t* bytecode, int position, udog_integer arg) {
 }
 
 
-static void setByteCodeBuffer(uint8_t* bytecode, int position, udog_integer arg, int bytes) {
+static void setByteCodeBuffer(uint8_t* bytecode, int position, cardinal_integer arg, int bytes) {
 	if (bytes == 1)
 		writeByte(bytecode, position, arg);
 	else if (bytes == 2)
@@ -1139,7 +1139,7 @@ static void setByteCodeBuffer(uint8_t* bytecode, int position, udog_integer arg,
 		writeLong(bytecode, position, arg);
 }
 
-static void setByteCode(Compiler* compiler, int position, udog_integer arg, int bytes) {
+static void setByteCode(Compiler* compiler, int position, cardinal_integer arg, int bytes) {
 	setByteCodeBuffer(compiler->bytecode.data, position, arg, bytes);
 }
 
@@ -1160,7 +1160,7 @@ static int defineLocal(Compiler* compiler, const char* name, int length) {
 	local->isUpvalue = false;
 	
 	if (compiler->parser->vm->debugMode)
-		udogSymbolTableAdd(compiler->parser->vm, &compiler->debugLocals, name, length);
+		cardinalSymbolTableAdd(compiler->parser->vm, &compiler->debugLocals, name, length);
 	
 	return compiler->numLocals++;
 }
@@ -1172,25 +1172,25 @@ static int declareVariableName(Compiler* compiler, const char* start, int length
 
 	// Top-level global scope.
 	if (compiler->scopeDepth == -1) {
-		int symbol = udogDefineVariable(compiler->parser->vm,
+		int symbol = cardinalDefineVariable(compiler->parser->vm,
                                     compiler->parser->module,
                                     start, length, NULL_VAL);
 	
 		Value val = NUM_VAL(symbol);
-		if (udogMapFind(getTopCompiler(compiler)->undefined, val) != UINT32_MAX) {
-			udogMapRemoveKey(compiler->parser->vm, getTopCompiler(compiler)->undefined, val);
+		if (cardinalMapFind(getTopCompiler(compiler)->undefined, val) != UINT32_MAX) {
+			cardinalMapRemoveKey(compiler->parser->vm, getTopCompiler(compiler)->undefined, val);
 		}
 		
 		if (symbol == -1) {
 			//error(compiler, "Module variable is already defined.");
-			symbol = udogFindVariableSymbol(compiler->parser->vm, compiler->parser->module, start, length);
+			symbol = cardinalFindVariableSymbol(compiler->parser->vm, compiler->parser->module, start, length);
 		}
 		else if (symbol == -2) {
 			error(compiler, "Too many module variables defined.");
 		}
 		
 		if (compiler->parser->vm->debugMode)
-			udogSymbolTableAdd(compiler->parser->vm, &compiler->debugLocals, start, length);
+			cardinalSymbolTableAdd(compiler->parser->vm, &compiler->debugLocals, start, length);
 
 		return symbol;
 	}
@@ -1387,7 +1387,7 @@ static int resolveName(Compiler* compiler, const char* name, int length, Code* l
 	if (nonmodule != -1) return nonmodule;
 
 	*loadInstruction = CODE_LOAD_MODULE_VAR;
-	return udogSymbolTableFind(&compiler->parser->module->variableNames,
+	return cardinalSymbolTableFind(&compiler->parser->module->variableNames,
                              name, length);
 }
 
@@ -1409,8 +1409,8 @@ static ObjFn* endCompiler(Compiler* compiler, const char* debugName, int debugNa
 	// anyway.
 	if (compiler->parser->hasError) {
 		// Free the code since it won't be used.
-		udogByteBufferClear(compiler->parser->vm, &compiler->bytecode);
-		udogIntBufferClear(compiler->parser->vm, &compiler->debugSourceLines);
+		cardinalByteBufferClear(compiler->parser->vm, &compiler->bytecode);
+		cardinalIntBufferClear(compiler->parser->vm, &compiler->debugSourceLines);
 		return NULL;
 	}
 
@@ -1418,7 +1418,7 @@ static ObjFn* endCompiler(Compiler* compiler, const char* debugName, int debugNa
 	// we can't rely on CODE_RETURN to tell us we're at the end.
 	emit(compiler, CODE_END);
 	
-	FnDebug* debug = udogNewDebug(compiler->parser->vm,
+	FnDebug* debug = cardinalNewDebug(compiler->parser->vm,
 								compiler->parser->sourcePath,
 	                            debugName, debugNameLength,
 	                            compiler->debugSourceLines.data, 
@@ -1426,7 +1426,7 @@ static ObjFn* endCompiler(Compiler* compiler, const char* debugName, int debugNa
 								compiler->debugSource);
 
 	// Create a function object for the code we just compiled.
-	ObjFn* fn = udogNewFunction(compiler->parser->vm,
+	ObjFn* fn = cardinalNewFunction(compiler->parser->vm,
 								compiler->parser->module,
 	                            compiler->constants->elements,
 	                            compiler->constants->count,
@@ -1435,7 +1435,7 @@ static ObjFn* endCompiler(Compiler* compiler, const char* debugName, int debugNa
 	                            compiler->bytecode.data,
 	                            compiler->bytecode.count,
 	                            debug);
-	UDOG_PIN(compiler->parser->vm, fn);
+	CARDINAL_PIN(compiler->parser->vm, fn);
 
 	// In the function that contains this one, load the resulting function object.
 	if (compiler->parent != NULL) {
@@ -1462,12 +1462,12 @@ static ObjFn* endCompiler(Compiler* compiler, const char* debugName, int debugNa
 	}
 
 	// Pop this compiler off the stack.
-	udogSetCompiler(compiler->parser->vm, compiler->parent);
+	cardinalSetCompiler(compiler->parser->vm, compiler->parent);
 
-	UDOG_UNPIN(compiler->parser->vm);
+	CARDINAL_UNPIN(compiler->parser->vm);
 
-#if UDOG_DEBUG_DUMP_COMPILED_CODE
-	udogDebugPrintCode(compiler->parser->vm, fn);
+#if CARDINAL_DEBUG_DUMP_COMPILED_CODE
+	cardinalDebugPrintCode(compiler->parser->vm, fn);
 #endif
 
 	return fn;
@@ -1673,7 +1673,7 @@ static void finishParameterList(Compiler* compiler, Signature* signature) {
 // Gets the symbol for a method [name]. If [length] is 0, it will be calculated
 // from a null-terminated [name].
 static int methodSymbol(Compiler* compiler, const char* name, int length) {
-	return udogSymbolTableEnsure(compiler->parser->vm,
+	return cardinalSymbolTableEnsure(compiler->parser->vm,
 	                             &compiler->parser->vm->methodNames, name, length);
 }
 
@@ -1903,7 +1903,7 @@ static void list(Compiler* compiler, bool allowAssignment) {
 	UNUSED(allowAssignment);
 	
 	// Load the List class.
-	int listClassSymbol = udogSymbolTableFind(
+	int listClassSymbol = cardinalSymbolTableFind(
 	                          &compiler->parser->module->variableNames, "List", 4);
 	
 	ASSERT(listClassSymbol != -1, "Should have already defined 'List' variable.");
@@ -1939,7 +1939,7 @@ static void list(Compiler* compiler, bool allowAssignment) {
 static void map(Compiler* compiler, bool allowAssignment) {
 	UNUSED(allowAssignment);
 	// Load the Map class.
-	int mapClassSymbol = udogSymbolTableFind(
+	int mapClassSymbol = cardinalSymbolTableFind(
 	                         &compiler->parser->module->variableNames, "Table", 5);
 	ASSERT(mapClassSymbol != -1, "Should have already defined 'Map' variable.");
 	emitValue(compiler, CODE_LOAD_MODULE_VAR, mapClassSymbol, GLOBAL_BYTE);
@@ -2013,28 +2013,28 @@ static void field(Compiler* compiler, bool allowAssignment) {
 	}
 	else {
 		// Look up the field, or implicitly define it.
-		field = udogSymbolTableFind(enclosingClass->fields,
+		field = cardinalSymbolTableFind(enclosingClass->fields,
 											  compiler->parser->previous.start,
 											  compiler->parser->previous.length);
 		
 		if (field >= MAX_FIELDS) {
 			error(compiler, "A class can only have %d fields.", MAX_FIELDS);
 		} else if (field < 0) {
-			field = udogSymbolTableEnsure(compiler->parser->vm, enclosingClass->fields,
+			field = cardinalSymbolTableEnsure(compiler->parser->vm, enclosingClass->fields,
 		                              compiler->parser->previous.start,
 		                              compiler->parser->previous.length);
 			
-			Value key = OBJ_VAL(udogNewString(compiler->parser->vm,
+			Value key = OBJ_VAL(cardinalNewString(compiler->parser->vm,
 	                               compiler->parser->previous.start, compiler->parser->previous.length));
-			UDOG_PIN(compiler->parser->vm, AS_OBJ(key));
+			CARDINAL_PIN(compiler->parser->vm, AS_OBJ(key));
 			Token* token = &compiler->parser->previous;
-			Value value = OBJ_VAL(udogStringFormat(compiler->parser->vm,
+			Value value = OBJ_VAL(cardinalStringFormat(compiler->parser->vm,
 	                               "  \x1b[1m\x1b[31merror:\x1b[0m [%s line %d] Error at %.*s: Undefined field.", 
 								   compiler->parser->sourcePath->value, token->line, token->length, token->start));				   
-			UDOG_PIN(compiler->parser->vm, AS_OBJ(value));
-			udogMapSet(compiler->parser->vm, enclosingClass->undefined, key, value);
-			UDOG_UNPIN(compiler->parser->vm);
-			UDOG_UNPIN(compiler->parser->vm);
+			CARDINAL_PIN(compiler->parser->vm, AS_OBJ(value));
+			cardinalMapSet(compiler->parser->vm, enclosingClass->undefined, key, value);
+			CARDINAL_UNPIN(compiler->parser->vm);
+			CARDINAL_UNPIN(compiler->parser->vm);
 		}
 	}
 
@@ -2113,26 +2113,26 @@ static void staticField(Compiler* compiler, bool allowAssignment) {
 	}
 	else {
 		// Look up the field, or implicitly define it.
-		int field = udogSymbolTableFind(enclosingClass->staticFields,
+		int field = cardinalSymbolTableFind(enclosingClass->staticFields,
 											  compiler->parser->previous.start,
 											  compiler->parser->previous.length);
 		
 		if (field < 0) {
-			field = udogSymbolTableEnsure(compiler->parser->vm, enclosingClass->fields,
+			field = cardinalSymbolTableEnsure(compiler->parser->vm, enclosingClass->fields,
 		                              compiler->parser->previous.start,
 		                              compiler->parser->previous.length);
 					
-			Value key = OBJ_VAL(udogNewString(compiler->parser->vm,
+			Value key = OBJ_VAL(cardinalNewString(compiler->parser->vm,
 	                               compiler->parser->previous.start, compiler->parser->previous.length));
-			UDOG_PIN(compiler->parser->vm, AS_OBJ(key));
+			CARDINAL_PIN(compiler->parser->vm, AS_OBJ(key));
 			Token* token = &compiler->parser->previous;
-			Value value = OBJ_VAL(udogStringFormat(compiler->parser->vm,
+			Value value = OBJ_VAL(cardinalStringFormat(compiler->parser->vm,
 	                               "  \x1b[1m\x1b[31merror:\x1b[0m [%s line %d] Error at %.*s: Undefined static field.", 
 								   compiler->parser->sourcePath->value, token->line, token->length, token->start));				   
-			UDOG_PIN(compiler->parser->vm, AS_OBJ(value));
-			udogMapSet(compiler->parser->vm, enclosingClass->undefined, key, value);
-			UDOG_UNPIN(compiler->parser->vm);
-			UDOG_UNPIN(compiler->parser->vm);
+			CARDINAL_PIN(compiler->parser->vm, AS_OBJ(value));
+			cardinalMapSet(compiler->parser->vm, enclosingClass->undefined, key, value);
+			CARDINAL_UNPIN(compiler->parser->vm);
+			CARDINAL_UNPIN(compiler->parser->vm);
 		}
 	}
 
@@ -2172,7 +2172,7 @@ static bool isRegisteredField(Compiler* compiler, Token* token) {
 	ClassCompiler* enclosingClass = getEnclosingClass(compiler);
 
 	// Look up the field, or implicitly define it.
-	return udogSymbolTableFind(enclosingClass->fields,
+	return cardinalSymbolTableFind(enclosingClass->fields,
 										  token->start,
 										  token->length) >= 0;
 }
@@ -2181,7 +2181,7 @@ static bool isRegisteredStaticField(Compiler* compiler, Token* token) {
 	ClassCompiler* enclosingClass = getEnclosingClass(compiler);
 
 	// Look up the field, or implicitly define it.
-	return udogSymbolTableFind(enclosingClass->staticFields,
+	return cardinalSymbolTableFind(enclosingClass->staticFields,
 										  token->start,
 										  token->length) >= 0;
 }
@@ -2190,13 +2190,13 @@ static void checkIfSuperClass(Compiler* compiler, Token* token) {
 	if (compiler->compilingClass) {
 		ClassCompiler* classCompiler = getEnclosingClass(compiler);
 		
-		Value key = OBJ_VAL(udogNewString(compiler->parser->vm,
+		Value key = OBJ_VAL(cardinalNewString(compiler->parser->vm,
 	                               token->start, token->length));
-		UDOG_PIN(compiler->parser->vm, AS_OBJ(key));
+		CARDINAL_PIN(compiler->parser->vm, AS_OBJ(key));
 		Value value = NUM_VAL(classCompiler->nbSuper);			   
 		
-		udogMapSet(compiler->parser->vm, classCompiler->super, key, value);
-		UDOG_UNPIN(compiler->parser->vm);
+		cardinalMapSet(compiler->parser->vm, classCompiler->super, key, value);
+		CARDINAL_UNPIN(compiler->parser->vm);
 	}
 }
 
@@ -2242,7 +2242,7 @@ static void name(Compiler* compiler, bool allowAssignment) {
 	}
 	
 	// Otherwise, look for a module-level variable with the name.
-	int module = udogSymbolTableFind(&compiler->parser->module->variableNames,
+	int module = cardinalSymbolTableFind(&compiler->parser->module->variableNames,
 	                                 token->start, token->length);
 	if (module == -1) {
 		if (isLocalName(token->start)) {
@@ -2252,17 +2252,17 @@ static void name(Compiler* compiler, bool allowAssignment) {
 	
 		// If it's a nonlocal name, implicitly define a module-level variable in
 		// the hopes that we get a real definition later.
-		module = udogDeclareVariable(compiler->parser->vm, compiler->parser->module,
+		module = cardinalDeclareVariable(compiler->parser->vm, compiler->parser->module,
 		                             token->start, token->length);
 		
 		Value key = NUM_VAL(module);
 		
-		Value value = OBJ_VAL(udogStringFormat(compiler->parser->vm,
+		Value value = OBJ_VAL(cardinalStringFormat(compiler->parser->vm,
 							   "  \x1b[1m\x1b[31merror:\x1b[0m [%s line %d] Error at %.*s: Undefined variable.", 
 							   compiler->parser->sourcePath->value, token->line, token->length, token->start));				   
-		UDOG_PIN(compiler->parser->vm, AS_OBJ(value));
-		udogMapSet(compiler->parser->vm, getTopCompiler(compiler)->undefined, key, value);
-		UDOG_UNPIN(compiler->parser->vm);	
+		CARDINAL_PIN(compiler->parser->vm, AS_OBJ(value));
+		cardinalMapSet(compiler->parser->vm, getTopCompiler(compiler)->undefined, key, value);
+		CARDINAL_UNPIN(compiler->parser->vm);	
 		if (module == -2) {
 			error(compiler, "Too many module variables defined.");
 		}
@@ -2288,15 +2288,15 @@ static int getSymbol(Compiler* compiler, const char* start, int length) {
 	int symbol = 0;
 	
 	if (compiler->scopeDepth == -1) {
-		symbol = udogDefineVariable(compiler->parser->vm,
+		symbol = cardinalDefineVariable(compiler->parser->vm,
                                     compiler->parser->module,
                                     start, length, NULL_VAL);
 		Value val = NUM_VAL(symbol);
-		if (udogMapFind(getTopCompiler(compiler)->undefined, val) != UINT32_MAX) {
-			udogMapRemoveKey(compiler->parser->vm, getTopCompiler(compiler)->undefined, val);
+		if (cardinalMapFind(getTopCompiler(compiler)->undefined, val) != UINT32_MAX) {
+			cardinalMapRemoveKey(compiler->parser->vm, getTopCompiler(compiler)->undefined, val);
 		}
 		if (symbol == -1) {
-			symbol = udogSymbolTableFind(&compiler->parser->module->variableNames, start, length);
+			symbol = cardinalSymbolTableFind(&compiler->parser->module->variableNames, start, length);
 		}
 		else if (symbol == -2) {
 			error(compiler, "Too many module variables defined.");
@@ -2328,7 +2328,7 @@ static int getSymbol(Compiler* compiler, const char* start, int length) {
 }
 
 static int getAnonClassSymbol(Compiler* compiler, int* nameConstant) {
-	ObjString* str = udogStringFormat(compiler->parser->vm, "<anon%d>", compiler->anonClass++);
+	ObjString* str = cardinalStringFormat(compiler->parser->vm, "<anon%d>", compiler->anonClass++);
 	const char* start = str->value;
 	int length = str->length;
 	
@@ -2354,7 +2354,7 @@ static void class_(Compiler* compiler, bool allowAssignment) {
 	ClassCompiler classCompiler;
 	classCompiler.undefined = NULL;
 	classCompiler.super = NULL;
-	classCompiler.super = udogNewMap(compiler->parser->vm);
+	classCompiler.super = cardinalNewMap(compiler->parser->vm);
 	classCompiler.nbSuper = 0;
 	
 	compiler->enclosingClass = &classCompiler;
@@ -2372,13 +2372,13 @@ static void class_(Compiler* compiler, bool allowAssignment) {
 	}
 	else {
 		// Add object as superClass
-		Value key = OBJ_VAL(udogNewString(compiler->parser->vm,
+		Value key = OBJ_VAL(cardinalNewString(compiler->parser->vm,
 	                               "Object", 6));
-		UDOG_PIN(compiler->parser->vm, AS_OBJ(key));
+		CARDINAL_PIN(compiler->parser->vm, AS_OBJ(key));
 		Value value = NUM_VAL(0);			   
 		
-		udogMapSet(compiler->parser->vm, classCompiler.super, key, value);
-		UDOG_UNPIN(compiler->parser->vm);
+		cardinalMapSet(compiler->parser->vm, classCompiler.super, key, value);
+		CARDINAL_UNPIN(compiler->parser->vm);
 		// Create the empty class.
 		emit(compiler, CODE_NULL);
 	}
@@ -2416,7 +2416,7 @@ static void module_(Compiler* compiler, bool allowAssignment) {
 	UNUSED(allowAssignment);
 
 	// Create a variable to store the class in.
-	ObjString* str = udogStringFormat(compiler->parser->vm, "<anonM%d>", compiler->anonClass++);
+	ObjString* str = cardinalStringFormat(compiler->parser->vm, "<anonM%d>", compiler->anonClass++);
 
 	int symbol = getSymbol(compiler, str->value, str->length);
 	
@@ -2428,7 +2428,7 @@ static void module_(Compiler* compiler, bool allowAssignment) {
 	ObjModule* oldModule = compiler->parser->module;
 	
 	// set new module
-	ObjModule* newModule = udogReadyNewModule(compiler->parser->vm);
+	ObjModule* newModule = cardinalReadyNewModule(compiler->parser->vm);
 	compiler->parser->module = newModule;
 	
 	Compiler moduleCompiler;
@@ -2437,7 +2437,7 @@ static void module_(Compiler* compiler, bool allowAssignment) {
 	ObjFn* func = compileModuleBody(&moduleCompiler, name, len);
 	newModule->func = func;
 	
-	udogSetCompiler(compiler->parser->vm, compiler);
+	cardinalSetCompiler(compiler->parser->vm, compiler);
 	compiler->parser->module = oldModule;
 	
 	int moduleConstant = addConstant(compiler, OBJ_VAL((Obj*) newModule));
@@ -2466,10 +2466,10 @@ static void module_(Compiler* compiler, bool allowAssignment) {
 // Parses a string literal and adds it to the constant table.
 static int stringConstant(Compiler* compiler) {
 	// Define a constant for the literal.
-	int constant = addConstant(compiler, udogNewString(compiler->parser->vm,
+	int constant = addConstant(compiler, cardinalNewString(compiler->parser->vm,
 	                           (char*)compiler->parser->string.data, compiler->parser->string.count));
 
-	udogByteBufferClear(compiler->parser->vm, &compiler->parser->string);
+	cardinalByteBufferClear(compiler->parser->vm, &compiler->parser->string);
 
 	return constant;
 }
@@ -2504,16 +2504,16 @@ static void super_(Compiler* compiler, bool allowAssignment) {
 		const char* name = compiler->parser->previous.start;
 		int len = compiler->parser->previous.length;
 		
-		Value val = OBJ_VAL(udogNewString(compiler->parser->vm,
+		Value val = OBJ_VAL(cardinalNewString(compiler->parser->vm,
 									   name, len));
-		UDOG_PIN(compiler->parser->vm, AS_OBJ(val));
-		size_t ind = udogMapFind(enclosingClass->super, val);
-		UDOG_UNPIN(compiler->parser->vm);
+		CARDINAL_PIN(compiler->parser->vm, AS_OBJ(val));
+		size_t ind = cardinalMapFind(enclosingClass->super, val);
+		CARDINAL_UNPIN(compiler->parser->vm);
 		if (ind == UINT32_MAX) {
 			error(compiler, "Not a valid superclass. ");
 		}
 		else {
-			symbol = AS_NUM(udogMapGetInd(enclosingClass->super, ind));
+			symbol = AS_NUM(cardinalMapGetInd(enclosingClass->super, ind));
 		}
 	}
 	else {
@@ -2525,17 +2525,17 @@ static void super_(Compiler* compiler, bool allowAssignment) {
 			int len = compiler->parser->previous.length;
 			
 			
-			Value val = OBJ_VAL(udogNewString(compiler->parser->vm,
+			Value val = OBJ_VAL(cardinalNewString(compiler->parser->vm,
 										   name, len));
-			UDOG_PIN(compiler->parser->vm, AS_OBJ(val));
+			CARDINAL_PIN(compiler->parser->vm, AS_OBJ(val));
 			
-			size_t ind = udogMapFind(enclosingClass->super, val);
-			UDOG_UNPIN(compiler->parser->vm);
+			size_t ind = cardinalMapFind(enclosingClass->super, val);
+			CARDINAL_UNPIN(compiler->parser->vm);
 			if (ind == UINT32_MAX) {
 				namedCall(compiler, allowAssignment, CODE_SUPER_0);
 			}
 			else {
-				symbol = AS_NUM(udogMapGetInd(enclosingClass->super, ind));
+				symbol = AS_NUM(cardinalMapGetInd(enclosingClass->super, ind));
 				
 				// See if it's a named super call, or an unnamed one.
 				if (match(compiler, TOKEN_DOT)) {
@@ -2552,8 +2552,8 @@ static void super_(Compiler* compiler, bool allowAssignment) {
 				}
 			}
 			
-			Value list = OBJ_VAL(udogNewList(compiler->parser->vm, 0));
-			udogListAdd(compiler->parser->vm, AS_LIST(list), NUM_VAL(enclosingClass->nbSuper - symbol));
+			Value list = OBJ_VAL(cardinalNewList(compiler->parser->vm, 0));
+			cardinalListAdd(compiler->parser->vm, AS_LIST(list), NUM_VAL(enclosingClass->nbSuper - symbol));
 			int nameConstant = addConstant(compiler, list);
 			emitValueArg(compiler, nameConstant, CONSTANT_BYTE);
 			return;
@@ -2576,12 +2576,12 @@ static void super_(Compiler* compiler, bool allowAssignment) {
 	}
 	
 	// specify which superclass to call
-	Value list = OBJ_VAL(udogNewList(compiler->parser->vm, 0));
-	UDOG_PIN(compiler->parser->vm, AS_OBJ(list));
-	udogListAdd(compiler->parser->vm, AS_LIST(list), NUM_VAL(enclosingClass->nbSuper - symbol));
+	Value list = OBJ_VAL(cardinalNewList(compiler->parser->vm, 0));
+	CARDINAL_PIN(compiler->parser->vm, AS_OBJ(list));
+	cardinalListAdd(compiler->parser->vm, AS_LIST(list), NUM_VAL(enclosingClass->nbSuper - symbol));
 	int nameConstant = addConstant(compiler, list);
 	emitValueArg(compiler, nameConstant, CONSTANT_BYTE);
-	UDOG_UNPIN(compiler->parser->vm);
+	CARDINAL_UNPIN(compiler->parser->vm);
 }
 
 static void this_(Compiler* compiler, bool allowAssignment) {
@@ -2639,7 +2639,7 @@ static void doubleColon(Compiler* compiler, bool allowAssignment) {
 	int len = compiler->parser->previous.length;
 	
 	// Make a string constant for the name.
-	int nameConstant = addConstant(compiler, udogNewString(compiler->parser->vm,
+	int nameConstant = addConstant(compiler, cardinalNewString(compiler->parser->vm,
 	                               name, len));
 	emitValue(compiler, CODE_CONSTANT, nameConstant, CONSTANT_BYTE);
 	
@@ -3232,7 +3232,7 @@ static void forStatement(Compiler* compiler) {
 	//     }
 	//
 	// It's not exactly this, because the synthetic variables `seq_` and `iter_`
-	// actually get names that aren't valid UDog identfiers, but that's the basic
+	// actually get names that aren't valid Cardinal identfiers, but that's the basic
 	// idea.
 	//
 	// The important parts are:
@@ -3429,7 +3429,7 @@ static int method(Compiler* compiler, ClassCompiler* classCompiler, MethodSigTyp
 	
     endCompiler(&methodCompiler, debugName, length);
 	
-	udogSymbolTableEnsure(compiler->parser->vm, classCompiler->methods, debugName, length);
+	cardinalSymbolTableEnsure(compiler->parser->vm, classCompiler->methods, debugName, length);
 	
 	return signatureSymbol(compiler, &signature);
 }
@@ -3442,18 +3442,18 @@ static void readField(Compiler* compiler) {
 	int field = 255;
 
 	// Look up the field, or implicitly define it.
-	field = udogSymbolTableEnsure(compiler->parser->vm, enclosingClass->fields,
+	field = cardinalSymbolTableEnsure(compiler->parser->vm, enclosingClass->fields,
 								  compiler->parser->current.start,
 								  compiler->parser->current.length);
 	
 	
-	Value val = OBJ_VAL(udogNewString(compiler->parser->vm,
+	Value val = OBJ_VAL(cardinalNewString(compiler->parser->vm,
 	                               compiler->parser->current.start, compiler->parser->current.length));
-	UDOG_PIN(compiler->parser->vm, AS_OBJ(val));							   
-	if (udogMapFind(enclosingClass->undefined, val) != UINT32_MAX) {
-		udogMapRemoveKey(compiler->parser->vm, enclosingClass->undefined, val);
+	CARDINAL_PIN(compiler->parser->vm, AS_OBJ(val));							   
+	if (cardinalMapFind(enclosingClass->undefined, val) != UINT32_MAX) {
+		cardinalMapRemoveKey(compiler->parser->vm, enclosingClass->undefined, val);
 	}
-	UDOG_UNPIN(compiler->parser->vm);
+	CARDINAL_UNPIN(compiler->parser->vm);
 	if (field >= MAX_FIELDS) {
 		error(compiler, "A class can only have %d fields.", MAX_FIELDS);
 	}
@@ -3462,17 +3462,17 @@ static void readField(Compiler* compiler) {
 static void readStaticField(Compiler* compiler) {
 	ClassCompiler* enclosingClass = getEnclosingClass(compiler);
 	
-	udogSymbolTableEnsure(compiler->parser->vm, enclosingClass->staticFields,
+	cardinalSymbolTableEnsure(compiler->parser->vm, enclosingClass->staticFields,
 								  compiler->parser->current.start,
 								  compiler->parser->current.length);
 	
-	Value val = OBJ_VAL(udogNewString(compiler->parser->vm,
+	Value val = OBJ_VAL(cardinalNewString(compiler->parser->vm,
 	                               compiler->parser->current.start, compiler->parser->current.length));
-	UDOG_PIN(compiler->parser->vm, AS_OBJ(val));							   
-	if (udogMapFind(enclosingClass->undefined, val) != UINT32_MAX) {
-		udogMapRemoveKey(compiler->parser->vm, enclosingClass->undefined, val);
+	CARDINAL_PIN(compiler->parser->vm, AS_OBJ(val));							   
+	if (cardinalMapFind(enclosingClass->undefined, val) != UINT32_MAX) {
+		cardinalMapRemoveKey(compiler->parser->vm, enclosingClass->undefined, val);
 	}
-	UDOG_UNPIN(compiler->parser->vm);
+	CARDINAL_UNPIN(compiler->parser->vm);
 }
 
 // Read fields from a class
@@ -3553,27 +3553,27 @@ void classBody(Compiler* compiler, bool isModule, int numFieldsInstruction, int 
 
 	// Set up a symbol table for the class's fields. We'll initially compile
 	// them to slots starting at zero. When the method is bound to the close
-	// the bytecode will be adjusted by [udogBindMethod] to take inherited
+	// the bytecode will be adjusted by [cardinalBindMethod] to take inherited
 	// fields into account.
 	SymbolTable fields;
-	udogSymbolTableInit(compiler->parser->vm, &fields);
+	cardinalSymbolTableInit(compiler->parser->vm, &fields);
 	
 	classCompiler->fields = &fields;
 	
 	SymbolTable methods;
-	udogSymbolTableInit(compiler->parser->vm, &methods);
+	cardinalSymbolTableInit(compiler->parser->vm, &methods);
 	classCompiler->methods = &methods;
 	
 	// Set up a symbol table for the class's static fields. We'll initially compile
 	// them to slots starting at zero. When the method is bound to the close
-	// the bytecode will be adjusted by [udogBindMethod] to take inherited
+	// the bytecode will be adjusted by [cardinalBindMethod] to take inherited
 	// fields into account.
 	SymbolTable staticFields;
-	udogSymbolTableInit(compiler->parser->vm, &staticFields);
+	cardinalSymbolTableInit(compiler->parser->vm, &staticFields);
 
 	classCompiler->staticFields = &staticFields;
 	
-	classCompiler->undefined = udogNewMap(compiler->parser->vm);
+	classCompiler->undefined = cardinalNewMap(compiler->parser->vm);
 
 	// Compile the method definitions.
 	consume(compiler, TOKEN_LEFT_BRACE, "Expect '{' after class declaration.");
@@ -3650,13 +3650,13 @@ void classBody(Compiler* compiler, bool isModule, int numFieldsInstruction, int 
 
 	// Update the class with the number of fields.
 	setByteCode(compiler, numFieldsInstruction, fields.count, FIELD_BYTE);
-	udogSymbolTableClear(compiler->parser->vm, &fields);
-	udogSymbolTableClear(compiler->parser->vm, &staticFields);
+	cardinalSymbolTableClear(compiler->parser->vm, &fields);
+	cardinalSymbolTableClear(compiler->parser->vm, &staticFields);
 	
-	udogSymbolTableClear(compiler->parser->vm, &methods);
+	cardinalSymbolTableClear(compiler->parser->vm, &methods);
 	
-	udogMapClear(compiler->parser->vm, classCompiler->super);
-	udogMapClear(compiler->parser->vm, classCompiler->undefined);
+	cardinalMapClear(compiler->parser->vm, classCompiler->super);
+	cardinalMapClear(compiler->parser->vm, classCompiler->undefined);
 
 	compiler->enclosingClass = NULL;
 
@@ -3684,14 +3684,14 @@ static void classDefinition(Compiler* compiler) {
 		warning(compiler, "Class starts with a lower case. ");
 
 	// Make a string constant for the name.
-	int nameConstant = addConstant(compiler, udogNewString(compiler->parser->vm,
+	int nameConstant = addConstant(compiler, cardinalNewString(compiler->parser->vm,
 	                               compiler->parser->previous.start, compiler->parser->previous.length));
 
 	// Load the superclass (if there is one).
 	ClassCompiler classCompiler;
 	classCompiler.undefined = NULL;
 	classCompiler.super = NULL;
-	classCompiler.super = udogNewMap(compiler->parser->vm);
+	classCompiler.super = cardinalNewMap(compiler->parser->vm);
 	classCompiler.nbSuper = 0;
 	
 	compiler->enclosingClass = &classCompiler;
@@ -3710,12 +3710,12 @@ static void classDefinition(Compiler* compiler) {
 	else {
 		// Add object as superClass
 		Value value = NUM_VAL(0);
-		Value key = udogNewString(compiler->parser->vm, "Object", 6);
+		Value key = cardinalNewString(compiler->parser->vm, "Object", 6);
 		
-		UDOG_PIN(compiler->parser->vm, AS_OBJ(key));
+		CARDINAL_PIN(compiler->parser->vm, AS_OBJ(key));
 		
-		udogMapSet(compiler->parser->vm, classCompiler.super, key, value);
-		UDOG_UNPIN(compiler->parser->vm);
+		cardinalMapSet(compiler->parser->vm, classCompiler.super, key, value);
+		CARDINAL_UNPIN(compiler->parser->vm);
 		// Create the empty class.
 		emit(compiler, CODE_NULL);
 	}
@@ -3779,9 +3779,9 @@ static void module(Compiler* compiler) {
 	int len = compiler->parser->previous.length;
 	
 	ObjModule* oldModule = compiler->parser->module;
-	UDOG_PIN(compiler->parser->vm, oldModule);
+	CARDINAL_PIN(compiler->parser->vm, oldModule);
 	// set new module
-	ObjModule* newModule = udogReadyNewModule(compiler->parser->vm);
+	ObjModule* newModule = cardinalReadyNewModule(compiler->parser->vm);
 	compiler->parser->module = newModule;
 	
 	Compiler moduleCompiler;
@@ -3790,12 +3790,12 @@ static void module(Compiler* compiler) {
 	ObjFn* func = compileModuleBody(&moduleCompiler, name, len);
 	newModule->func = func;
 	
-	udogSetCompiler(compiler->parser->vm, compiler);
-	UDOG_UNPIN(compiler->parser->vm);
+	cardinalSetCompiler(compiler->parser->vm, compiler);
+	CARDINAL_UNPIN(compiler->parser->vm);
 	compiler->parser->module = oldModule;
 	
 	int moduleConstant = addConstant(compiler, OBJ_VAL((Obj*) newModule));
-	newModule->name = AS_STRING(udogNewString(compiler->parser->vm, name, len));
+	newModule->name = AS_STRING(cardinalNewString(compiler->parser->vm, name, len));
 	
 	emitValue(compiler, CODE_CONSTANT, moduleConstant, CONSTANT_BYTE);
 	emitValue(compiler, CODE_MODULE, 0, 0);
@@ -3824,7 +3824,7 @@ static void import(Compiler* compiler) {
 
 		// Define a string constant for the variable name.
 		int variableConstant = addConstant(compiler,
-		                                   udogNewString(compiler->parser->vm,
+		                                   cardinalNewString(compiler->parser->vm,
 		                                           compiler->parser->previous.start,
 		                                           compiler->parser->previous.length));
 
@@ -3870,7 +3870,7 @@ static void function(Compiler* compiler, const char* classname, int len) {
 	int length = compiler->parser->previous.length;
 
 	// Compile the body.
-	int module = udogSymbolTableFind(&compiler->parser->module->variableNames,
+	int module = cardinalSymbolTableFind(&compiler->parser->module->variableNames,
 	                                 classname, len);
 	variable(compiler, false, module, CODE_LOAD_MODULE_VAR);
 
@@ -3919,8 +3919,8 @@ void definition(Compiler* compiler) {
 //// COMPILER
 ///////////////////////////////////////////////////////////////////////////////////
 
-// This module defines the compiler for UDog. It takes a string of source code
-// and lexes, parses, and compiles it. UDog uses a single-pass compiler. It
+// This module defines the compiler for Cardinal. It takes a string of source code
+// and lexes, parses, and compiles it. Cardinal uses a single-pass compiler. It
 // does not build an actual AST during parsing and then consume that to
 // generate code. Instead, the parser directly emits bytecode.
 //
@@ -3935,12 +3935,12 @@ void definition(Compiler* compiler) {
 // Compilation is also faster since we don't create a bunch of temporary data
 // structures and destroy them after generating code.
 
-// Compiles [source], a string of UDog source code, to an [ObjFn] that will
+// Compiles [source], a string of Cardinal source code, to an [ObjFn] that will
 // execute that code when invoked.
-ObjFn* udogCompile(UDogVM* vm, ObjModule* module,
+ObjFn* cardinalCompile(CardinalVM* vm, ObjModule* module,
                    const char* sourcePath, const char* source) {
-	ObjString* sourcePathObj = AS_STRING(udogNewString(vm, sourcePath, strlen(sourcePath)));
-	UDOG_PIN(vm, sourcePathObj);
+	ObjString* sourcePathObj = AS_STRING(cardinalNewString(vm, sourcePath, strlen(sourcePath)));
+	CARDINAL_PIN(vm, sourcePathObj);
 
 	Parser parser;
 	parser.vm = vm;
@@ -3963,7 +3963,7 @@ ObjFn* udogCompile(UDogVM* vm, ObjModule* module,
 	parser.skipNewlines = true;
 	parser.hasError = false;
 
-	udogByteBufferInit(vm, &parser.string);
+	cardinalByteBufferInit(vm, &parser.string);
 
 	// Read the first token.
 	nextToken(&parser);
@@ -3972,7 +3972,7 @@ ObjFn* udogCompile(UDogVM* vm, ObjModule* module,
 	initCompiler(&compiler, &parser, NULL, true);
 	ignoreNewlines(&compiler);
 
-	UDOG_UNPIN(vm);
+	CARDINAL_UNPIN(vm);
 	
 	while (!match(&compiler, TOKEN_EOF)) {
 		definition(&compiler);
@@ -4005,7 +4005,7 @@ ObjFn* udogCompile(UDogVM* vm, ObjModule* module,
 	}
 	
 	ObjFn* fn = endCompiler(&compiler, "(script)", 8);
-	udogSetCompiler(vm, NULL);
+	cardinalSetCompiler(vm, NULL);
 	return fn;
 }
 
@@ -4022,7 +4022,7 @@ ObjFn* udogCompile(UDogVM* vm, ObjModule* module,
 //
 // We could handle this dynamically, but that adds overhead. Instead, when a
 // method is bound, we walk the bytecode for the function and patch it up.
-void udogBindMethodCode(UDogVM* vm, int num, ObjClass* classObj, ObjFn* fn) {
+void cardinalBindMethodCode(CardinalVM* vm, int num, ObjClass* classObj, ObjFn* fn) {
 	#define READ_BYTE2()  (fn->bytecode[ip])
 	#define READ_SHORT2() ((fn->bytecode[ip] << 8) | fn->bytecode[ip + 1])
 
@@ -4097,12 +4097,12 @@ void udogBindMethodCode(UDogVM* vm, int num, ObjClass* classObj, ObjFn* fn) {
 					int cnst = READ_CONSTANT2();
 					ObjList* oldlist = AS_LIST(fn->constants[cnst]);
 					
-					ObjList* list = udogNewList(vm, 0);
+					ObjList* list = cardinalNewList(vm, 0);
 					
 					for(int i=0;i<oldlist->count; i++)
-						udogListAdd(vm, list, oldlist->elements[i]);
+						cardinalListAdd(vm, list, oldlist->elements[i]);
 					
-					udogListInsert(vm, list, NUM_VAL(num), 0);
+					cardinalListInsert(vm, list, NUM_VAL(num), 0);
 					fn->constants[cnst] = OBJ_VAL(list);
 					
 					ip -= METHOD_BYTE;
@@ -4113,15 +4113,15 @@ void udogBindMethodCode(UDogVM* vm, int num, ObjClass* classObj, ObjFn* fn) {
 			case CODE_CLOSURE: {
 				// Bind the nested closure too.
 				int constant = READ_CONSTANT2();
-				udogBindMethodCode(vm, -1, classObj, AS_FN(fn->constants[constant]));
+				cardinalBindMethodCode(vm, -1, classObj, AS_FN(fn->constants[constant]));
 				ip += getNumArguments(fn->bytecode, fn->constants, ip - 1);
 				
 				break;
 			}
 
 			case CODE_END:
-				#if UDOG_DEBUG_DUMP_BOUND_CODE
-					udogDebugPrintCode(vm, fn);
+				#if CARDINAL_DEBUG_DUMP_BOUND_CODE
+					cardinalDebugPrintCode(vm, fn);
 				#endif
 				return;
 
@@ -4132,8 +4132,8 @@ void udogBindMethodCode(UDogVM* vm, int num, ObjClass* classObj, ObjFn* fn) {
 		}
 	}
 	
-	#if UDOG_DEBUG_DUMP_BOUND_CODE
-		udogDebugPrintCode(vm, fn);
+	#if CARDINAL_DEBUG_DUMP_BOUND_CODE
+		cardinalDebugPrintCode(vm, fn);
 	#endif
 }
 
@@ -4150,7 +4150,7 @@ void udogBindMethodCode(UDogVM* vm, int num, ObjClass* classObj, ObjFn* fn) {
 //
 // We could handle this dynamically, but that adds overhead. Instead, when a
 // method is bound, we walk the bytecode for the function and patch it up.
-void udogBindMethodSuperCode(UDogVM* vm, int num, ObjFn* fn) {
+void cardinalBindMethodSuperCode(CardinalVM* vm, int num, ObjFn* fn) {
 	int ip = 0;
 	for (;;) {
 		Code instruction = (Code) fn->bytecode[ip++];
@@ -4178,12 +4178,12 @@ void udogBindMethodSuperCode(UDogVM* vm, int num, ObjFn* fn) {
 					int cnst = READ_CONSTANT2();
 					ObjList* oldlist = AS_LIST(fn->constants[cnst]);
 					
-					ObjList* list = udogNewList(vm, 0);
+					ObjList* list = cardinalNewList(vm, 0);
 					
 					for(int i=0;i<oldlist->count; i++)
-						udogListAdd(vm, list, oldlist->elements[i]);
+						cardinalListAdd(vm, list, oldlist->elements[i]);
 					
-					udogListInsert(vm, list, NUM_VAL(num), 0);
+					cardinalListInsert(vm, list, NUM_VAL(num), 0);
 					fn->constants[cnst] = OBJ_VAL(list);
 					
 					ip -= METHOD_BYTE;
@@ -4192,8 +4192,8 @@ void udogBindMethodSuperCode(UDogVM* vm, int num, ObjFn* fn) {
 				break;
 			}
 			case CODE_END:
-				#if UDOG_DEBUG_DUMP_BOUND_CODE
-					udogDebugPrintCode(vm, fn);
+				#if CARDINAL_DEBUG_DUMP_BOUND_CODE
+					cardinalDebugPrintCode(vm, fn);
 				#endif
 				return;
 
@@ -4204,37 +4204,37 @@ void udogBindMethodSuperCode(UDogVM* vm, int num, ObjFn* fn) {
 		}
 	}
 	
-	#if UDOG_DEBUG_DUMP_BOUND_CODE
-		udogDebugPrintCode(vm, fn);
+	#if CARDINAL_DEBUG_DUMP_BOUND_CODE
+		cardinalDebugPrintCode(vm, fn);
 	#endif
 }
 
 // Reaches all of the heap-allocated objects in use by [compiler] (and all of
 // its parents) so that they are not collected by the GC.
-void udogMarkCompiler(UDogVM* vm, UDogCompiler* compiler) {
+void cardinalMarkCompiler(CardinalVM* vm, CardinalCompiler* compiler) {
 	if (compiler->parser->sourcePath != NULL) {
-		udogMarkObj(vm, (Obj*)compiler->parser->sourcePath);
+		cardinalMarkObj(vm, (Obj*)compiler->parser->sourcePath);
 	}
 	if (compiler->parser->module != NULL) {
-		udogMarkObj(vm, (Obj*)compiler->parser->module);
+		cardinalMarkObj(vm, (Obj*)compiler->parser->module);
 	}
 
 	// Walk up the parent chain to mark the outer compilers too. The VM only
 	// tracks the innermost one.
 	while (compiler != NULL) {
 		if (compiler->constants != NULL) {
-			udogMarkObj(vm, (Obj*)compiler->constants);
+			cardinalMarkObj(vm, (Obj*)compiler->constants);
 		}
 		if (compiler->undefined != NULL)
-			udogMarkObj(vm, (Obj*)compiler->undefined);
+			cardinalMarkObj(vm, (Obj*)compiler->undefined);
 		
 		ClassCompiler* c = compiler->enclosingClass;
 		
 		if (c != NULL) {
 			if (c->undefined != NULL)
-				udogMarkObj(vm, (Obj*)c->undefined);
+				cardinalMarkObj(vm, (Obj*)c->undefined);
 			if (c->super != NULL)
-				udogMarkObj(vm, (Obj*)c->super);
+				cardinalMarkObj(vm, (Obj*)c->super);
 		}
 
 		compiler = compiler->parent;

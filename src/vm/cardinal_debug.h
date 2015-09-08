@@ -1,8 +1,8 @@
-#ifndef udog_debug_h
-#define udog_debug_h
+#ifndef cardinal_debug_h
+#define cardinal_debug_h
 
-#include "udog_value.h"
-#include "udog_vm.h"
+#include "cardinal_value.h"
+#include "cardinal_vm.h"
 
 #define note(S, ...) fprintf(stderr,                                     \
   "\x1b[1m(%s:%d, %s)\x1b[0m\n  \x1b[1m\x1b[90mnote:\x1b[0m " S "\n",    \
@@ -25,12 +25,12 @@
 #define errnScript(vm, S, ...) vm->printFunction(                                \
   "\x1b[0m\n  \x1b[1m\x1b[31merror:\x1b[0m " S "\n", ##__VA_ARGS__);
 
-void udogDebugPrintStackTrace(UDogVM* vm, ObjFiber* fiber);
-int udogDebugPrintInstruction(UDogVM* vm, ObjFn* fn, int i);
-void udogDebugPrintCode(UDogVM* vm, ObjFn* fn);
-void udogDebugPrintStack(UDogVM* vm, ObjFiber* fiber);
-ObjString* udogDebugGetStackTrace(UDogVM* vm, ObjFiber* fiber);
+void cardinalDebugPrintStackTrace(CardinalVM* vm, ObjFiber* fiber);
+int cardinalDebugPrintInstruction(CardinalVM* vm, ObjFn* fn, int i);
+void cardinalDebugPrintCode(CardinalVM* vm, ObjFn* fn);
+void cardinalDebugPrintStack(CardinalVM* vm, ObjFiber* fiber);
+ObjString* cardinalDebugGetStackTrace(CardinalVM* vm, ObjFiber* fiber);
 
-void checkDebugger(UDogVM* vm);
+void checkDebugger(CardinalVM* vm);
 
 #endif

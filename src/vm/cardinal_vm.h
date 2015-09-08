@@ -1,9 +1,9 @@
-#ifndef udog_vm_h
-#define udog_vm_h
+#ifndef cardinal_vm_h
+#define cardinal_vm_h
 
-#include "udog_utils.h"
-#include "udog_compiler.h"
-#include "udog_debugger.h"
+#include "cardinal_utils.h"
+#include "cardinal_compiler.h"
+#include "cardinal_debugger.h"
 
 ///////////////////////////////////////////////////////////////////////////////////
 //// VIRTUAL MACHINE
@@ -11,20 +11,20 @@
 
 // The maximum number of temporary objects that can be made visible to the GC
 // at one time.
-#define UDOG_MAX_TEMP_ROOTS 10
+#define CARDINAL_MAX_TEMP_ROOTS 10
 
 // Mark [obj] as a GC root so that it doesn't get collected. Initializes
 // [pinned], which must be then passed to [unpinObj].
-#define UDOG_PIN(vm, obj) udogPushRoot(vm, (Obj*) obj)
+#define CARDINAL_PIN(vm, obj) cardinalPushRoot(vm, (Obj*) obj)
 
 // Remove the most recently pinned object from the list of pinned GC roots.
-#define UDOG_UNPIN(vm) udogPopRoot(vm)
+#define CARDINAL_UNPIN(vm) cardinalPopRoot(vm)
 
 // Enumeration for the different opcodes
 // The enumeration is used for the virtual machine
 typedef enum Code {
 	#define OPCODE(name) CODE_##name,
-	#include "udog_opcodes.h"
+	#include "cardinal_opcodes.h"
 	#undef OPCODE	
 } Code;
 
@@ -41,7 +41,7 @@ typedef enum GCPhase {
 /// All variables and data concerning the collector are stored
 /// The garbage collector uses a mark and sweep algorithm
 /// It also marks all object using the tri-coloring method
-typedef struct UDogGC {
+typedef struct CardinalGC {
 	/// The current phase of the allocator
 	GCPhase phase;
 	
@@ -89,7 +89,7 @@ typedef struct UDogGC {
 	/// They are organized as a stack of pointers stored in this array. This
 	/// implies that temporary roots need to have stack semantics: only the most
 	/// recently pushed object can be released.
-	Obj* tempRoots[UDOG_MAX_TEMP_ROOTS];
+	Obj* tempRoots[CARDINAL_MAX_TEMP_ROOTS];
 	
 	/// Number of active roots
 	int numTempRoots;
@@ -100,10 +100,10 @@ typedef struct UDogGC {
 	/// Indicates the number of destroyed objects
 	int destroyed;
 
-} UDogGC;
+} CardinalGC;
 
 /// Contains all metatables from the Virtual machine
-typedef struct UDogMetaTable {
+typedef struct CardinalMetaTable {
 		/// Metatables 
 	/// The core class diagram ends up looking like this, where single lines point
 	/// to a class's superclass, and double lines point to its metaclass:
@@ -170,16 +170,16 @@ typedef struct UDogMetaTable {
 	/// Class, which is a subclass of Object, but Object's
 	/// metaclass.
 	ObjClass* classClass;
-} UDogMetaTable;
+} CardinalMetaTable;
 
 /// Adds a newly allocated object to the GC
-void udogAddGCObject(UDogVM* vm, Obj* obj);
+void cardinalAddGCObject(CardinalVM* vm, Obj* obj);
 
 /// Used to get statistics from the Garbage collector
-void udogGetGCStatistics(UDogVM* vm, int* size, int* destroyed, int* detected, int* newobj, int* gcNext, int* nbHosts);
+void cardinalGetGCStatistics(CardinalVM* vm, int* size, int* destroyed, int* detected, int* newobj, int* gcNext, int* nbHosts);
 
 /// The host objects from this application
-typedef struct UDogHost {
+typedef struct CardinalHost {
 	/// The host objects from this application
 	ObjTable* hostObjects;
 	
@@ -187,14 +187,14 @@ typedef struct UDogHost {
 	ObjList* freeNums;
 	
 	/// highest index
-	udog_number max;
-} UDogHost;
+	cardinal_number max;
+} CardinalHost;
 
 /// The declaration for the VM
 /// Is used as the main source for script execution
-typedef struct UDogVM {
+typedef struct CardinalVM {
 	/// Metatables 
-	UDogMetaTable metatable;	
+	CardinalMetaTable metatable;	
 	
 	/// The loaded modules. Each key is an ObjString (except for the main module,
 	/// whose key is null) for the module's name and the value is the ObjModule
@@ -202,13 +202,13 @@ typedef struct UDogVM {
 	ObjMap* modules;
 	
 	/// The function used to load modules.
-	udogLoadModuleFn loadModule;
+	cardinalLoadModuleFn loadModule;
 	
 	/// The externally-provided function used to allocate memory.
-	udogReallocateFn reallocate;
+	cardinalReallocateFn reallocate;
 	
 	///The garbage collector used by this VM
-	UDogGC garbageCollector;
+	CardinalGC garbageCollector;
 
 	/// The fiber that is currently running.
 	ObjFiber* fiber;
@@ -217,19 +217,19 @@ typedef struct UDogVM {
 	SymbolTable methodNames;
 	
 	/// The host objects from this application
-	UDogHost hostObjects;
+	CardinalHost hostObjects;
 	
 	/// Compiler used by the VM
-	UDogCompiler* compiler;
+	CardinalCompiler* compiler;
 		
 	/// Callback function for the debugger
-	udogCallBack callBackFunction;
+	cardinalCallBack callBackFunction;
 	
 	/// debugger
 	DebugData* debugger;
 	
 	/// Callback used when printing output to the console
-	udogPrintCallBack printFunction;
+	cardinalPrintCallBack printFunction;
 	
 	/// The root directoy
 	ObjString* rootDirectory;
@@ -242,67 +242,67 @@ typedef struct UDogVM {
 	
 	/// The maximum callframe depth
 	int callDepth;
-} UDogVM;
+} CardinalVM;
 
-ObjFiber* loadModuleFiber(UDogVM* vm, Value name, Value source);
+ObjFiber* loadModuleFiber(CardinalVM* vm, Value name, Value source);
 
-bool runInterpreter(UDogVM* vm); 
+bool runInterpreter(CardinalVM* vm); 
 
-ObjModule* udogImportModuleVar(UDogVM* vm, Value name);
+ObjModule* cardinalImportModuleVar(CardinalVM* vm, Value name);
 
 // Checks whether a module with the given name exists, and if so
 // Replaces it with the given module
 // Otherwise the module is added to the module list
-void udogSaveModule(UDogVM* vm, ObjModule* module, ObjString* name);
+void cardinalSaveModule(CardinalVM* vm, ObjModule* module, ObjString* name);
 
 // Returns the value of the module-level variable named [name] in the main
 // module.
-Value udogFindVariable(UDogVM* vm, const char* name);
+Value cardinalFindVariable(CardinalVM* vm, const char* name);
 
-ObjModule* udogReadyNewModule(UDogVM* vm);
+ObjModule* cardinalReadyNewModule(CardinalVM* vm);
 
 // Adds a new implicitly declared global named [name] to the global namespace.
 //
 // Does not check to see if a global with that name is already declared or
 // defined. Returns the symbol for the new global or -2 if there are too many
 // globals defined.
-int udogDeclareVariable(UDogVM* vm, ObjModule* module, const char* name,
+int cardinalDeclareVariable(CardinalVM* vm, ObjModule* module, const char* name,
                         size_t length);
 
 // Adds a new global named [name] to the global namespace.
 //
 // Returns the symbol for the new global, -1 if a global with the given name
 // is already defined, or -2 if there are too many globals defined.
-int udogDefineVariable(UDogVM* vm, ObjModule* module, const char* name,
+int cardinalDefineVariable(CardinalVM* vm, ObjModule* module, const char* name,
                        size_t length, Value value);
 					   
-int udogFindVariableSymbol(UDogVM* vm, ObjModule* module, const char* name, int length);
+int cardinalFindVariableSymbol(CardinalVM* vm, ObjModule* module, const char* name, int length);
 
 // Sets the current Compiler being run to [compiler].
-void udogSetCompiler(UDogVM* vm, UDogCompiler* compiler);
+void cardinalSetCompiler(CardinalVM* vm, CardinalCompiler* compiler);
 
 // Mark [obj] as a GC root so that it doesn't get collected.
-void udogPushRoot(UDogVM* vm, Obj* obj);
+void cardinalPushRoot(CardinalVM* vm, Obj* obj);
 
 // Remove the most recently pushed temporary root.
-void udogPopRoot(UDogVM* vm);
+void cardinalPopRoot(CardinalVM* vm);
 
 // Runs the garbage collector
-void udogCollectGarbage(UDogVM* vm);
+void cardinalCollectGarbage(CardinalVM* vm);
 
 // Set the garbage collector enabled or disabled
-void udogEnableGC(UDogVM* vm, bool enable);
+void cardinalEnableGC(CardinalVM* vm, bool enable);
 
 // Returns the class of [value].
 //
-// Defined here instead of in udog_value.h because it's critical that this be
-// inlined. That means it must be defined in the header, but the udog_value.h
-// header doesn't have a full definitely of UDogVM yet.
-static inline ObjClass* udogGetClassInline(UDogVM* vm, Value value) {
+// Defined here instead of in cardinal_value.h because it's critical that this be
+// inlined. That means it must be defined in the header, but the cardinal_value.h
+// header doesn't have a full definitely of CardinalVM yet.
+static inline ObjClass* cardinalGetClassInline(CardinalVM* vm, Value value) {
 	if (IS_NUM(value)) return vm->metatable.numClass;
 	if (IS_OBJ(value)) return AS_OBJ(value)->classObj;
 	
-#if UDOG_NAN_TAGGING
+#if CARDINAL_NAN_TAGGING
 	switch (GET_TAG(value)) {
 		case TAG_FALSE: return vm->metatable.boolClass; break;
 		case TAG_NAN: return vm->metatable.numClass; break;
@@ -349,11 +349,11 @@ static inline ObjClass* udogGetClassInline(UDogVM* vm, Value value) {
 //
 // - To free memory, [memory] will be the memory to free and [newSize] and
 //   [oldSize] will be zero. It should return NULL.
-void* udogReallocate(UDogVM* vm, void* buffer, size_t oldSize, size_t newSize);
+void* cardinalReallocate(CardinalVM* vm, void* buffer, size_t oldSize, size_t newSize);
 
 // Check if we need to grow or shrink the stack
-bool udogFiberStack(UDogVM* vm, ObjFiber* fiber, Value** stackstart);
-bool udogFiberCallFrame(UDogVM* vm, ObjFiber* fiber, CallFrame** frame);
+bool cardinalFiberStack(CardinalVM* vm, ObjFiber* fiber, Value** stackstart);
+bool cardinalFiberCallFrame(CardinalVM* vm, ObjFiber* fiber, CallFrame** frame);
 
 
 

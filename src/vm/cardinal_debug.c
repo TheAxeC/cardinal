@@ -1,13 +1,13 @@
 #include <stdio.h>
 
-#include "udog_debug.h"
-#include "udog_value.h"
+#include "cardinal_debug.h"
+#include "cardinal_value.h"
 
-static int debugPrintInstruction(UDogVM* vm, ObjFn* fn, int i, int* lastLine);
+static int debugPrintInstruction(CardinalVM* vm, ObjFn* fn, int i, int* lastLine);
 
-void udogDebugPrintStackTrace(UDogVM* vm, ObjFiber* fiber) {
+void cardinalDebugPrintStackTrace(CardinalVM* vm, ObjFiber* fiber) {
 	UNUSED(vm);
-	fprintf(stderr, "%s\n", udogGetErrorString(vm, fiber)->value);
+	fprintf(stderr, "%s\n", cardinalGetErrorString(vm, fiber)->value);
 
 	for (int i = fiber->numFrames - 1; i >= 0; i--) {
 		CallFrame* frame = &fiber->frames[i];
@@ -22,7 +22,7 @@ void udogDebugPrintStackTrace(UDogVM* vm, ObjFiber* fiber) {
 		// Built-in libraries have no source path and are explicitly omitted from
 		// stack traces since we don't want to highlight to a user the
 		// implementation detail of what part of a core library is implemented in
-		// C and what is in UDog.
+		// C and what is in Cardinal.
 		if (fn->debug->sourcePath == NULL ||
 		        fn->debug->sourcePath->length == 0) {
 			continue;
@@ -34,10 +34,10 @@ void udogDebugPrintStackTrace(UDogVM* vm, ObjFiber* fiber) {
 	}
 }
 
-ObjString* udogDebugGetStackTrace(UDogVM* vm, ObjFiber* fiber) {
+ObjString* cardinalDebugGetStackTrace(CardinalVM* vm, ObjFiber* fiber) {
 	UNUSED(vm);
-	ObjString* str = udogStringFormat(vm, "%s\n", udogGetErrorString(vm, fiber)->value);
-	UDOG_PIN(vm, str);
+	ObjString* str = cardinalStringFormat(vm, "%s\n", cardinalGetErrorString(vm, fiber)->value);
+	CARDINAL_PIN(vm, str);
 	for (int i = fiber->numFrames - 1; i >= 0; i--) {
 		CallFrame* frame = &fiber->frames[i];
 		ObjFn* fn;
@@ -51,7 +51,7 @@ ObjString* udogDebugGetStackTrace(UDogVM* vm, ObjFiber* fiber) {
 		// Built-in libraries have no source path and are explicitly omitted from
 		// stack traces since we don't want to highlight to a user the
 		// implementation detail of what part of a core library is implemented in
-		// C and what is in UDog.
+		// C and what is in Cardinal.
 		if (fn->debug->sourcePath == NULL ||
 		        fn->debug->sourcePath->length == 0) {
 			continue;
@@ -59,24 +59,24 @@ ObjString* udogDebugGetStackTrace(UDogVM* vm, ObjFiber* fiber) {
 
 		// - 1 because IP has advanced past the instruction that it just executed.
 		int line = fn->debug->sourceLines[frame->pc - fn->bytecode - 1];
-		ObjString* insert = udogStringFormat(vm, "[%s line %d] in %s\n", fn->debug->sourcePath->value, line, fn->debug->name);
-		UDOG_PIN(vm, str);
-		ObjString* newstr = udogStringConcat(vm, str->value, -1, insert->value, -1);
-		UDOG_UNPIN(vm);
-		UDOG_UNPIN(vm);
-		UDOG_PIN(vm, newstr);
+		ObjString* insert = cardinalStringFormat(vm, "[%s line %d] in %s\n", fn->debug->sourcePath->value, line, fn->debug->name);
+		CARDINAL_PIN(vm, str);
+		ObjString* newstr = cardinalStringConcat(vm, str->value, -1, insert->value, -1);
+		CARDINAL_UNPIN(vm);
+		CARDINAL_UNPIN(vm);
+		CARDINAL_PIN(vm, newstr);
 		str = newstr;
 	}
 	
-	UDOG_UNPIN(vm);
+	CARDINAL_UNPIN(vm);
 	return str;
 }
 
-int udogDebugPrintInstruction(UDogVM* vm, ObjFn* fn, int i) {
+int cardinalDebugPrintInstruction(CardinalVM* vm, ObjFn* fn, int i) {
 	return debugPrintInstruction(vm, fn, i, NULL);
 }
 
-void udogDebugPrintCode(UDogVM* vm, ObjFn* fn) {
+void cardinalDebugPrintCode(CardinalVM* vm, ObjFn* fn) {
 	printf("%s: %s\n", fn->debug->sourcePath->value, fn->debug->name);
 
 	int i = 0;
@@ -90,17 +90,17 @@ void udogDebugPrintCode(UDogVM* vm, ObjFn* fn) {
 	printf("\n");
 }
 
-void udogDebugPrintStack(UDogVM* vm, ObjFiber* fiber) {
+void cardinalDebugPrintStack(CardinalVM* vm, ObjFiber* fiber) {
 	UNUSED(vm);
 	printf("(fiber %p) ", fiber);
 	for (Value* slot = fiber->stack; slot < fiber->stacktop; slot++) {
-		udogPrintValue(*slot);
+		cardinalPrintValue(*slot);
 		printf(" | ");
 	}
 	printf("\n");
 }
 
-static int debugPrintInstruction(UDogVM* vm, ObjFn* fn, int i, int* lastLine) {
+static int debugPrintInstruction(CardinalVM* vm, ObjFn* fn, int i, int* lastLine) {
 	int start = i;
 	uint8_t* bytecode = fn->bytecode;
 	Code code = (Code) bytecode[i];
@@ -227,7 +227,7 @@ static int debugPrintInstruction(UDogVM* vm, ObjFn* fn, int i, int* lastLine) {
 		case CODE_CONSTANT: {
 			int constant = READ_CONSTANT();
 			printf("%-16s %5d '", "CONSTANT", constant);
-			udogPrintValue(fn->constants[constant]);
+			cardinalPrintValue(fn->constants[constant]);
 			printf("'\n");
 			break;
 		}
@@ -358,7 +358,7 @@ static int debugPrintInstruction(UDogVM* vm, ObjFn* fn, int i, int* lastLine) {
 		case CODE_CLOSURE: {
 			int constant = READ_CONSTANT();
 			printf("%-16s %5d ", "CLOSURE", constant);
-			udogPrintValue(fn->constants[constant]);
+			cardinalPrintValue(fn->constants[constant]);
 			printf(" ");
 			ObjFn* loadedFn = AS_FN(fn->constants[constant]);
 			for (int j = 0; j < loadedFn->numUpvalues; j++) {
@@ -395,7 +395,7 @@ static int debugPrintInstruction(UDogVM* vm, ObjFn* fn, int i, int* lastLine) {
 		case CODE_LOAD_MODULE: {
 			int constant = READ_CONSTANT();
 			printf("%-16s %5d '", "LOAD_MODULE", constant);
-			udogPrintValue(fn->constants[constant]);
+			cardinalPrintValue(fn->constants[constant]);
 			printf("'\n");
 			break;
 		}
@@ -404,9 +404,9 @@ static int debugPrintInstruction(UDogVM* vm, ObjFn* fn, int i, int* lastLine) {
 			int module = READ_CONSTANT();
 			int variable = READ_CONSTANT();
 			printf("%-16s %5d '", "IMPORT_VARIABLE", module);
-			udogPrintValue(fn->constants[module]);
+			cardinalPrintValue(fn->constants[module]);
 			printf("' '");
-			udogPrintValue(fn->constants[variable]);
+			cardinalPrintValue(fn->constants[variable]);
 			printf("'\n");
 			break;
 		}
@@ -433,7 +433,7 @@ static int debugPrintInstruction(UDogVM* vm, ObjFn* fn, int i, int* lastLine) {
 }
 
 
-void checkDebugger(UDogVM* vm) {
+void checkDebugger(CardinalVM* vm) {
 	CallFrame* frame = &vm->fiber->frames[vm->fiber->numFrames - 1];
 	ObjFn* fn;
 	if (frame->fn->type == OBJ_FN) {
@@ -446,7 +446,7 @@ void checkDebugger(UDogVM* vm) {
 	// Built-in libraries have no source path and are explicitly omitted from
 	// stack traces since we don't want to highlight to a user the
 	// implementation detail of what part of a core library is implemented in
-	// C and what is in UDog.
+	// C and what is in Cardinal.
 	if (fn->debug->sourcePath == NULL ||
 			fn->debug->sourcePath->length == 0) {
 		return;

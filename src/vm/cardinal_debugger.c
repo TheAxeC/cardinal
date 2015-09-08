@@ -1,6 +1,6 @@
-#include "udog_debugger.h"
+#include "cardinal_debugger.h"
 
-#include "udog_debug.h"
+#include "cardinal_debug.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -43,35 +43,35 @@ struct DebugData {
 ///////////////////////////////////////////////////////////////////////////////////
 
 // Create a new debugger
-DebugData* udogNewDebugger(UDogVM* vm) {
-	DebugData* ret = (DebugData*) udogReallocate(vm, NULL, 0, sizeof(DebugData));
+DebugData* cardinalNewDebugger(CardinalVM* vm) {
+	DebugData* ret = (DebugData*) cardinalReallocate(vm, NULL, 0, sizeof(DebugData));
 	ret->action = STEP_INTO;
 	ret->extra = NULL;
 	
-	udogBreakPointBufferInit(vm, &ret->breakpoints);
+	cardinalBreakPointBufferInit(vm, &ret->breakpoints);
 	
 	return ret;
 }
 
 // Free the debugger
-void udogFreeDebugger(UDogVM* vm, DebugData* debugger) {
-	udogBreakPointBufferClear(vm, &debugger->breakpoints);
-	udogReallocate(vm, debugger, 0, 0);
+void cardinalFreeDebugger(CardinalVM* vm, DebugData* debugger) {
+	cardinalBreakPointBufferClear(vm, &debugger->breakpoints);
+	cardinalReallocate(vm, debugger, 0, 0);
 }
 
 // Add a breakpoint on line [line] in the debugger
-void udogAddBreakPoint(UDogVM* vm, DebugData* debugger, int line) {
+void cardinalAddBreakPoint(CardinalVM* vm, DebugData* debugger, int line) {
 	BreakPoint brpoint = { line };
-	udogBreakPointBufferWrite(vm, &debugger->breakpoints, brpoint);
+	cardinalBreakPointBufferWrite(vm, &debugger->breakpoints, brpoint);
 }
 
 // Remove all breakpoints
-void udogRemoveAllBreakPoints(UDogVM* vm, DebugData* debugger) {
-	udogBreakPointBufferClear(vm, &debugger->breakpoints);
+void cardinalRemoveAllBreakPoints(CardinalVM* vm, DebugData* debugger) {
+	cardinalBreakPointBufferClear(vm, &debugger->breakpoints);
 }
 
 // Remove a breakpoint on line [line]
-void udogRemoveBreakPoint(UDogVM* vm, DebugData* debugger, int line) {
+void cardinalRemoveBreakPoint(CardinalVM* vm, DebugData* debugger, int line) {
 	UNUSED(vm);
 	for(int i=0; i<debugger->breakpoints.count; i++) {
 		if (debugger->breakpoints.data[i].line == line)
@@ -80,7 +80,7 @@ void udogRemoveBreakPoint(UDogVM* vm, DebugData* debugger, int line) {
 }
 
 // Check if the debugger has to break on line [line]
-bool udogHasBreakPoint(UDogVM* vm, DebugData* debugger, int line) {
+bool cardinalHasBreakPoint(CardinalVM* vm, DebugData* debugger, int line) {
 	UNUSED(vm);
 	for(int i=0; i<debugger->breakpoints.count; i++) {
 		if (debugger->breakpoints.data[i].line == line)
@@ -90,22 +90,22 @@ bool udogHasBreakPoint(UDogVM* vm, DebugData* debugger, int line) {
 }
 
 /// Set the sate of the debug data [debugger] to [state]
-void udogSetDebugState(DebugData* debugger, DebugState state) {
+void cardinalSetDebugState(DebugData* debugger, DebugState state) {
 	debugger->action = state;
 }
 
 // Get the state of the debugdata [debugger]
-DebugState udogGetDebugState(DebugData* debugger) {
+DebugState cardinalGetDebugState(DebugData* debugger) {
 	return debugger->action;
 }
 
 // Set extra data in the debugger
-void udogSetExtraDebugData(DebugData* debugger, void* data) {
+void cardinalSetExtraDebugData(DebugData* debugger, void* data) {
 	debugger->extra = data;
 }
 
 // Get extra data from the debugger
-void* udogGetExtraDebugData(DebugData* debugger) {
+void* cardinalGetExtraDebugData(DebugData* debugger) {
 	return debugger->extra;
 }
 
@@ -113,39 +113,39 @@ void* udogGetExtraDebugData(DebugData* debugger) {
 //// HELPER FUNCTIONS
 ///////////////////////////////////////////////////////////////////////////////////
 
-static int getCurrentLine(UDogVM* vm);
-static Code getCurrentInstruction(UDogVM* vm);
-static ObjFn* getCurrentFunction(UDogVM* vm);
+static int getCurrentLine(CardinalVM* vm);
+static Code getCurrentInstruction(CardinalVM* vm);
+static ObjFn* getCurrentFunction(CardinalVM* vm);
 
-static bool executeCommand(UDogVM* vm, const char* line);
+static bool executeCommand(CardinalVM* vm, const char* line);
 static void printHelp();
-static void listData(UDogVM* vm);
-static void printLocation(UDogVM* vm);
-static void printStack(UDogVM* vm);
+static void listData(CardinalVM* vm);
+static void printLocation(CardinalVM* vm);
+static void printStack(CardinalVM* vm);
 
-static bool listDataCommand(UDogVM* vm, const char* cmd);
+static bool listDataCommand(CardinalVM* vm, const char* cmd);
 
-static void listBreakPoints(UDogVM* vm);
-static void listLocalVariables(UDogVM* vm);
-static void listGlobalVariables(UDogVM* vm);
-static void listMemberProperties(UDogVM* vm);
-static void listStatistics(UDogVM* vm);
+static void listBreakPoints(CardinalVM* vm);
+static void listLocalVariables(CardinalVM* vm);
+static void listGlobalVariables(CardinalVM* vm);
+static void listMemberProperties(CardinalVM* vm);
+static void listStatistics(CardinalVM* vm);
 
 
 ///////////////////////////////////////////////////////////////////////////////////
 //// DEFAULT CALLBACK
 ///////////////////////////////////////////////////////////////////////////////////
 
-void defaultDebugCallBack(UDogVM* vm) {
+void defaultDebugCallBack(CardinalVM* vm) {
 	// Continue to next breakpoint
-	if (udogGetDebugState(vm->debugger) == CONTINUE) {
+	if (cardinalGetDebugState(vm->debugger) == CONTINUE) {
 		// Check if there is a breakpoint
-		if (!udogHasBreakPoint(vm, vm->debugger, getCurrentLine(vm))) return;
+		if (!cardinalHasBreakPoint(vm, vm->debugger, getCurrentLine(vm))) return;
 		else printf("\treached breakpoint on line %d\n", getCurrentLine(vm));
 	}
 
 	// Continue to next return statement
-	if (udogGetDebugState(vm->debugger) == STEP_OUT || udogGetDebugState(vm->debugger) == STEP_OVER) {
+	if (cardinalGetDebugState(vm->debugger) == STEP_OUT || cardinalGetDebugState(vm->debugger) == STEP_OVER) {
 		// Check we are at a return statement, if not, return
 		if (getCurrentInstruction(vm) != CODE_RETURN) return;
 	}
@@ -168,7 +168,7 @@ void defaultDebugCallBack(UDogVM* vm) {
 //// HELPER FUNCTIONS
 ///////////////////////////////////////////////////////////////////////////////////
 
-static ObjFn* getCurrentFunction(UDogVM* vm) {
+static ObjFn* getCurrentFunction(CardinalVM* vm) {
 	CallFrame* frame = &vm->fiber->frames[vm->fiber->numFrames - 1];
 	ObjFn* fn;
 	if (frame->fn->type == OBJ_FN) {
@@ -180,7 +180,7 @@ static ObjFn* getCurrentFunction(UDogVM* vm) {
 	return fn;
 }
 
-static int getCurrentLine(UDogVM* vm) {
+static int getCurrentLine(CardinalVM* vm) {
 	CallFrame* frame = &vm->fiber->frames[vm->fiber->numFrames - 1];
 	ObjFn* fn;
 	if (frame->fn->type == OBJ_FN) {
@@ -194,7 +194,7 @@ static int getCurrentLine(UDogVM* vm) {
 }
 
 
-static Code getCurrentInstruction(UDogVM* vm) {
+static Code getCurrentInstruction(CardinalVM* vm) {
 	CallFrame* frame = &vm->fiber->frames[vm->fiber->numFrames - 1];
 	ObjFn* fn;
 	if (frame->fn->type == OBJ_FN) {
@@ -207,30 +207,30 @@ static Code getCurrentInstruction(UDogVM* vm) {
 	return (Code) fn->bytecode[frame->pc - fn->bytecode];
 }
 
-static bool executeCommand(UDogVM* vm, const char* line) {
+static bool executeCommand(CardinalVM* vm, const char* line) {
 	if (line[0] == '\n') return false;
 
 	switch (line[0]) {
 		case 'c':
-			udogSetDebugState(vm->debugger, CONTINUE);
+			cardinalSetDebugState(vm->debugger, CONTINUE);
 			break;
 
 		case 's':
-			udogSetDebugState(vm->debugger, STEP_INTO);
+			cardinalSetDebugState(vm->debugger, STEP_INTO);
 			break;
 
 		case 'n': {
 			// step over
 			Code inst = getCurrentInstruction(vm);
 			if ((inst >= CODE_CALL_0 && inst <= CODE_CALL_16) || (inst >= CODE_SUPER_0 && inst <= CODE_SUPER_16))
-				udogSetDebugState(vm->debugger, STEP_OVER);
+				cardinalSetDebugState(vm->debugger, STEP_OVER);
 			else
-				udogSetDebugState(vm->debugger, STEP_INTO);
+				cardinalSetDebugState(vm->debugger, STEP_INTO);
 			break;
 		}
 		case 'o':
 			// step out
-			udogSetDebugState(vm->debugger, STEP_OUT);
+			cardinalSetDebugState(vm->debugger, STEP_OUT);
 			break;
 
 		case 'b': {
@@ -247,7 +247,7 @@ static bool executeCommand(UDogVM* vm, const char* line) {
 				int v = strtol(breakp, &end, 10);
 					
 				if (v != 0) {
-					udogAddBreakPoint(vm, vm->debugger, v);
+					cardinalAddBreakPoint(vm, vm->debugger, v);
 					check = true;
 				}
 			}
@@ -267,7 +267,7 @@ static bool executeCommand(UDogVM* vm, const char* line) {
 					break;
 				
 				if (strcmp(breakp, "all") == 0) {
-					udogRemoveAllBreakPoints(vm, vm->debugger);
+					cardinalRemoveAllBreakPoints(vm, vm->debugger);
 					check = true;
 				}
 				else {
@@ -275,7 +275,7 @@ static bool executeCommand(UDogVM* vm, const char* line) {
 					int v = strtol(breakp, &end, 10);
 					
 					if (v != 0) {
-						udogRemoveBreakPoint(vm, vm->debugger, v);
+						cardinalRemoveBreakPoint(vm, vm->debugger, v);
 						check = true;
 					}
 				}
@@ -315,10 +315,10 @@ static bool executeCommand(UDogVM* vm, const char* line) {
 	return true;
 }
 
-static void printLocation(UDogVM* vm) {
+static void printLocation(CardinalVM* vm) {
 	ObjInstance* old = vm->fiber->error;
-	vm->fiber->error = udogThrowException(vm, AS_STRING(udogNewString(vm, "debugger", 8)));
-	udogDebugPrintStackTrace(vm, vm->fiber);
+	vm->fiber->error = cardinalThrowException(vm, AS_STRING(cardinalNewString(vm, "debugger", 8)));
+	cardinalDebugPrintStackTrace(vm, vm->fiber);
 	vm->fiber->error = old;
 }
 
@@ -335,7 +335,7 @@ static void printHelp() {
 			"h - Print this help text\n");
 }
 
-static void listData(UDogVM* vm) {
+static void listData(CardinalVM* vm) {
 	char line[MAX_LINE_LENGTH];
 	bool check = false;
 	
@@ -355,7 +355,7 @@ static void listData(UDogVM* vm) {
 	}
 }
 
-static bool listDataCommand(UDogVM* vm, const char* cmd) {
+static bool listDataCommand(CardinalVM* vm, const char* cmd) {
 	if (cmd[0] == 'b') {
 		listBreakPoints(vm);
 	}
@@ -387,39 +387,39 @@ static bool listDataCommand(UDogVM* vm, const char* cmd) {
 	return true;
 }
 
-static void listBreakPoints(UDogVM* vm) {
+static void listBreakPoints(CardinalVM* vm) {
 	for(int i=0; i<vm->debugger->breakpoints.count; i++) {
 		printf("\tBP: %d\n", vm->debugger->breakpoints.data[i].line);
 	}
 }
 
-static void listLocalVariables(UDogVM* vm) {
+static void listLocalVariables(CardinalVM* vm) {
 	ObjFn* fn = getCurrentFunction(vm);
 	ObjFiber* fiber = vm->fiber;
 	int top = fiber->stacktop - fiber->stack - 2;
 	for(int ind = 0; ind < top; ind++) {
 		printf("Variable '%.*s': ", fn->debug->locals.data[ind].length, fn->debug->locals.data[ind].buffer);
-		udogPrintValue(fiber->stack[ind+1]);
+		cardinalPrintValue(fiber->stack[ind+1]);
 		printf("\n");
 	}
 }
 
-static void listGlobalVariables(UDogVM* vm) {
+static void listGlobalVariables(CardinalVM* vm) {
 	ObjFn* fn = getCurrentFunction(vm);
 	
 	printf("Listing all global variables: \n");
 	for(int i=0; i<fn->module->variables.count; i++) {
 		printf("\t%.*s: ", fn->module->variableNames.data[i].length, fn->module->variableNames.data[i].buffer);
-		udogPrintValue(fn->module->variables.data[i]);
+		cardinalPrintValue(fn->module->variables.data[i]);
 		printf("\n");
 	}
 }
 
-static void printStack(UDogVM* vm) {
-	udogDebugPrintStack(vm, vm->fiber);
+static void printStack(CardinalVM* vm) {
+	cardinalDebugPrintStack(vm, vm->fiber);
 }
  
-static void listMemberProperties(UDogVM* vm) {
+static void listMemberProperties(CardinalVM* vm) {
 	UNUSED(vm);
 	// find the this member
 	ObjFiber* top = vm->fiber;
@@ -431,18 +431,18 @@ static void listMemberProperties(UDogVM* vm) {
 		
 	// Find al of it's members
 	ObjInstance* inst = AS_INSTANCE(top->stack[0]);
-	ObjClass* cls = udogGetClass(vm, top->stack[0]);
+	ObjClass* cls = cardinalGetClass(vm, top->stack[0]);
 	printf("Instance of class: '%s'\n", cls->name->value);
 	for(int i=0; i<cls->numFields; i++) {
 		printf("Field '%d' ", i);
-		udogPrintValue(inst->fields[i]);
+		cardinalPrintValue(inst->fields[i]);
 		printf("\n");
 	}
 }
 
-static void listStatistics(UDogVM* vm) {
+static void listStatistics(CardinalVM* vm) {
 	int gcCurrSize, gcTotalDestr, gcTotalDet, gcNewObjects, gcNext, nbHosts;
-	udogGetGCStatistics(vm, &gcCurrSize, &gcTotalDestr, &gcTotalDet, &gcNewObjects, &gcNext, &nbHosts);
+	cardinalGetGCStatistics(vm, &gcCurrSize, &gcTotalDestr, &gcTotalDet, &gcNewObjects, &gcNext, &nbHosts);
 
 	printf("Garbage collector:\n");
 	printf(" current size:          %d\n", gcCurrSize);
