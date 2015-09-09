@@ -1,0 +1,11 @@
+
+3.abs
+
+class A {
+	static field b
+	
+	static b { b }
+	
+	static b=(other) { b = other }
+}
+

@@ -85,6 +85,7 @@ typedef enum TokenType {
     TOKEN_ERROR,
     TOKEN_EOF,
 	TOKEN_DEC_FIELD,
+	TOKEN_MEMBER,
 	TOKEN_INIT,
 	TOKEN_MODULE,
 	TOKEN_DCOLON,
@@ -719,6 +720,7 @@ static void readName(Parser* parser, TokenType type) {
 	else if (isKeyword(parser, "var")) type = TOKEN_VAR;
 	else if (isKeyword(parser, "while")) type = TOKEN_WHILE;
 	else if (isKeyword(parser, "fields")) type = TOKEN_DEC_FIELD;
+	else if (isKeyword(parser, "field")) type = TOKEN_MEMBER;
 	else if (isKeyword(parser, "pre")) type = TOKEN_INIT;
 	else if (isKeyword(parser, "module")) type = TOKEN_MODULE;
 	else if (isKeyword(parser, "function")) type = TOKEN_FUNC;
@@ -993,6 +995,43 @@ static void nextToken(Parser* parser) {
 ///////////////////////////////////////////////////////////////////////////////////
 //// PARSER
 ///////////////////////////////////////////////////////////////////////////////////
+
+static void copyParser(Compiler* compiler, Parser* copy) {
+	Parser* old = compiler->parser;
+	
+	copy->vm = old->vm;
+	copy->module = old->module;
+	copy->sourcePath = old->sourcePath;
+	copy->source = old->source;
+	copy->tokenStart = old->tokenStart;
+	copy->currentChar = old->currentChar;
+	copy->currentLine = old->currentLine;
+	copy->current = old->current;
+	copy->previous = old->previous;
+	copy->skipNewlines = old->skipNewlines;
+	copy->hasError = old->hasError;
+	copy->number = old->number;
+	copy->string = old->string;
+}
+
+static void loadParser(Compiler* compiler, Parser* copy) {
+	Parser* old = compiler->parser;
+	
+	old->vm = copy->vm;
+	old->module = copy->module;
+	old->sourcePath = copy->sourcePath;
+	old->source = copy->source;
+	old->tokenStart = copy->tokenStart;
+	old->currentChar = copy->currentChar;
+	old->currentLine = copy->currentLine;
+	old->current = copy->current;
+	old->previous = copy->previous;
+	old->skipNewlines = copy->skipNewlines;
+	old->hasError = copy->hasError;
+	old->number = copy->number;
+	old->string = copy->string;
+}
+
 
 // Returns the type of the current token.
 static TokenType peek(Compiler* compiler) {
@@ -3047,6 +3086,7 @@ GrammarRule rules[] = {
 	/* TOKEN_ERROR         */ UNUSED_T,
 	/* TOKEN_EOF           */ UNUSED_T,
 	/* TOKEN_DEC_FIELD     */ UNUSED_T,
+	/* TOKEN_FIELD		   */ UNUSED_T,
 	/* TOKEN_INIT	       */ { NULL, NULL, initSignature, PREC_NONE, NULL },
 	/* TOKEN_MODULE	       */ {module_,  NULL, NULL, PREC_NONE, NULL},
 	/* TOKEN_DCOLON	       */ INFIX(PREC_CALL, doubleColon),
@@ -3663,6 +3703,18 @@ static void readClassFields(Compiler* compiler) {
 	consumeLine(compiler, "Expect newline after fields.");
 }
 
+// Read a single field from a class
+static void readSingleClassField(Compiler* compiler) {
+	if (match(compiler, TOKEN_STATIC)) {
+		readStaticField(compiler);
+	}
+	else {
+		readField(compiler);
+	}
+	//nextToken(compiler->parser);
+	nextToken(compiler->parser);
+	consumeLine(compiler, "Expect newline after field.");
+}
 
 static void createEmptyPre(Compiler* compiler, int symbol, int isModule) {
 	Compiler methodCompiler;
@@ -3744,10 +3796,40 @@ void classBody(Compiler* compiler, bool isModule, int numFieldsInstruction, int 
 	matchLine(compiler);
 	
 	classCompiler->foundPre = false;
-
+	
+	// Find all fields
+	Parser parser;
+	copyParser(compiler, &parser);
 	while (!match(compiler, TOKEN_RIGHT_BRACE)) {
 		if (match(compiler, TOKEN_DEC_FIELD)) {
 			readClassFields(compiler);
+		} else if (match(compiler, TOKEN_MEMBER)) {
+			readSingleClassField(compiler);
+		} else if (match(compiler, TOKEN_FOREIGN)) {
+			readForeignMethod(compiler);
+		} else if (match(compiler, TOKEN_STATIC)) {
+			if (match(compiler, TOKEN_MEMBER)) {
+				readStaticField(compiler);
+				nextToken(compiler->parser);
+				consumeLine(compiler, "Expect newline after field.");
+			}
+		} else {
+			if (match(compiler, TOKEN_LEFT_BRACE)) {
+				while (!match(compiler, TOKEN_RIGHT_BRACE)) {
+					nextToken(compiler->parser);
+				}
+			}
+			nextToken(compiler->parser);
+		}
+	}
+	loadParser(compiler, &parser);
+	
+	// Load all methods
+	while (!match(compiler, TOKEN_RIGHT_BRACE)) {
+		if (match(compiler, TOKEN_DEC_FIELD)) {
+			readClassFields(compiler);
+		} else if (match(compiler, TOKEN_MEMBER)) {
+			readSingleClassField(compiler);
 		} else if (match(compiler, TOKEN_FOREIGN)) {
 			readForeignMethod(compiler);
 		} else {
@@ -3757,6 +3839,12 @@ void classBody(Compiler* compiler, bool isModule, int numFieldsInstruction, int 
 			classCompiler->isStaticMethod = false;
 
 			if (match(compiler, TOKEN_STATIC)) {
+				if (match(compiler, TOKEN_MEMBER)) {
+					readStaticField(compiler);
+					nextToken(compiler->parser);
+					consumeLine(compiler, "Expect newline after field.");
+					continue;
+				}
 				instruction = CODE_METHOD_STATIC;
 				classCompiler->isStaticMethod = true;
 			}
