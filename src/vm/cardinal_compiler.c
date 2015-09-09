@@ -55,6 +55,7 @@ typedef enum TokenType {
 
     TOKEN_BREAK,
     TOKEN_CLASS,
+	TOKEN_CONSTRUCT,	
     TOKEN_ELSE,
     TOKEN_FALSE,
     TOKEN_FOR,
@@ -198,6 +199,32 @@ typedef struct Loop {
 	struct Loop* enclosing;
 } Loop;
 
+// The different signature syntaxes for different kinds of methods.
+typedef enum SignatureType {
+    // A name followed by a (possibly empty) parenthesized parameter list. Also
+    // used for binary operators.
+    SIG_METHOD,
+
+    // Just a name. Also used for unary operators.
+    SIG_GETTER,
+
+    // A name followed by "=".
+    SIG_SETTER,
+
+    // A square bracketed parameter list.
+    SIG_SUBSCRIPT,
+
+    // A square bracketed parameter list followed by "=".
+    SIG_SUBSCRIPT_SETTER,
+
+	// A constructor initializer function. This has a distinct signature to
+	// prevent it from being invoked directly outside of the constructor on the
+	// metaclass.
+	SIG_INITIALIZER,
+	
+	SIG_INITIALIZER_EMPTY
+} SignatureType;
+
 /// Bookkeeping information for compiling a class definition.
 typedef struct {
 	/// Symbol table for the fields of the class.
@@ -230,6 +257,9 @@ typedef struct {
 
 	/// The length of the method name being compiled.
 	int methodLength;
+	
+	/// Type of the method being compiled
+	SignatureType type;
 
 } ClassCompiler;
 
@@ -289,6 +319,9 @@ typedef struct CardinalCompiler {
 	
 	/// Is true when compiling the superclasses
 	bool compilingClass;
+	
+	/// Wether the class already exists or not
+	bool exists;
 	
 	/// Indicates whether debug symbols need to be added
 	bool debug;
@@ -444,6 +477,7 @@ static void initCompiler(Compiler* compiler, Parser* parser, Compiler* parent, b
 	
 	compiler->anonClass = 0;
 	compiler->compilingClass = false;
+	compiler->exists = false;
 
 	cardinalSetCompiler(parser->vm, compiler);
 
@@ -667,6 +701,7 @@ static void readName(Parser* parser, TokenType type) {
 
 	if (isKeyword(parser, "break")) type = TOKEN_BREAK;
 	else if (isKeyword(parser, "class")) type = TOKEN_CLASS;
+	else if (isKeyword(parser, "construct")) type = TOKEN_CONSTRUCT;
 	else if (isKeyword(parser, "else")) type = TOKEN_ELSE;
 	else if (isKeyword(parser, "false")) type = TOKEN_FALSE;
 	else if (isKeyword(parser, "for")) type = TOKEN_FOR;
@@ -674,7 +709,7 @@ static void readName(Parser* parser, TokenType type) {
 	else if (isKeyword(parser, "import")) type = TOKEN_IMPORT;
 	else if (isKeyword(parser, "in")) type = TOKEN_IN;
 	else if (isKeyword(parser, "is")) type = TOKEN_IS;
-	else if (isKeyword(parser, "new")) type = TOKEN_NEW;
+	//else if (isKeyword(parser, "new")) type = TOKEN_NEW;
 	else if (isKeyword(parser, "null")) type = TOKEN_NULL;
 	else if (isKeyword(parser, "return")) type = TOKEN_RETURN;
 	else if (isKeyword(parser, "static")) type = TOKEN_STATIC;
@@ -1182,8 +1217,13 @@ static int declareVariableName(Compiler* compiler, const char* start, int length
 		}
 		
 		if (symbol == -1) {
-			//error(compiler, "Module variable is already defined.");
-			symbol = cardinalFindVariableSymbol(compiler->parser->vm, compiler->parser->module, start, length);
+			if (compiler->compilingClass) {
+				symbol = cardinalFindVariableSymbol(compiler->parser->vm, compiler->parser->module, start, length);
+				compiler->exists = true;
+			}
+			else {
+				error(compiler, "Module variable is already defined.");	
+			}
 		}
 		else if (symbol == -2) {
 			error(compiler, "Too many module variables defined.");
@@ -1205,7 +1245,12 @@ static int declareVariableName(Compiler* compiler, const char* start, int length
 
 		if (local->length == length &&
 		        strncmp(local->name, start, length) == 0) {
-			error(compiler, "Variable is already declared in this scope.");
+			if (compiler->compilingClass) {
+				compiler->exists = true;
+			}
+			else {
+				error(compiler, "Variable is already declared in this scope.");
+			}
 			return i;
 		}
 	}
@@ -1502,26 +1547,6 @@ typedef enum {
 
 typedef void (*GrammarFn)(Compiler*, bool allowAssignment);
 
-// The different signature syntaxes for different kinds of methods.
-typedef enum SignatureType {
-    // A name followed by a (possibly empty) parenthesized parameter list. Also
-    // used for binary operators.
-    SIG_METHOD,
-
-    // Just a name. Also used for unary operators.
-    SIG_GETTER,
-
-    // A name followed by "=".
-    SIG_SETTER,
-
-    // A square bracketed parameter list.
-    SIG_SUBSCRIPT,
-
-    // A square bracketed parameter list followed by "=".
-    SIG_SUBSCRIPT_SETTER,
-
-} SignatureType;
-
 /// Represents a signature
 typedef struct Signature {
 	/// name
@@ -1722,7 +1747,17 @@ static void signatureToString(Signature* signature,
 			name[(*length)++] = '=';
 			signatureParameterList(name, length, 1, '(', ')');
 			break;
-			
+		case SIG_INITIALIZER:
+			memcpy(name, "init ", 5);
+			memcpy(name + 5, signature->name, signature->length);
+			*length = 5 + signature->length;
+			signatureParameterList(name, length, signature->arity, '(', ')');
+			break;
+		case SIG_INITIALIZER_EMPTY:
+			memcpy(name, "init ", 5);
+			memcpy(name + 5, signature->name, signature->length);
+			*length = 5 + signature->length;
+			break;
 	}
 
 	name[*length] = '\0';
@@ -1844,6 +1879,20 @@ static void namedMethodCall(Compiler* compiler, Code instruction,
 		endCompiler(&fnCompiler, funcName, funcLen);
 	}
 	
+	// If this is a super() call for an initializer, make sure we got an actual
+	// argument list.
+	ClassCompiler* classCom = getEnclosingClass(compiler);
+	if (classCom != NULL && instruction == CODE_SUPER_0 && (classCom->type == SIG_INITIALIZER || classCom->type == SIG_INITIALIZER_EMPTY)) {
+		if (signature.type != SIG_METHOD) {
+			//error(compiler, "A superclass constructor must have an argument list.");
+			signature.type = SIG_INITIALIZER_EMPTY;
+		} else {
+			signature.type = SIG_INITIALIZER;
+		}
+		
+		
+	}
+
 	callSignature(compiler, instruction, &signature);
 }
 
@@ -2389,6 +2438,17 @@ static void class_(Compiler* compiler, bool allowAssignment) {
 	// the value until we've compiled all the methods to see which fields are
 	// used.
 	//int numFieldsInstruction = emitByte(compiler, CODE_CLASS, 255);
+	if (compiler->exists) {
+		if (isModule) {
+			emitValue(compiler, CODE_LOAD_MODULE_VAR, symbol, GLOBAL_BYTE);
+		}
+		else {
+			loadLocal(compiler, symbol);
+		}
+		emit(compiler, CODE_TRUE);
+	}
+	else emit(compiler, CODE_FALSE);
+	compiler->exists = false;
 	int numFieldsInstruction = emitValue(compiler, CODE_CLASS, 255, FIELD_BYTE);
 	emitValueArg(compiler, classCompiler.nbSuper+1, CONSTANT_BYTE);
 
@@ -2874,6 +2934,31 @@ void constructorSignature(Compiler* compiler, Signature* signature) {
 	parameterList(compiler, signature);
 }
 
+// Compiles a method signature for a constructor.
+void constructorSignatureOOStyle(Compiler* compiler, Signature* signature) {
+	consume(compiler, TOKEN_NAME, "Expect constructor name after 'construct'.");
+	
+	// Capture the name.
+	signatureFromToken(compiler, signature);
+	signature->type = SIG_INITIALIZER;
+	
+	if (match(compiler, TOKEN_EQ)) {
+		error(compiler, "A constructor cannot be a setter.");
+	}
+	
+	if (!match(compiler, TOKEN_LEFT_PAREN)) {
+		//error(compiler, "A constructor cannot be a getter.");
+		signature->type = SIG_INITIALIZER_EMPTY;
+		return;
+	}
+	
+	// Allow an empty parameter list.
+	if (match(compiler, TOKEN_RIGHT_PAREN)) return;
+	
+	finishParameterList(compiler, signature);
+	consume(compiler, TOKEN_RIGHT_PAREN, "Expect ')' after parameters.");
+}
+
 void initSignature(Compiler* compiler, Signature* signature);
 // Compiles a method signature for a constructor.
 void initSignature(Compiler* compiler, Signature* signature) {
@@ -2935,6 +3020,7 @@ GrammarRule rules[] = {
 	/* TOKEN_BANGEQ        */ INFIX_OPERATOR(PREC_EQUALITY, "!="),
 	/* TOKEN_BREAK         */ UNUSED_T,
 	/* TOKEN_CLASS         */ {class_,  NULL, NULL, PREC_NONE, NULL},
+	/* TOKEN_CONSTRUCT     */ { NULL, NULL, constructorSignatureOOStyle, PREC_NONE, NULL },
 	/* TOKEN_ELSE          */ UNUSED_T,
 	/* TOKEN_FALSE         */ PREFIX(boolean),
 	/* TOKEN_FOR           */ UNUSED_T,
@@ -3401,16 +3487,69 @@ void statement(Compiler* compiler) {
 	emit(compiler, CODE_POP);
 }
 
+// Creates a matching constructor method for an initializer with [signature]
+// and [initializerSymbol].
+//
+// Construction is a two-stage process in Wren that involves two separate
+// methods. There is a static method that allocates a new instance of the class.
+// It then invokes an initializer method on the new instance, forwarding all of
+// the constructor arguments to it.
+//
+// The allocator method always has a fixed implementation:
+//
+//     CODE_CONSTRUCT - Replace the class in slot 0 with a new instance of it.
+//     CODE_CALL      - Invoke the initializer on the new instance.
+//
+// This creates that method and calls the initializer with [initializerSymbol].
+static void createConstructor(Compiler* compiler, Signature* signature,
+                              int initializerSymbol) {
+	Compiler methodCompiler;
+	initCompiler(&methodCompiler, compiler->parser, compiler, false);
+	
+	// Allocate the instance.
+	emit(&methodCompiler, CODE_CONSTRUCT);
+	
+	// Run its initializer.
+	emitValue(&methodCompiler, (Code)(CODE_CALL_0 + signature->arity), initializerSymbol, METHOD_BYTE);
+	
+	// Return the instance.
+	emit(&methodCompiler, CODE_RETURN);
+	
+	endCompiler(&methodCompiler, "", 0);
+}
+
+// Loads the enclosing class onto the stack and then binds the function already
+// on the stack as a method on that class.
+static void defineMethod(Compiler* compiler, Code instruction, int symbol,
+                         int methodSymbol, bool isModule) {
+	// Load the class. We have to do this for each method because we can't
+	// keep the class on top of the stack. If there are static fields, they
+	// will be locals above the initial variable slot for the class on the
+	// stack. To skip past those, we just load the class each time right before
+	// defining a method.
+	// Load the class.
+	if (isModule) {
+		//emitShort(compiler, CODE_LOAD_MODULE_VAR, symbol);
+		emitValue(compiler, CODE_LOAD_MODULE_VAR, symbol, GLOBAL_BYTE);
+	}
+	else {
+		loadLocal(compiler, symbol);
+	}
+	// Define the method.
+	emitValue(compiler, instruction, methodSymbol, METHOD_BYTE);
+}
+
 // Compiles a method definition inside a class body. Returns the symbol in the
 // method table for the new method.
 static int method(Compiler* compiler, ClassCompiler* classCompiler, MethodSigType type,
-           SignatureFn signatureFn) {
+           SignatureFn signatureFn, Code instruction, int symbol, bool isModule) {
 	// Build the method signature.
 	Signature signature;
 	signatureFromToken(compiler, &signature);
 
 	classCompiler->methodName = signature.name;
 	classCompiler->methodLength = signature.length;
+	classCompiler->type = signature.type;
 	
 	Compiler methodCompiler;
 	initCompiler(&methodCompiler, compiler->parser, compiler, false);
@@ -3418,6 +3557,11 @@ static int method(Compiler* compiler, ClassCompiler* classCompiler, MethodSigTyp
 	// Compile the method signature.
 	signatureFn(&methodCompiler, &signature);
 
+	classCompiler->type = signature.type;
+	if (classCompiler->isStaticMethod && (signature.type == SIG_INITIALIZER || signature.type == SIG_INITIALIZER_EMPTY)) {
+		error(compiler, "A constructor cannot be static.");
+	}
+	
 	consume(compiler, TOKEN_LEFT_BRACE, "Expect '{' to begin method body.");
 
 	finishBody(&methodCompiler, type);
@@ -3431,7 +3575,27 @@ static int method(Compiler* compiler, ClassCompiler* classCompiler, MethodSigTyp
 	
 	cardinalSymbolTableEnsure(compiler->parser->vm, classCompiler->methods, debugName, length);
 	
-	return signatureSymbol(compiler, &signature);
+	//return signatureSymbol(compiler, &signature);
+	
+	int methodSymbol = signatureSymbol(compiler, &signature);
+	defineMethod(compiler, instruction, symbol, methodSymbol, isModule);
+	
+	if (signature.type == SIG_INITIALIZER) {
+		// Also define a matching constructor method on the metaclass.
+		signature.type = SIG_METHOD;
+		int constructorSymbol = signatureSymbol(compiler, &signature);
+		
+		createConstructor(compiler, &signature, methodSymbol);
+		defineMethod(compiler, CODE_METHOD_STATIC, symbol, constructorSymbol, isModule);
+	} else if (signature.type == SIG_INITIALIZER_EMPTY) {
+		// Also define a matching constructor method on the metaclass.
+		signature.type = SIG_GETTER;
+		int constructorSymbol = signatureSymbol(compiler, &signature);
+		
+		createConstructor(compiler, &signature, methodSymbol);
+		defineMethod(compiler, CODE_METHOD_STATIC, symbol, constructorSymbol, isModule);
+	}
+	return 0;
 }
 
 static void readField(Compiler* compiler) {
@@ -3596,7 +3760,7 @@ void classBody(Compiler* compiler, bool isModule, int numFieldsInstruction, int 
 				instruction = CODE_METHOD_STATIC;
 				classCompiler->isStaticMethod = true;
 			}
-			else if (peek(compiler) == TOKEN_NEW) {
+			else if (peek(compiler) == TOKEN_NEW || peek(compiler) == TOKEN_CONSTRUCT) {
 				// If the method name is "new", it's a constructor.
 				type = CONSTRUCTOR;
 			}
@@ -3616,19 +3780,7 @@ void classBody(Compiler* compiler, bool isModule, int numFieldsInstruction, int 
 				break;
 			}
 			
-			int methodSymbol = method(compiler, classCompiler, type, signature);
-
-			// Load the class.
-			if (isModule) {
-				//emitShort(compiler, CODE_LOAD_MODULE_VAR, symbol);
-				emitValue(compiler, CODE_LOAD_MODULE_VAR, symbol, GLOBAL_BYTE);
-			}
-			else {
-				loadLocal(compiler, symbol);
-			}
-
-			// Define the method.
-			emitValue(compiler, instruction, methodSymbol, METHOD_BYTE);
+			method(compiler, classCompiler, type, signature, instruction, symbol, isModule);
 
 			// Don't require a newline after the last definition.
 			if (match(compiler, TOKEN_RIGHT_BRACE)) break;
@@ -3677,7 +3829,9 @@ void classBody(Compiler* compiler, bool isModule, int numFieldsInstruction, int 
 // consumed.
 static void classDefinition(Compiler* compiler) {
 	// Create a variable to store the class in.
+	compiler->compilingClass = true;
 	int symbol =  declareNamedVariable(compiler);
+	compiler->compilingClass = false;
 	bool isModule = compiler->scopeDepth == -1;
 	
 	if (isLocalName(compiler->parser->previous.start))
@@ -3726,6 +3880,17 @@ static void classDefinition(Compiler* compiler) {
 	// the value until we've compiled all the methods to see which fields are
 	// used.
 	//int numFieldsInstruction = emitByte(compiler, CODE_CLASS, 255);
+	if (compiler->exists) {
+		if (isModule) {
+			emitValue(compiler, CODE_LOAD_MODULE_VAR, symbol, GLOBAL_BYTE);
+		}
+		else {
+			loadLocal(compiler, symbol);
+		}
+		emit(compiler, CODE_TRUE);
+	}
+	else emit(compiler, CODE_FALSE);
+	compiler->exists = false;
 	int numFieldsInstruction = emitValue(compiler, CODE_CLASS, 255, FIELD_BYTE);
 	emitValueArg(compiler, classCompiler.nbSuper+1, CONSTANT_BYTE);
 

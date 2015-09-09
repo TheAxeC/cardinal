@@ -1,0 +1,27 @@
+
+class A {
+	fields {
+		a
+	}
+	construct brown {
+		IO.println("constructor Brown A")
+		a = 1
+	}
+	
+	cool {
+		IO.println(a)
+	}
+}
+
+class B is A {
+	construct brown {
+		cool
+		super.brown
+		cool
+	}
+}
+
+IO.println(B.brown)
+IO.println(A.new())
+
+IO.println(5.new())

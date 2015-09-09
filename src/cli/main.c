@@ -14,6 +14,8 @@
 #include "../vm/cardinal_value.h"
 #include "../vm/cardinal_debug.h"
 
+#include <iostream>
+
 #define MAX_LINE_LENGTH 1024 // TODO: Something less arbitrary.
 
 static int runRepl() {

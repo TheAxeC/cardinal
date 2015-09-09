@@ -13,7 +13,7 @@ class Exception {
 		_stack
 	}
 	
-	new(mes) {
+	construct new(mes) {
 		_message = mes
 	}
 	
@@ -77,7 +77,7 @@ class Sequence {
 	}
 	
 	map(f) {
-		var result = new List
+		var result = List.new
 		for (element in this) {
 			result.add(f.call(element))
 		}
@@ -85,16 +85,16 @@ class Sequence {
 	}
 
 	where(f) {
-		var result = new List
+		var result = List.new
 		for (element in this) {
 			if (f.call(element)) result.add(element)
 		}
 		return result
 	}
 
-	//map(transformation) { new MapSequence(this, transformation) }
+	//map(transformation) { MapSequence.new(this, transformation) }
 
-	//where(predicate) { new WhereSequence(this, predicate) }
+	//where(predicate) { WhereSequence.new(this, predicate) }
   
 	reduce(acc, f) {
 		for (element in this) {
@@ -132,7 +132,7 @@ class Sequence {
 	}
   
 	toList {
-		var result = new List
+		var result = List.new
 		for (element in this) {
 			result.add(element)
 		}
@@ -146,7 +146,7 @@ class MapSequence is Sequence {
 		_sequence
 		_fn
 	}
-	new(sequence, fn) {
+	construct new(sequence, fn) {
 		_sequence = sequence
 		_fn = fn
 	}
@@ -161,7 +161,7 @@ class WhereSequence is Sequence {
 		_fn
 	}
 	
-	new(sequence, fn) {
+	construct new(sequence, fn) {
 		_sequence = sequence
 		_fn = fn
 	}
@@ -177,14 +177,14 @@ class WhereSequence is Sequence {
 }
 
 class String is Sequence {  
-	bytes { new StringByteSequence(this) }
+	bytes { StringByteSequence.new(this) }
 }
 
 class StringByteSequence is Sequence {
 	fields {
 		_string
 	}
-	new(string) {
+	construct new(string) {
 		_string = string
 	}
 
@@ -222,8 +222,8 @@ class List is Sequence {
 }
 
 class Map {
-	keys { new MapKeySequence(this) }
-	values { new MapValueSequence(this) }
+	keys { MapKeySequence.new(this) }
+	values { MapValueSequence.new(this) }
 
 	toString {
 		var first = true
@@ -244,7 +244,7 @@ class MapKeySequence is Sequence {
 		_map
 	}
 
-	new(map) {
+	construct new(map) {
 		_map = map
 	}
 
@@ -257,7 +257,7 @@ class MapValueSequence is Sequence {
 		_map
 	}
 
-	new(map) {
+	construct new(map) {
 		_map = map
 	}
 
@@ -269,8 +269,8 @@ class MapValueSequence is Sequence {
 class Range is Sequence {}
 
 class Table {
-	keys { new TableKeySequence(this) }
-	values { new TableValueSequence(this) }
+	keys { TableKeySequence.new(this) }
+	values { TableValueSequence.new(this) }
 
 	toString {
 		var first = true
@@ -291,7 +291,7 @@ class TableKeySequence is Sequence {
 		_map
 	}
 
-	new(map) {
+	construct new(map) {
 		_map = map
 	}
 
@@ -304,7 +304,7 @@ class TableValueSequence is Sequence {
 		_map
 	}
 
-	new(map) {
+	construct new(map) {
 		_map = map
 	}
 

@@ -370,6 +370,8 @@ static int debugPrintInstruction(CardinalVM* vm, ObjFn* fn, int i, int* lastLine
 			printf("\n");
 			break;
 		}
+		
+		case CODE_CONSTRUCT:	printf("CODE_CONSTRUCT\n"); break;
 
 		case CODE_CLASS: {
 			int numFields = READ_FIELD();

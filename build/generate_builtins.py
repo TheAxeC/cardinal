@@ -19,7 +19,7 @@ def copy_builtin(filename):
   udog_source = ""
   for line in lines:
     line = line.replace('"', "\\\"")
-    line = line.replace("\n", "\\n\"")
+    line = line.replace("\r\n", "\\n\"")
     if udog_source: udog_source += "\n"
     udog_source += '"' + line
 
@@ -29,13 +29,13 @@ def copy_builtin(filename):
 
   constant = "libSource =\n" + udog_source + ";"
 
-  with open(root + "src/vm/udog_" + name + ".c", "r") as f:
+  with open(root + "src/vm/cardinal_" + name + ".c", "r") as f:
     c_source = f.read()
 
   c_source = PATTERN.sub(constant, c_source)
 
-  with open(root + "src/vm/udog_" + name + ".c", "w") as f:
-    f.write(c_source)
+  with open(root + "src/vm/cardinal_" + name + ".txt", "w") as f:
+    f.write(constant)
 
   print(name)
 

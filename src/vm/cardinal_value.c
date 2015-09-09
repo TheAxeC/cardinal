@@ -1375,7 +1375,7 @@ static void printObject(Obj* obj) {
 		case OBJ_FN: printf("[fn %p]", obj); break;
 		case OBJ_INSTANCE: printf("[instance %p]", obj); break;
 		case OBJ_LIST: printList((ObjList*)obj); break;
-		case OBJ_STRING: printf("%s", ((ObjString*)obj)->value); break;
+		case OBJ_STRING: printf("\"%s\"", ((ObjString*)obj)->value); break;
 		case OBJ_UPVALUE: printf("[upvalue %p]", obj); break;
 		case OBJ_TABLE: printf("[table %p]", obj); break;
 		case OBJ_TABLE_ELEM: printf("[table element %p]", obj); break;

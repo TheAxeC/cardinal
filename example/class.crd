@@ -29,14 +29,44 @@ class A is B, C {
 		a
 	}
 	
+	construct new() {
+	
+	}
+	
 	method {
 		a = 1
 		super.B
 		otherMethod
 		IO.println(a)
 	}
+	
+	other {
+		IO.println("other", a)
+	}
 }
 
-var a = new A
+class B {
+	method {
+		IO.println("hallo")
+		other
+	}
+}
+
+class C {
+
+	construct random() {
+	
+	}
+}
+var a = A.new()
+IO.println(a)
 a.method
-IO.println(a.getAllMethods())
+//IO.println(a.getAllMethods())
+var c = C.random()
+IO.println(c)
+
+class D {}
+
+(Fiber.new() {
+	class A{}
+}).call()

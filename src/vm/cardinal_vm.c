@@ -1422,6 +1422,12 @@ bool runInterpreter(CardinalVM* vm) {
 			DISPATCH();
 		}
 		
+		CASECODE(CONSTRUCT):
+		{
+			ASSERT(IS_CLASS(stackStart[0]), "'this' should be a class.");
+			stackStart[0] = cardinalNewInstance(vm, AS_CLASS(stackStart[0]));
+			DISPATCH();
+		}
 		// Create a new class and push it onto the stack
 		CASECODE(CLASS):
 		{
@@ -1429,51 +1435,74 @@ bool runInterpreter(CardinalVM* vm) {
 			// Possible classes
 			// NULL or first superclass
 			// Name
-			ObjString* name = AS_STRING(POP());
-			CARDINAL_PIN(vm, name);
-			ObjClass* superclass = vm->metatable.objectClass;
-
-			// Use implicit Object superclass if none given.
-			if (!IS_NULL(PEEK())) {
-				ObjString* error = validateSuperclass(vm, name, PEEK());
-				if (error != NULL) RUNTIME_ERROR(error);
-				superclass = AS_CLASS(PEEK());
-			}
-			DROP();
 			
-			cardinal_integer numFields = READ_FIELD();
-			cardinal_integer numSuperClasses = READ_CONSTANT() - 1;
-
-			ObjClass* classObj = cardinalNewClass(vm, superclass, numFields, name);
-			
-			CARDINAL_UNPIN(vm);
-			CARDINAL_PIN(vm, classObj);
-			int i = 1;
-			while (numSuperClasses > 0) {
+			bool exists = AS_BOOL(POP());
+			if (!exists) {
+				ObjString* name = AS_STRING(POP());
+				CARDINAL_PIN(vm, name);
+				ObjClass* superclass = vm->metatable.objectClass;
+	
+				// Use implicit Object superclass if none given.
 				if (!IS_NULL(PEEK())) {
 					ObjString* error = validateSuperclass(vm, name, PEEK());
 					if (error != NULL) RUNTIME_ERROR(error);
 					superclass = AS_CLASS(PEEK());
-				
-					cardinalBindSuperclass(vm, classObj, superclass);
 				}
 				DROP();
-				i++;
-				numSuperClasses--;
+				
+				cardinal_integer numFields = READ_FIELD();
+				cardinal_integer numSuperClasses = READ_CONSTANT() - 1;
+	
+				ObjClass* classObj = cardinalNewClass(vm, superclass, numFields, name);
+				
+				CARDINAL_UNPIN(vm);
+				CARDINAL_PIN(vm, classObj);
+				int i = 1;
+				while (numSuperClasses > 0) {
+					if (!IS_NULL(PEEK())) {
+						ObjString* error = validateSuperclass(vm, name, PEEK());
+						if (error != NULL) RUNTIME_ERROR(error);
+						superclass = AS_CLASS(PEEK());
+					
+						cardinalBindSuperclass(vm, classObj, superclass);
+					}
+					DROP();
+					i++;
+					numSuperClasses--;
+				}
+	
+				// Now that we know the total number of fields, make sure we don't
+				// overflow.
+				if (classObj->numFields > MAX_FIELDS) {
+					char message[70 + MAX_VARIABLE_NAME];
+					sprintf(message,
+						"Class '%s' may not have more than %d fields, including inherited "
+						"ones.", name->value, MAX_FIELDS);
+	
+					RUNTIME_ERROR(AS_STRING(cardinalNewString(vm, message, strlen(message))));
+				}
+				CARDINAL_UNPIN(vm);
+				PUSH(OBJ_VAL(classObj));
+			} else {
+				READ_FIELD();
+				cardinal_integer numSuperClasses = READ_CONSTANT();
+				int i = 1;
+				ObjClass* classObj = AS_CLASS(POP());
+				ObjString* name = AS_STRING(POP());
+				bool check = !IS_NULL(PEEK());
+				while (numSuperClasses > 0) {
+					if (check) {
+						ObjString* error = validateSuperclass(vm, name, PEEK());
+						if (error != NULL) RUNTIME_ERROR(error);
+						ObjClass* superclass = AS_CLASS(POP());
+						
+						cardinalBindSuperclass(vm, classObj, superclass);
+					}
+					i++;
+					numSuperClasses--;
+				}
+				PUSH(OBJ_VAL(classObj));
 			}
-
-			// Now that we know the total number of fields, make sure we don't
-			// overflow.
-			if (classObj->numFields > MAX_FIELDS) {
-				char message[70 + MAX_VARIABLE_NAME];
-				sprintf(message,
-					"Class '%s' may not have more than %d fields, including inherited "
-					"ones.", name->value, MAX_FIELDS);
-
-				RUNTIME_ERROR(AS_STRING(cardinalNewString(vm, message, strlen(message))));
-			}
-			CARDINAL_UNPIN(vm);
-			PUSH(OBJ_VAL(classObj));
 			CHECK_STACK();
 			DISPATCH();
 		}
