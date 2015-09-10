@@ -10,20 +10,8 @@
 // With functions like: createVar, makeLoop, etc (every opcode is a class or something)
 
 struct CardinalDataCenter {
-		
+	
 };
-
-// Used when we allocate an object
-struct CardinalManualObject {
-	Obj* object;
-}
-
-// Used to allocate own memory
-// Has to be explicitly released by the user of the script
-struct CardinalManualMemory {
-	void* memory;
-	size_t size;
-}
 
 // The method binds the DataCenter to the VM 
 // The Data Center can be used to store elements

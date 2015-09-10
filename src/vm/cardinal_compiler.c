@@ -1016,7 +1016,9 @@ static void copyParser(Compiler* compiler, Parser* copy) {
 	copy->skipNewlines = old->skipNewlines;
 	copy->hasError = old->hasError;
 	copy->number = old->number;
-	copy->string = old->string;
+	//copy->string = old->string;
+	
+	cardinalByteBufferInit(old->vm, &copy->string);
 }
 
 static void loadParser(Compiler* compiler, Parser* copy) {
@@ -1034,6 +1036,9 @@ static void loadParser(Compiler* compiler, Parser* copy) {
 	old->skipNewlines = copy->skipNewlines;
 	old->hasError = copy->hasError;
 	old->number = copy->number;
+	//old->string = copy->string;
+	
+	cardinalByteBufferClear(old->vm, &old->string);
 	old->string = copy->string;
 }
 

@@ -14,6 +14,7 @@
 #include "cardinal_core.h"
 #include "cardinal_debug.h"
 #include "cardinal_vm.h"
+#include "cardinal_datacenter.h"
 
 #if CARDINAL_USE_LIB_IO
   #include "cardinal_io.h"
@@ -66,6 +67,7 @@ static void collectGarbage(CardinalVM* vm);
 ///////////////////////////////////////////////////////////////////////////////////
 
 static void cardinalLoadLibraries(CardinalVM* vm) {
+	cardinalInitializeDataCenter(vm);
 #if CARDINAL_USE_LIB_IO
 	cardinalLoadIOLibrary(vm);
 #endif

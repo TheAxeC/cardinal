@@ -165,6 +165,8 @@ typedef struct CardinalMetaTable {
 	ObjClass* moduleClass;
 	/// Metatable for methods
 	ObjClass* methodClass;
+	/// Metatable for pointers
+	ObjClass* pointerClass;
 	
 	/// Metatables for the classes type (shows all different type/classes there are
 	/// Class, which is a subclass of Object, but Object's

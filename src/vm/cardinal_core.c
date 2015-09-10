@@ -2771,9 +2771,9 @@ void cardinalInitializeCore(CardinalVM* vm) {
 	
 	// METHODS
 	vm->metatable.methodClass = AS_CLASS(cardinalFindVariable(vm, "Method"));
-	NATIVE(vm->metatable.methodClass, "new()", method_new);
-	NATIVE(vm->metatable.methodClass, "new(_)", method_new1);
-	NATIVE(vm->metatable.methodClass, "new(_,_)", method_new2);
+	NATIVE(vm->metatable.methodClass->obj.classObj, "new()", method_new);
+	NATIVE(vm->metatable.methodClass->obj.classObj, "new(_)", method_new1);
+	NATIVE(vm->metatable.methodClass->obj.classObj, "new(_,_)", method_new2);
 	NATIVE(vm->metatable.methodClass, "loadCaller(_)", method_loadCaller);
 	NATIVE(vm->metatable.methodClass, "loadMethod(_)", method_load);
 	NATIVE(vm->metatable.methodClass, "toString", method_toString);
@@ -2965,6 +2965,7 @@ void cardinalInitializeCore(CardinalVM* vm) {
 	// LIST
 	vm->metatable.listClass = AS_CLASS(cardinalFindVariable(vm, "List")); 
 	NATIVE(vm->metatable.listClass->obj.classObj, "<instantiate>", list_instantiate);
+	NATIVE(vm->metatable.listClass->obj.classObj, "new()", list_instantiate);
 	NATIVE(vm->metatable.listClass, "add(_)", list_add);
 	NATIVE(vm->metatable.listClass, "head", list_head);
 	NATIVE(vm->metatable.listClass, "tail", list_tail);
@@ -2984,6 +2985,7 @@ void cardinalInitializeCore(CardinalVM* vm) {
 	// MAP
 	vm->metatable.mapClass = AS_CLASS(cardinalFindVariable(vm, "Map"));
 	NATIVE(vm->metatable.mapClass->obj.classObj, "<instantiate>", map_instantiate);
+	NATIVE(vm->metatable.mapClass->obj.classObj, "new()", map_instantiate);
 	NATIVE(vm->metatable.mapClass, "[_]", map_subscript);
 	NATIVE(vm->metatable.mapClass, "[_]=(_)", map_subscriptSetter);
 	NATIVE(vm->metatable.mapClass, "clear()", map_clear);
@@ -2997,8 +2999,8 @@ void cardinalInitializeCore(CardinalVM* vm) {
 	// TABLE
 	vm->metatable.tableClass = AS_CLASS(cardinalFindVariable(vm, "Table"));
 	NATIVE(vm->metatable.tableClass->obj.classObj, "<instantiate>", table_instantiate);
-	NATIVE(vm->metatable.tableClass, "new()", table_new);
-	NATIVE(vm->metatable.tableClass, "new(_)", table_newSize);
+	NATIVE(vm->metatable.tableClass->obj.classObj, "new()", table_new);
+	NATIVE(vm->metatable.tableClass->obj.classObj, "new(_)", table_newSize);
 	NATIVE(vm->metatable.tableClass, "toString", table_toString);
 	NATIVE(vm->metatable.tableClass, "add(_,_)", table_add);
 	NATIVE(vm->metatable.tableClass, "clear", table_clear);

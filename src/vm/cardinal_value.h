@@ -105,7 +105,9 @@ typedef enum ObjType {
 	// Module
 	OBJ_MODULE,
 	// Method
-	OBJ_METHOD
+	OBJ_METHOD,
+	// Pointer
+	OBJ_POINTER
 } ObjType;
 
 typedef struct ObjClass ObjClass;
@@ -174,6 +176,16 @@ struct CardinalValue {
 
 DECLARE_BUFFER(Value, Value);
 DECLARE_BUFFER(ValuePtr, Value*);
+
+/// OBJECT
+// A raw pointer
+typedef struct ObjPointer { EXTENDS(Obj)
+	/// Parent
+	Obj obj;
+	
+	/// location in memory
+	void* memory;	
+} ObjPointer;
 
 /// OBJECT
 /// A string class
@@ -325,7 +337,6 @@ typedef struct ObjInstance { EXTENDS(Obj)
 	/// Enough memory will be allocated to be able to acces the members
 	Value* fields; //[FLEXIBLE_ARRAY];
 } ObjInstance;
-
 
 /// OBJECT
 /// Fiber object
@@ -684,8 +695,11 @@ typedef struct ObjMap { EXTENDS(Obj)
 // Value -> ObjModule*.
 #define AS_MODULE(value) ((ObjModule*)AS_OBJ(value))
 
-// Value -> ObjModule*.
+// Value -> ObjMethod*.
 #define AS_METHOD(value) ((ObjMethod*)AS_OBJ(value))
+
+// Value -> ObjPointer*.
+#define AS_POINTER(value) ((ObjPointer*)AS_OBJ(value))
 
 // Convert [boolean] to a boolean [Value].
 #define BOOL_VAL(boolean) (boolean ? TRUE_VAL : FALSE_VAL)
@@ -877,6 +891,9 @@ typedef struct ObjMap { EXTENDS(Obj)
 // Returns true if [value] is a method object.
 #define IS_METHOD(value) (cardinalIsObjType(value, OBJ_METHOD))
 
+// Returns true if [value] is a method object.
+#define IS_POINTER(value) (cardinalIsObjType(value, OBJ_POINTER))
+
 // Returns true if [value] is a list object.
 #define IS_LIST(value) (cardinalIsObjType(value, OBJ_LIST))
 
@@ -969,6 +986,13 @@ void cardinalLoadMethod(CardinalVM* vm, ObjMethod* method, ObjString* name);
 // Creates a new closure object that invokes [fn]. Allocates room for its
 // upvalues, but assumes outside code will populate it.
 ObjClosure* cardinalNewClosure(CardinalVM* vm, ObjFn* fn);
+
+///////////////////////////////////////////////////////////////////////////////////
+//// FUNCTIONS: POINTER	
+///////////////////////////////////////////////////////////////////////////////////
+
+// Creates a new pointer object. 
+ObjPointer* cardinalNewPointer(CardinalVM* vm);
 
 ///////////////////////////////////////////////////////////////////////////////////
 //// FUNCTIONS: FIBER	

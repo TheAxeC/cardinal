@@ -56,6 +56,14 @@ static void initObj(CardinalVM* vm, Obj* obj, ObjType type, ObjClass* classObj) 
 	cardinalAddGCObject(vm, obj);
 }
 
+// Creates a new pointer object. 
+ObjPointer* cardinalNewPointer(CardinalVM* vm) {
+	ObjPointer* ptr = ALLOCATE(vm, ObjPointer);
+	initObj(vm, &ptr->obj, OBJ_POINTER, vm->metatable.pointerClass);
+	ptr->memory = NULL;
+	return ptr;
+}
+
 // Creates a new "raw" class. It has no metaclass or superclass whatsoever.
 // This is only used for bootstrapping the initial Object and Class classes,
 // which are a little special.
@@ -1383,6 +1391,7 @@ static void printObject(Obj* obj) {
 		case OBJ_MODULE: printf("[module %p]", obj); break;
 		case OBJ_RANGE: printf("[fn %p]", obj); break;
 		case OBJ_METHOD: printf("[method %p]", obj); break;
+		case OBJ_POINTER: printf("[pointer %p]", obj); break;
 		default: printf("[unknown object]"); break;
 	}
 }
