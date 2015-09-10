@@ -81,6 +81,9 @@ typedef enum TokenType {
     TOKEN_STRING,
 
     TOKEN_LINE, // \n
+	
+	TOKEN_PUBLIC,
+	TOKEN_PRIVATE,
 
     TOKEN_ERROR,
     TOKEN_EOF,
@@ -725,6 +728,8 @@ static void readName(Parser* parser, TokenType type) {
 	else if (isKeyword(parser, "module")) type = TOKEN_MODULE;
 	else if (isKeyword(parser, "function")) type = TOKEN_FUNC;
 	else if (isKeyword(parser, "foreign")) type = TOKEN_FOREIGN;
+	else if (isKeyword(parser, "public")) type = TOKEN_PUBLIC;
+	else if (isKeyword(parser, "private")) type = TOKEN_PRIVATE;
 	
 	makeToken(parser, type);
 }
@@ -3083,6 +3088,8 @@ GrammarRule rules[] = {
 	/* TOKEN_NUMBER        */ PREFIX(number),
 	/* TOKEN_STRING        */ PREFIX(string),
 	/* TOKEN_LINE          */ UNUSED_T,
+	/* TOKEN_PUBLIC        */ UNUSED_T,
+	/* TOKEN_PRIVATE       */ UNUSED_T,
 	/* TOKEN_ERROR         */ UNUSED_T,
 	/* TOKEN_EOF           */ UNUSED_T,
 	/* TOKEN_DEC_FIELD     */ UNUSED_T,
@@ -3638,7 +3645,63 @@ static int method(Compiler* compiler, ClassCompiler* classCompiler, MethodSigTyp
 	return 0;
 }
 
-static void readField(Compiler* compiler) {
+static void createGetter(Compiler* compiler, int index, const char* name, int length, int classSymbol, bool isModule, bool staticField) {
+	Compiler methodCompiler;
+	initCompiler(&methodCompiler, compiler->parser, compiler, false);
+	
+	if (staticField) {
+		findUpvalue(&methodCompiler, name, length);
+		emitValue(&methodCompiler, CODE_LOAD_UPVALUE, index, UPVALUE_BYTE);
+	}
+	else emitValue(&methodCompiler, CODE_LOAD_FIELD_THIS, index, FIELD_BYTE);
+	emit(&methodCompiler, CODE_RETURN);
+	emit(&methodCompiler, CODE_END);
+	
+	endCompiler(&methodCompiler, name, length);
+	
+	Signature signature;
+	signature.type = SIG_GETTER;
+	signature.arity = 0;
+	signature.name = name;
+	signature.length = length;
+	cardinalSymbolTableEnsure(compiler->parser->vm, getEnclosingClass(compiler)->methods, name, length);
+	int methodSymbol = signatureSymbol(compiler, &signature);
+	if (staticField) defineMethod(compiler, CODE_METHOD_STATIC, classSymbol, methodSymbol, isModule);
+	else defineMethod(compiler, CODE_METHOD_INSTANCE, classSymbol, methodSymbol, isModule);
+}
+
+static void createSetter(Compiler* compiler, int index, const char* name, int length, int classSymbol, bool isModule, bool staticField) {
+	Compiler methodCompiler;
+	initCompiler(&methodCompiler, compiler->parser, compiler, false);
+	
+	emit(&methodCompiler, CODE_LOAD_LOCAL_1);
+	if (staticField) {
+		findUpvalue(&methodCompiler, name, length);
+		emitValue(&methodCompiler, CODE_STORE_UPVALUE, index, UPVALUE_BYTE);
+	}
+	else emitValue(&methodCompiler, CODE_STORE_FIELD_THIS, index, FIELD_BYTE);
+	emit(&methodCompiler, CODE_RETURN);
+	emit(&methodCompiler, CODE_END);
+	
+	Signature signature;
+	signature.type = SIG_SETTER;
+	signature.arity = 0;
+	signature.name = name;
+	signature.length = length;
+	
+	char debugName[MAX_METHOD_SIGNATURE];
+	int len;
+	signatureToString(&signature, debugName, &len);
+	
+	endCompiler(&methodCompiler, debugName, len);
+	
+	cardinalSymbolTableEnsure(compiler->parser->vm, getEnclosingClass(compiler)->methods, debugName, len);
+	int methodSymbol = signatureSymbol(compiler, &signature);
+	if (staticField) defineMethod(compiler, CODE_METHOD_STATIC, classSymbol, methodSymbol, isModule);
+	else defineMethod(compiler, CODE_METHOD_INSTANCE, classSymbol, methodSymbol, isModule);
+}
+
+static void readField(Compiler* compiler, bool publc, int classSymbol, bool isModule) {
 	ClassCompiler* enclosingClass = getEnclosingClass(compiler);
 	
 	// Initialize it with a fake value so we can keep parsing and minimize the
@@ -3650,7 +3713,10 @@ static void readField(Compiler* compiler) {
 								  compiler->parser->current.start,
 								  compiler->parser->current.length);
 	
-	
+	if (publc) {
+		createGetter(compiler, field, compiler->parser->current.start, compiler->parser->current.length, classSymbol, isModule, false);
+		createSetter(compiler, field, compiler->parser->current.start, compiler->parser->current.length, classSymbol, isModule, false);
+	}
 	Value val = OBJ_VAL(cardinalNewString(compiler->parser->vm,
 	                               compiler->parser->current.start, compiler->parser->current.length));
 	CARDINAL_PIN(compiler->parser->vm, AS_OBJ(val));							   
@@ -3663,13 +3729,33 @@ static void readField(Compiler* compiler) {
 	}
 }
 
-static void readStaticField(Compiler* compiler) {
+static void readStaticField(Compiler* compiler, bool publc, int classSymbol, bool isModule) {
 	ClassCompiler* enclosingClass = getEnclosingClass(compiler);
 	
-	cardinalSymbolTableEnsure(compiler->parser->vm, enclosingClass->staticFields,
+	int symbol = cardinalSymbolTableEnsure(compiler->parser->vm, enclosingClass->staticFields,
 								  compiler->parser->current.start,
 								  compiler->parser->current.length);
-	
+	Code loadInstruction;
+	Compiler* classCompiler = getEnclosingClassCompiler(compiler);
+	nextToken(compiler->parser);
+	// If this is the first time we've seen this static field, implicitly
+	// define it as a variable in the scope surrounding the class definition.
+	if (classSymbol >= 0 && resolveLocal(classCompiler, compiler->parser->current.start, compiler->parser->current.length) == -1) {
+		int sym = declareVariable(classCompiler);
+
+		// Implicitly initialize it to null.
+		emit(classCompiler, CODE_NULL);
+		defineVariable(classCompiler, sym);
+	}
+	// It definitely exists now, so resolve it properly. This is different from
+	// the above resolveLocal() call because we may have already closed over it
+	// as an upvalue.
+	resolveName(compiler, compiler->parser->current.start, compiler->parser->current.length, &loadInstruction);
+		
+	if (publc) {
+		createGetter(compiler, symbol, compiler->parser->previous.start, compiler->parser->previous.length, classSymbol, isModule, true);
+		createSetter(compiler, symbol, compiler->parser->previous.start, compiler->parser->previous.length, classSymbol, isModule, true);
+	}
 	Value val = OBJ_VAL(cardinalNewString(compiler->parser->vm,
 	                               compiler->parser->current.start, compiler->parser->current.length));
 	CARDINAL_PIN(compiler->parser->vm, AS_OBJ(val));							   
@@ -3680,7 +3766,7 @@ static void readStaticField(Compiler* compiler) {
 }
 
 // Read fields from a class
-static void readClassFields(Compiler* compiler) {
+static void readClassFields(Compiler* compiler, bool publc, int classSymbol, bool isModule) {
 	// Compile the field declarations.
 	consume(compiler, TOKEN_LEFT_BRACE, "Expect '{' after fields declaration.");
 	matchLine(compiler);
@@ -3688,13 +3774,12 @@ static void readClassFields(Compiler* compiler) {
 	while (!match(compiler, TOKEN_RIGHT_BRACE)) {
 		if (!matchLine(compiler)) {
 			if (match(compiler, TOKEN_STATIC)) {
-				readStaticField(compiler);
+				readStaticField(compiler, publc, classSymbol, isModule);
 			}
 			else {
-				readField(compiler);
+				readField(compiler, publc, classSymbol, isModule);
+				nextToken(compiler->parser);
 			}
-			
-			nextToken(compiler->parser);
 		}
 		
 		// Don't require a newline after the last definition.
@@ -3704,15 +3789,14 @@ static void readClassFields(Compiler* compiler) {
 }
 
 // Read a single field from a class
-static void readSingleClassField(Compiler* compiler) {
+static void readSingleClassField(Compiler* compiler, bool publc, int classSymbol, bool isModule) {
 	if (match(compiler, TOKEN_STATIC)) {
-		readStaticField(compiler);
+		readStaticField(compiler, publc, classSymbol, isModule);
 	}
 	else {
-		readField(compiler);
+		readField(compiler, publc, classSymbol, isModule);
+		nextToken(compiler->parser);
 	}
-	//nextToken(compiler->parser);
-	nextToken(compiler->parser);
 	consumeLine(compiler, "Expect newline after field.");
 }
 
@@ -3801,16 +3885,22 @@ void classBody(Compiler* compiler, bool isModule, int numFieldsInstruction, int 
 	Parser parser;
 	copyParser(compiler, &parser);
 	while (!match(compiler, TOKEN_RIGHT_BRACE)) {
+		bool publc = false;
+		if (match(compiler, TOKEN_PUBLIC))
+			publc = true;
+		else if (match(compiler, TOKEN_PRIVATE))
+			publc = false;
+		
 		if (match(compiler, TOKEN_DEC_FIELD)) {
-			readClassFields(compiler);
+			readClassFields(compiler, publc, symbol, isModule);
 		} else if (match(compiler, TOKEN_MEMBER)) {
-			readSingleClassField(compiler);
+			readSingleClassField(compiler, publc, symbol, isModule);
 		} else if (match(compiler, TOKEN_FOREIGN)) {
 			readForeignMethod(compiler);
 		} else if (match(compiler, TOKEN_STATIC)) {
 			if (match(compiler, TOKEN_MEMBER)) {
-				readStaticField(compiler);
-				nextToken(compiler->parser);
+				readStaticField(compiler, publc, symbol, isModule);
+				//nextToken(compiler->parser);
 				consumeLine(compiler, "Expect newline after field.");
 			}
 		} else {
@@ -3826,10 +3916,16 @@ void classBody(Compiler* compiler, bool isModule, int numFieldsInstruction, int 
 	
 	// Load all methods
 	while (!match(compiler, TOKEN_RIGHT_BRACE)) {
+		bool publc = false;
+		if (match(compiler, TOKEN_PUBLIC))
+			publc = false;
+		else if (match(compiler, TOKEN_PRIVATE))
+			publc = false;
+			
 		if (match(compiler, TOKEN_DEC_FIELD)) {
-			readClassFields(compiler);
+			readClassFields(compiler, publc, -1, isModule);
 		} else if (match(compiler, TOKEN_MEMBER)) {
-			readSingleClassField(compiler);
+			readSingleClassField(compiler, publc, -1, isModule);
 		} else if (match(compiler, TOKEN_FOREIGN)) {
 			readForeignMethod(compiler);
 		} else {
@@ -3840,8 +3936,8 @@ void classBody(Compiler* compiler, bool isModule, int numFieldsInstruction, int 
 
 			if (match(compiler, TOKEN_STATIC)) {
 				if (match(compiler, TOKEN_MEMBER)) {
-					readStaticField(compiler);
-					nextToken(compiler->parser);
+					readStaticField(compiler, publc, -1, isModule);
+					//nextToken(compiler->parser);
 					consumeLine(compiler, "Expect newline after field.");
 					continue;
 				}
@@ -3876,7 +3972,6 @@ void classBody(Compiler* compiler, bool isModule, int numFieldsInstruction, int 
 			consumeLine(compiler, "Expect newline after definition in class.");
 		}
 	}
-	
 	if (!classCompiler->foundPre)
 		createEmptyPre(compiler, symbol, isModule);
 	

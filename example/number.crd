@@ -2,10 +2,15 @@
 3.abs
 
 class A {
-	static field b
+	public static field b
 	
-	static b { b }
-	
-	static b=(other) { b = other }
+	public field a
+
 }
 
+A.b = 3
+IO.println(A.b)
+
+var a = A.new()
+a.a = 2
+IO.println(a.a)
