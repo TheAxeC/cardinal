@@ -19,12 +19,14 @@ IO.println(a.a)
 var d = Memory.malloc(500)
 Memory.free(d)
 
-var number = A.new()
+var number = Module.current["a"]
 var ptr = &number
 
-IO.println(ptr.get())
+IO.println(*ptr)
 
-/*
+(*ptr).a = 5
+IO.println(a.a)
+
 System.collect()
 System.printGC()
 
@@ -38,6 +40,8 @@ a = a.delete()
 
 System.collect()
 System.printGC()
-*/
 
-A.brown()
+var test = Memory.malloc(8)
+test.num = 2
+IO.println(test.num)
+Memory.free(test)

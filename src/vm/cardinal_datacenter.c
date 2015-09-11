@@ -59,9 +59,10 @@
 static const char* libSource =
 "class Memory {}\n";
 
-DEF_NATIVE(ptr_new)
-	RETURN_PTR(NULL);
-END_NATIVE
+
+///////////////////////////////////////////////////////////////////////////////////
+//// Memory
+///////////////////////////////////////////////////////////////////////////////////
 
 DEF_NATIVE(ptr_get)
 	if (IS_POINTER(args[0])) {
@@ -73,6 +74,23 @@ DEF_NATIVE(ptr_get)
 END_NATIVE
 
 DEF_NATIVE(ptr_getAt)
+	if (IS_POINTER(args[0]) && IS_NUM(args[1])) {
+		void* ptr = AS_POINTER(args[0]);
+		double offset = AS_NUM(args[1]);
+		RETURN_OBJ( ((Obj*) ((size_t)ptr + (size_t) offset)) );
+	} else {
+		RETURN_VAL(args[0]);
+	}
+END_NATIVE
+
+DEF_NATIVE(ptr_realloc)
+	if (IS_POINTER(args[1]) && IS_NUM(args[2])) {
+		void* ptr = AS_POINTER(args[1]);
+		double size = AS_NUM(args[2]);
+		RETURN_PTR(realloc(ptr, size));
+	} else {
+		RETURN_VAL(args[0]);
+	}
 END_NATIVE
 
 DEF_NATIVE(ptr_malloc)
@@ -88,6 +106,38 @@ DEF_NATIVE(ptr_dealloc)
 		RETURN_VAL(args[0]);
 	}
 END_NATIVE
+
+DEF_NATIVE(ptr_eqeq)
+	if (!IS_POINTER(args[1])) RETURN_FALSE;
+	RETURN_BOOL(AS_POINTER(args[0]) == AS_POINTER(args[1]));
+END_NATIVE
+
+DEF_NATIVE(ptr_bangeq)
+	if (!IS_POINTER(args[1])) RETURN_TRUE;
+	RETURN_BOOL(AS_POINTER(args[0]) != AS_POINTER(args[1]));
+END_NATIVE
+
+DEF_NATIVE(ptr_num)
+	if (IS_POINTER(args[0]) && IS_NUM(args[1])) {
+		void* ptr = AS_POINTER(args[0]);
+		double num = AS_NUM(args[1]);
+		 *((double*) ptr) = num;
+	}
+	RETURN_VAL(args[0]);
+END_NATIVE
+
+DEF_NATIVE(ptr_getNum)
+	if (IS_POINTER(args[0])) {
+		void* ptr = AS_POINTER(args[0]);
+		double num = *((double*) ptr);
+		RETURN_NUM(num);
+	}
+	RETURN_NUM(0);
+END_NATIVE
+
+///////////////////////////////////////////////////////////////////////////////////
+//// OBJECT
+///////////////////////////////////////////////////////////////////////////////////
 
 DEF_NATIVE(object_unplug)
 	if (IS_OBJ(args[0])) {
@@ -120,14 +170,30 @@ DEF_NATIVE(object_getAddress)
 	RETURN_PTR(AS_OBJ(args[0]));
 END_NATIVE
 
+///////////////////////////////////////////////////////////////////////////////////
+//// Methods
+///////////////////////////////////////////////////////////////////////////////////
+
 void bindPointerClass(CardinalVM* vm) {
 	vm->metatable.pointerClass = AS_CLASS(cardinalFindVariable(vm, "Memory"));
+	
+	// Get the memory
 	NATIVE(vm->metatable.pointerClass, "get()", ptr_get);
 	NATIVE(vm->metatable.pointerClass, "getAt(_)", ptr_getAt);
+	NATIVE(vm->metatable.pointerClass, "*", ptr_get);
+	
+	// Memory allocation
 	NATIVE(vm->metatable.pointerClass->obj.classObj, "malloc(_)", ptr_malloc);
-	//NATIVE(vm->metatable.pointerClass, "realloc(_)", ptr_get);
+	NATIVE(vm->metatable.pointerClass->obj.classObj, "realloc(_,_)", ptr_realloc);
 	NATIVE(vm->metatable.pointerClass->obj.classObj, "free(_)", ptr_dealloc);
 	
+	// Manipulation
+	NATIVE(vm->metatable.pointerClass, "==(_)", ptr_eqeq);
+	NATIVE(vm->metatable.pointerClass, "!=(_)", ptr_bangeq);
+	
+	// Write and read methods
+	NATIVE(vm->metatable.pointerClass, "num=(_)", ptr_num);
+	NATIVE(vm->metatable.pointerClass, "num", ptr_getNum);
 }
 
 static void system_decoupleGC(CardinalVM* vm) {
