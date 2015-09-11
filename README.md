@@ -1,6 +1,7 @@
 Cardinal is an extension from ThunderdogScript. 
 
-It is a scripting language designed around the concept of being completely dynamic.
+It is a scripting language designed around the concept of being completely dynamic. 
+The language natively supports manual memory management. This can be disable if not required.
 
 Cardinal has been confirmed to compile and run on Linux (Arch Linux and Ubuntu), Windows (8.1 and 10) and MacOSX (Yosemite). 
 
@@ -22,5 +23,15 @@ Cardinal implements fiber to be able to concurrently execute multiple coroutines
 Cardinal is intended for **embedding** in applications, mainly for embedding within a game engine. 
 It has no dependencies, a small standard library, and a simple but extended C API from 
 which functions and classes can be linked to Thunderdog-Script. However it can also be used as a general purpose language.
+
+Some items on the todo list:
+- complete the pointer usage
+- reading/writing bytecode
+- concurrent running on multiple cores
+- on the fly bytecode generation
+- make the language "smart", allow functionality to help with machine learning
+- bootstrapped compiler
+- JITCompiler
+
 
 [src]: https://github.com/TheAxeC/Cardinal/tree/master/src
