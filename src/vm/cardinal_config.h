@@ -80,6 +80,13 @@
 	#define CARDINAL_USE_REGEX 1
 #endif
 
+// If true, loads the "DataCenter" class in the standard library.
+// Defaults to on.
+#ifndef CARDINAL_USE_MEMORY
+	#define CARDINAL_USE_MEMORY 1
+#endif
+
+
 // Use the VM's allocator to allocate an object of [type].
 #define ALLOCATE(vm, type) \
     ((type*)cardinalReallocate(vm, NULL, 0, sizeof(type)))
@@ -286,7 +293,7 @@
 #define CARDINAL_DEBUG_TRACE_GC 0
 
 // Set this to true to print out the compiled bytecode of each function.
-#define CARDINAL_DEBUG_DUMP_COMPILED_CODE 0
+#define CARDINAL_DEBUG_DUMP_COMPILED_CODE 1
 
 // Set this to trace each instruction as it's executed.
 #define CARDINAL_DEBUG_TRACE_INSTRUCTIONS 0

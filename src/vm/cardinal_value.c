@@ -56,14 +56,6 @@ static void initObj(CardinalVM* vm, Obj* obj, ObjType type, ObjClass* classObj) 
 	cardinalAddGCObject(vm, obj);
 }
 
-// Creates a new pointer object. 
-ObjPointer* cardinalNewPointer(CardinalVM* vm) {
-	ObjPointer* ptr = ALLOCATE(vm, ObjPointer);
-	initObj(vm, &ptr->obj, OBJ_POINTER, vm->metatable.pointerClass);
-	ptr->memory = NULL;
-	return ptr;
-}
-
 // Creates a new "raw" class. It has no metaclass or superclass whatsoever.
 // This is only used for bootstrapping the initial Object and Class classes,
 // which are a little special.
@@ -177,6 +169,7 @@ void cardinalBindMethod(CardinalVM* vm, ObjClass* classObj, int symbol, Method m
 }
 
 Method* cardinalGetMethod(CardinalVM* vm, ObjClass* classObj, int symbol, int& adjustment) {
+	if (symbol > classObj->methods.count) return NULL;
 	Method* meth = &classObj->methods.data[symbol];
 	
 	if (meth->type == METHOD_NONE || meth->type == METHOD_SUPERCLASS) {
@@ -185,7 +178,7 @@ Method* cardinalGetMethod(CardinalVM* vm, ObjClass* classObj, int symbol, int& a
 		for(int a=0; a<nb; a++) {
 			int adj = adjustment;
 			meth = cardinalGetMethod(vm, AS_CLASS(classObj->superclasses->elements[a]), symbol, adjustment);
-			if (meth->type != METHOD_NONE)
+			if (meth != NULL && meth->type != METHOD_NONE)
 				break;
 			adjustment = adj + AS_CLASS(classObj->superclasses->elements[a])->superclass;
 		}
@@ -1391,7 +1384,6 @@ static void printObject(Obj* obj) {
 		case OBJ_MODULE: printf("[module %p]", obj); break;
 		case OBJ_RANGE: printf("[fn %p]", obj); break;
 		case OBJ_METHOD: printf("[method %p]", obj); break;
-		case OBJ_POINTER: printf("[pointer %p]", obj); break;
 		default: printf("[unknown object]"); break;
 	}
 }
@@ -1403,6 +1395,8 @@ void cardinalPrintValue(Value value) {
 	}
 	else if (IS_OBJ(value)) {
 		printObject(AS_OBJ(value));
+	} else if (IS_POINTER(value)) {
+		printf("[pointer %p]", AS_POINTER(value));
 	}
 	else {
 		switch (GET_TAG(value)) {
@@ -1420,6 +1414,7 @@ void cardinalPrintValue(Value value) {
 		case VAL_NULL: printf("null"); break;
 		case VAL_NUM: printf("%.14g", AS_NUM(value)); break;
 		case VAL_TRUE: printf("true"); break;
+		case VAL_POINTER: printf("[pointer %p]", AS_POINTER(value)); break;
 		case VAL_OBJ: printObject(AS_OBJ(value));
 		default: ;
 	}

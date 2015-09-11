@@ -14,7 +14,10 @@
 #include "cardinal_core.h"
 #include "cardinal_debug.h"
 #include "cardinal_vm.h"
-#include "cardinal_datacenter.h"
+
+#if CARDINAL_USE_MEMORY
+	#include "cardinal_datacenter.h"
+#endif
 
 #if CARDINAL_USE_LIB_IO
   #include "cardinal_io.h"
@@ -67,7 +70,9 @@ static void collectGarbage(CardinalVM* vm);
 ///////////////////////////////////////////////////////////////////////////////////
 
 static void cardinalLoadLibraries(CardinalVM* vm) {
+#if CARDINAL_USE_MEMORY
 	cardinalInitializeDataCenter(vm);
+#endif
 #if CARDINAL_USE_LIB_IO
 	cardinalLoadIOLibrary(vm);
 #endif
@@ -264,6 +269,7 @@ static void initGarbageCollector(CardinalVM* vm, CardinalConfiguration* configur
 	initMetaClasses(vm);
 	
 	vm->garbageCollector.isWorking = false;
+	vm->garbageCollector.isCoupled = true;
 }
 
 ///////////////////////////////////////////////////////////////////////////////////
@@ -1439,7 +1445,8 @@ bool runInterpreter(CardinalVM* vm) {
 			// Name
 			
 			bool exists = AS_BOOL(POP());
-			if (!exists) {
+			cardinal_integer numFields = READ_FIELD();
+			if (!exists || numFields > 0) {
 				ObjString* name = AS_STRING(POP());
 				CARDINAL_PIN(vm, name);
 				ObjClass* superclass = vm->metatable.objectClass;
@@ -1452,7 +1459,6 @@ bool runInterpreter(CardinalVM* vm) {
 				}
 				DROP();
 				
-				cardinal_integer numFields = READ_FIELD();
 				cardinal_integer numSuperClasses = READ_CONSTANT() - 1;
 	
 				ObjClass* classObj = cardinalNewClass(vm, superclass, numFields, name);
@@ -1486,20 +1492,19 @@ bool runInterpreter(CardinalVM* vm) {
 				CARDINAL_UNPIN(vm);
 				PUSH(OBJ_VAL(classObj));
 			} else {
-				READ_FIELD();
 				cardinal_integer numSuperClasses = READ_CONSTANT();
 				int i = 1;
 				ObjClass* classObj = AS_CLASS(POP());
 				ObjString* name = AS_STRING(POP());
-				bool check = !IS_NULL(PEEK());
 				while (numSuperClasses > 0) {
-					if (check) {
+					if (!IS_NULL(PEEK())) {
 						ObjString* error = validateSuperclass(vm, name, PEEK());
 						if (error != NULL) RUNTIME_ERROR(error);
-						ObjClass* superclass = AS_CLASS(POP());
+						ObjClass* superclass = AS_CLASS(PEEK());
 						
 						cardinalBindSuperclass(vm, classObj, superclass);
 					}
+					DROP();
 					i++;
 					numSuperClasses--;
 				}
@@ -1694,10 +1699,23 @@ void cardinalPopRoot(CardinalVM* vm) {
 }
 
 void cardinalAddGCObject(CardinalVM* vm, Obj* obj) {
-	obj->gcflag = (GCFlag) 0;
-	
-	obj->next = vm->garbageCollector.first;
-	vm->garbageCollector.first = obj;
+	// Check if the garbage collector is in use
+	if (obj->type == OBJ_TABLE_ELEM || obj->type == OBJ_UPVALUE || vm->garbageCollector.isCoupled) {
+		obj->gcflag = (GCFlag) 0;
+		
+		obj->next = vm->garbageCollector.first;
+		obj->prev = NULL;
+		if (vm->garbageCollector.first != NULL)
+			vm->garbageCollector.first->prev = obj;
+		vm->garbageCollector.first = obj;
+	}
+}
+
+/// Removes an object from the GC
+void cardinalRemoveGCObject(CardinalVM* vm, Obj* obj) {
+	if (obj->next != NULL) obj->next->prev = obj->prev;
+	if (obj->prev != NULL) obj->prev->next = obj->next;
+	else vm->garbageCollector.first = obj->next;
 }
 
 /// Used to get statistics from the Garbage collector
@@ -1752,19 +1770,24 @@ static void collectGarbage(CardinalVM* vm) {
 	if (vm->compiler != NULL) cardinalMarkCompiler(vm, vm->compiler);
 	
 	// Collect any unmarked objects.
+	vm->garbageCollector.active = 0;
 	Obj** obj = &vm->garbageCollector.first;
 	while (*obj != NULL) {
 		if (!((*obj)->gcflag & FLAG_MARKED)) {
 			// This object wasn't reached, so remove it from the list and free it.
 			Obj* unreached = *obj;
+			if (unreached->next != NULL) unreached->next->prev = unreached->prev;
+			if (unreached->prev != NULL) unreached->prev->next = unreached->next;
 			*obj = unreached->next;
 			cardinalFreeObj(vm, unreached);
+			vm->garbageCollector.destroyed++;
 		}
 		else {
 			// This object was reached, so unmark it (for the next GC) and move on to
 			// the next.
 			(*obj)->gcflag = (GCFlag) ( (*obj)->gcflag & ~FLAG_MARKED );
 			obj = &(*obj)->next;
+			vm->garbageCollector.active++;
 		}
 	}
 	
@@ -1799,12 +1822,6 @@ void* cardinalReallocate(CardinalVM* vm, void* buffer, size_t oldSize, size_t ne
 		vm->garbageCollector.nbFrees++;
 #endif
 	
-	if (buffer != NULL && newSize == 0) {
-		vm->garbageCollector.active--;
-		vm->garbageCollector.destroyed++;
-	}
-	if (buffer == NULL && newSize != 0)
-		vm->garbageCollector.active++;
 	// If new bytes are being allocated, add them to the total count. If objects
 	// are being completely deallocated, we don't track that (since we don't
 	// track the original size). Instead, that will be handled while marking

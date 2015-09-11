@@ -332,6 +332,9 @@ typedef struct CardinalCompiler {
 	
 	/// Table for undefined fields
 	ObjMap* undefined;
+	
+	/// In declaration (ie var a = class {} )
+	bool inDeclaration;
 } Compiler;
 
 ///////////////////////////////////////////////////////////////////////////////////
@@ -2445,7 +2448,6 @@ static void class_(Compiler* compiler, bool allowAssignment) {
 	// Make a string constant for the name.
 	int nameConstant;
 	int symbol =  getAnonClassSymbol(compiler, &nameConstant);
-
 	bool isModule = compiler->scopeDepth == -1;
 
 	// Load the superclass (if there is one).
@@ -2504,8 +2506,9 @@ static void class_(Compiler* compiler, bool allowAssignment) {
 	// Store it in its name.
 	defineVariable(compiler, symbol);
 	
-	if (!isModule) {
+	if (compiler->inDeclaration) {
 		symbol = symbol - 1;
+		compiler->inDeclaration = false;
 	}
 	
 	classBody(compiler, isModule, numFieldsInstruction, symbol);
@@ -2515,6 +2518,7 @@ static void class_(Compiler* compiler, bool allowAssignment) {
 		emitValue(compiler, CODE_LOAD_MODULE_VAR, symbol, GLOBAL_BYTE);
 	}
 	else {
+		printf("SYMBOL %d\n", symbol);
 		loadLocal(compiler, symbol);
 	}
 }
@@ -3026,12 +3030,13 @@ void initSignature(Compiler* compiler, Signature* signature) {
 // expressions in the grammar. Expressions are parsed using a Pratt parser.
 //
 // See: http://journal.stuffwithstuff.com/2011/03/19/pratt-parsers-expression-parsing-made-easy/
-#define UNUSED_T                     { NULL, NULL, NULL, PREC_NONE, NULL }
+#define UNUSED_T                   { NULL, NULL, NULL, PREC_NONE, NULL }
 #define PREFIX(fn)                 { fn, NULL, NULL, PREC_NONE, NULL }
 #define INFIX(prec, fn)            { NULL, fn, NULL, prec, NULL }
 #define INFIX_OPERATOR(prec, name) { NULL, infixOp, infixSignature, prec, name }
 #define PREFIX_OPERATOR(name)      { unaryOp, NULL, unarySignature, PREC_NONE, name }
 #define OPERATOR(name)             { unaryOp, infixOp, mixedSignature, PREC_TERM, name }
+#define OPERATOR_PREC(prec, name)  { unaryOp, infixOp, mixedSignature, prec, name }
 
 GrammarRule rules[] = {
 	/* TOKEN_LEFT_PAREN    */ PREFIX(grouping),
@@ -3042,31 +3047,31 @@ GrammarRule rules[] = {
 	/* TOKEN_RIGHT_BRACE   */ UNUSED_T,
 	/* TOKEN_COLON         */ UNUSED_T,
 	/* TOKEN_DOT           */ INFIX(PREC_CALL, call),
-	/* TOKEN_DOTDOT        */ INFIX_OPERATOR(PREC_RANGE, ".."),
-	/* TOKEN_DOTDOTDOT     */ INFIX_OPERATOR(PREC_RANGE, "..."),
+	/* TOKEN_DOTDOT        */ OPERATOR_PREC(PREC_RANGE, ".."),
+	/* TOKEN_DOTDOTDOT     */ OPERATOR_PREC(PREC_RANGE, "..."),
 	/* TOKEN_COMMA         */ UNUSED_T,
-	/* TOKEN_STAR          */ INFIX_OPERATOR(PREC_FACTOR, "*"),
-	/* TOKEN_SLASH         */ INFIX_OPERATOR(PREC_FACTOR, "/"),
-	/* TOKEN_PERCENT       */ INFIX_OPERATOR(PREC_FACTOR, "%"),
-	/* TOKEN_PLUS          */ INFIX_OPERATOR(PREC_TERM, "+"),
+	/* TOKEN_STAR          */ OPERATOR_PREC(PREC_FACTOR, "*"), //INFIX_OPERATOR(PREC_FACTOR, "*"),
+	/* TOKEN_SLASH         */ OPERATOR_PREC(PREC_FACTOR, "/"),
+	/* TOKEN_PERCENT       */ OPERATOR_PREC(PREC_FACTOR, "%"),
+	/* TOKEN_PLUS          */ OPERATOR_PREC(PREC_TERM, "+"),
 	/* TOKEN_MINUS         */ OPERATOR("-"),
-	/* TOKEN_LTLT          */ INFIX_OPERATOR(PREC_BITWISE_SHIFT, "<<"),
-	/* TOKEN_GTGT          */ INFIX_OPERATOR(PREC_BITWISE_SHIFT, ">>"),
-	/* TOKEN_PIPE          */ INFIX_OPERATOR(PREC_BITWISE_OR, "|"),
+	/* TOKEN_LTLT          */ OPERATOR_PREC(PREC_BITWISE_SHIFT, "<<"),
+	/* TOKEN_GTGT          */ OPERATOR_PREC(PREC_BITWISE_SHIFT, ">>"),
+	/* TOKEN_PIPE          */ OPERATOR_PREC(PREC_BITWISE_OR, "|"),
 	/* TOKEN_PIPEPIPE      */ INFIX(PREC_LOGICAL_OR, orOp),
-	/* TOKEN_CARET         */ INFIX_OPERATOR(PREC_BITWISE_XOR, "^"),
-	/* TOKEN_AMP           */ INFIX_OPERATOR(PREC_BITWISE_AND, "&"),
+	/* TOKEN_CARET         */ OPERATOR_PREC(PREC_BITWISE_XOR, "^"),
+	/* TOKEN_AMP           */ OPERATOR_PREC(PREC_BITWISE_AND, "&"), //INFIX_OPERATOR(PREC_BITWISE_AND, "&"),
 	/* TOKEN_AMPAMP        */ INFIX(PREC_LOGICAL_AND, andOp),
-	/* TOKEN_BANG          */ PREFIX_OPERATOR("!"),
-	/* TOKEN_TILDE         */ PREFIX_OPERATOR("~"),
+	/* TOKEN_BANG          */ OPERATOR_PREC(PREC_BITWISE_OR, "!"), //PREFIX_OPERATOR("!"),
+	/* TOKEN_TILDE         */ OPERATOR_PREC(PREC_BITWISE_OR, "~"), //PREFIX_OPERATOR("~"),
 	/* TOKEN_QUESTION      */ INFIX(PREC_ASSIGNMENT, conditional),
 	/* TOKEN_EQ            */ UNUSED_T,
-	/* TOKEN_LT            */ INFIX_OPERATOR(PREC_COMPARISON, "<"),
-	/* TOKEN_GT            */ INFIX_OPERATOR(PREC_COMPARISON, ">"),
-	/* TOKEN_LTEQ          */ INFIX_OPERATOR(PREC_COMPARISON, "<="),
-	/* TOKEN_GTEQ          */ INFIX_OPERATOR(PREC_COMPARISON, ">="),
-	/* TOKEN_EQEQ          */ INFIX_OPERATOR(PREC_EQUALITY, "=="),
-	/* TOKEN_BANGEQ        */ INFIX_OPERATOR(PREC_EQUALITY, "!="),
+	/* TOKEN_LT            */ OPERATOR_PREC(PREC_COMPARISON, "<"),
+	/* TOKEN_GT            */ OPERATOR_PREC(PREC_COMPARISON, ">"),
+	/* TOKEN_LTEQ          */ OPERATOR_PREC(PREC_COMPARISON, "<="),
+	/* TOKEN_GTEQ          */ OPERATOR_PREC(PREC_COMPARISON, ">="),
+	/* TOKEN_EQEQ          */ OPERATOR_PREC(PREC_EQUALITY, "=="),
+	/* TOKEN_BANGEQ        */ OPERATOR_PREC(PREC_EQUALITY, "!="),
 	/* TOKEN_BREAK         */ UNUSED_T,
 	/* TOKEN_CLASS         */ {class_,  NULL, NULL, PREC_NONE, NULL},
 	/* TOKEN_CONSTRUCT     */ { NULL, NULL, constructorSignatureOOStyle, PREC_NONE, NULL },
@@ -3587,6 +3592,7 @@ static void defineMethod(Compiler* compiler, Code instruction, int symbol,
 	else {
 		loadLocal(compiler, symbol);
 	}
+	
 	// Define the method.
 	emitValue(compiler, instruction, methodSymbol, METHOD_BYTE);
 }
@@ -4193,7 +4199,7 @@ static void import(Compiler* compiler) {
 
 static void variableDefinition(Compiler* compiler) {
 	int symbol = declareNamedVariable(compiler);
-
+	compiler->inDeclaration = true;
 	// Compile the initializer.
 	if (match(compiler, TOKEN_EQ)) {
 		matchLine(compiler);
@@ -4205,6 +4211,7 @@ static void variableDefinition(Compiler* compiler) {
 	}
 
 	defineVariable(compiler, symbol);	 
+	compiler->inDeclaration = false;
 }
 
 static void function(Compiler* compiler, const char* classname, int len) {

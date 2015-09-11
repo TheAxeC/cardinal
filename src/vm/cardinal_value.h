@@ -105,9 +105,7 @@ typedef enum ObjType {
 	// Module
 	OBJ_MODULE,
 	// Method
-	OBJ_METHOD,
-	// Pointer
-	OBJ_POINTER
+	OBJ_METHOD
 } ObjType;
 
 typedef struct ObjClass ObjClass;
@@ -128,7 +126,7 @@ typedef struct rawObj {
 	/// next object in the gc list
 	struct rawObj* next;
 	/// previous obj in the gc list
-	//struct rawObj* prev;
+	struct rawObj* prev;
 } Obj;
 
 #if CARDINAL_NAN_TAGGING
@@ -141,6 +139,7 @@ typedef struct rawObj {
 		VAL_TRUE,
 		VAL_NULL,
 		VAL_NUM,
+		VAL_POINTER,
 		VAL_UNDEFINED,
 		VAL_OBJ
 	} ValueType;
@@ -252,21 +251,19 @@ typedef struct CallFrame {
 // Different results that can be returned from methods
 // Enumeration used by methods
 typedef enum PrimitiveResult {
-  // A normal value has been returned.
-  PRIM_VALUE,
-
-  // A runtime error occurred.
-  PRIM_ERROR,
-
-  // A new callframe has been pushed.
-  PRIM_CALL,
-  
-  //PRIM_METH,
-
-  // A fiber is being switched to.
-  PRIM_RUN_FIBER,
-  
-  PRIM_NONE
+	// A normal value has been returned.
+	PRIM_VALUE,
+	
+	// A runtime error occurred.
+	PRIM_ERROR,
+	
+	// A new callframe has been pushed.
+	PRIM_CALL,
+	
+	// A fiber is being switched to.
+	PRIM_RUN_FIBER,
+	
+	PRIM_NONE
 } PrimitiveResult;
 
 typedef struct ObjFiber ObjFiber;
@@ -698,9 +695,6 @@ typedef struct ObjMap { EXTENDS(Obj)
 // Value -> ObjMethod*.
 #define AS_METHOD(value) ((ObjMethod*)AS_OBJ(value))
 
-// Value -> ObjPointer*.
-#define AS_POINTER(value) ((ObjPointer*)AS_OBJ(value))
-
 // Convert [boolean] to a boolean [Value].
 #define BOOL_VAL(boolean) (boolean ? TRUE_VAL : FALSE_VAL)
 
@@ -743,8 +737,8 @@ typedef struct ObjMap { EXTENDS(Obj)
 // That leaves all of the remaining bits as available for us to play with. We
 // stuff a few different kinds of things here: special singleton values like
 // "true", "false", and "null", and pointers to objects allocated on the heap.
-// We'll use the sign bit to distinguish singleton values from pointers. If
-// it's set, it's a pointer.
+// We'll use the sign bit to distinguish singleton values from object pointers. If
+// it's set, it's an object pointer.
 //
 // v--Pointer or singleton?
 // S[NaN       ]1--------------------------------------------------
@@ -765,26 +759,32 @@ typedef struct ObjMap { EXTENDS(Obj)
 // do any masking or work to extract number values: they are unmodified. This
 // means math on numbers is fast.
 #if CARDINAL_NAN_TAGGING
-
-	// A mask that selects the sign bit.
+// A mask that selects the sign bit.
 	#define SIGN_BIT ((uint64_t)1 << 63)
 
 	// The bits that must be set to indicate a quiet NaN.
-	#define QNAN ((uint64_t)0x7ffc000000000000)
+	#define QNAN ((uint64_t)0x7ff8000000000000)
+
+	// The bits that must be set to indicate a quiet NaN.
+	#define QNAN_NUM ((uint64_t)0x7ffc000000000000)
 
 	// If the NaN bits are set, it's not a number.
 	#define IS_NUM(value) (((value) & QNAN) != QNAN)
 
 	// Singleton values are NaN with the sign bit cleared. (This includes the
 	// normal value of the actual NaN value used in numeric arithmetic.)
-	#define IS_SINGLETON(value) (((value) & (QNAN | SIGN_BIT)) == QNAN)
+	#define IS_SINGLETON(value) (((value) & (QNAN_NUM | SIGN_BIT)) == QNAN_NUM)
 
 	// An object pointer is a NaN with a set sign bit.
-	#define IS_OBJ(value) (((value) & (QNAN | SIGN_BIT)) == (QNAN | SIGN_BIT))
+	#define IS_OBJ(value) (((value) & (QNAN_NUM | SIGN_BIT)) == (QNAN_NUM | SIGN_BIT))
 
+	// An object pointer is a NaN with a set sign bit.
+	#define IS_POINTER(value) (((value) & (QNAN_NUM | SIGN_BIT)) == (QNAN | SIGN_BIT))
+	
 	#define IS_FALSE(value) ((value) == FALSE_VAL)
-	#define IS_NULL(value) ((value) == (QNAN | TAG_NULL))
-	#define IS_UNDEFINED(value) ((value) == (QNAN | TAG_UNDEFINED))
+	#define IS_TRUE(value) ((value) == TRUE_VAL)
+	#define IS_NULL(value) ((value) == (QNAN_NUM | TAG_NULL))
+	#define IS_UNDEFINED(value) ((value) == (QNAN_NUM | TAG_UNDEFINED))
 
 	// Masks out the tag bits used to identify the singleton value.
 	#define MASK_TAG (7)
@@ -803,24 +803,47 @@ typedef struct ObjMap { EXTENDS(Obj)
 	#define AS_BOOL(value) ((value) == TRUE_VAL)
 
 	// Value -> Obj*.
-	#define AS_OBJ(value) ((Obj*)((value) & ~(SIGN_BIT | QNAN)))
+	#define AS_OBJ(value) ((Obj*)((value) & ~(SIGN_BIT | QNAN_NUM)))
+	
+	// Value -> Void*
+	#define AS_POINTER(value) ((void*)((value) & ~(SIGN_BIT | QNAN)))
 
 	// Singleton values.
-	#define NULL_VAL      ((Value)(uint64_t)(QNAN | TAG_NULL))
-	#define FALSE_VAL     ((Value)(uint64_t)(QNAN | TAG_FALSE))
-	#define TRUE_VAL      ((Value)(uint64_t)(QNAN | TAG_TRUE))
-	#define UNDEFINED_VAL ((Value)(uint64_t)(QNAN | TAG_UNDEFINED))
+	#define NULL_VAL      ((Value)(uint64_t)(QNAN_NUM | TAG_NULL))
+	#define FALSE_VAL     ((Value)(uint64_t)(QNAN_NUM | TAG_FALSE))
+	#define TRUE_VAL      ((Value)(uint64_t)(QNAN_NUM | TAG_TRUE))
+	#define UNDEFINED_VAL ((Value)(uint64_t)(QNAN_NUM | TAG_UNDEFINED))
 
 	// Gets the singleton type tag for a Value (which must be a singleton).
 	#define GET_TAG(value) ((int)((value) & MASK_TAG))
+/*
+	// Indicates we have an object pointer
+	#define SIGN_OBJ ((uint64_t)0x0004000000000000)
+	
+	// Indicates we have a raw pointer
+	#define SIGN_PTR ((uint64_t)0x0000000000000000)
+	
+	#define QNAN_OBJ (QNAN | SIGN_PTR)
+
+	// An object pointer is a NaN with a set sign bit.
+	#define IS_OBJ(value) (((value) & (QNAN_NUM | SIGN_BIT)) == (QNAN_NUM | SIGN_BIT))
+
+	// Value -> Obj*.
+	#define AS_OBJ(value) ((Obj*)((value) & ~(SIGN_BIT | QNAN_NUM)))
+	
+	// Value -> void*.
+	#define AS_POINTER(value) ((void*)((value) & ~(SIGN_BIT | QNAN)))
+*/
 
 #else
-
 	// Value -> 0 or 1.
 	#define AS_BOOL(value) ((value).type == VAL_TRUE)
 
 	// Value -> Obj*.
 	#define AS_OBJ(v) ((v).value.obj) //((v).obj)
+	
+	// Value -> pointer.
+	#define AS_POINTER(v) ((v).value.obj) //((v).obj)
 
 	// Determines if [value] is a garbage-collected object or not.
 	#define IS_OBJ(value) ((value).type == VAL_OBJ)
@@ -830,6 +853,9 @@ typedef struct ObjMap { EXTENDS(Obj)
 
 	// Determines if [value] is TRUE
 	#define IS_TRUE(value) ((value).type == VAL_TRUE)
+	
+	// Determines if [value] is TRUE
+	#define IS_POINTER(value) ((value).type == VAL_POINTER)
 
 	// Determines if [value] is NIL
 	#define IS_NULL(value) ((value).type == VAL_NULL)
@@ -841,11 +867,6 @@ typedef struct ObjMap { EXTENDS(Obj)
 	#define IS_UNDEFINED(value) ((value).type == VAL_UNDEFINED)
 
 	// Singleton values.
-	//#define FALSE_VAL     ((Value){ VAL_FALSE, 0.0, NULL })
-	//#define NULL_VAL      ((Value){ VAL_NULL, 0.0, NULL })
-	//#define TRUE_VAL      ((Value){ VAL_TRUE, 0.0, NULL })
-	//#define UNDEFINED_VAL ((Value){ VAL_UNDEFINED, 0.0, NULL })
-
 	#define FALSE_VAL ((Value){ VAL_FALSE, {obj: NULL} })
 	#define NULL_VAL ((Value){ VAL_NULL, {obj: NULL} })
 	#define TRUE_VAL ((Value){ VAL_TRUE, {obj: NULL} })
@@ -860,6 +881,9 @@ typedef struct ObjMap { EXTENDS(Obj)
 
 // Convert [obj], an `Obj*`, to a [Value].
 #define OBJ_VAL(obj) (cardinalObjectToValue((Obj*)(obj)))
+
+// Convert [ptr], an `void*`, to a [Value].
+#define PTR_VAL(ptr) (cardinalPointerToValue((void*)(ptr)))
 
 // Returns true if [value] is a bool.
 #define IS_BOOL(value) (cardinalIsBool(value))
@@ -890,9 +914,6 @@ typedef struct ObjMap { EXTENDS(Obj)
 
 // Returns true if [value] is a method object.
 #define IS_METHOD(value) (cardinalIsObjType(value, OBJ_METHOD))
-
-// Returns true if [value] is a method object.
-#define IS_POINTER(value) (cardinalIsObjType(value, OBJ_POINTER))
 
 // Returns true if [value] is a list object.
 #define IS_LIST(value) (cardinalIsObjType(value, OBJ_LIST))
@@ -992,7 +1013,7 @@ ObjClosure* cardinalNewClosure(CardinalVM* vm, ObjFn* fn);
 ///////////////////////////////////////////////////////////////////////////////////
 
 // Creates a new pointer object. 
-ObjPointer* cardinalNewPointer(CardinalVM* vm);
+//ObjPointer* cardinalNewPointer(CardinalVM* vm);
 
 ///////////////////////////////////////////////////////////////////////////////////
 //// FUNCTIONS: FIBER	
@@ -1232,11 +1253,22 @@ static inline bool cardinalIsObjType(Value value, ObjType type) {
 // Converts the raw object pointer [obj] to a [Value].
 static inline Value cardinalObjectToValue(Obj* obj) {
 #if CARDINAL_NAN_TAGGING
-	return (Value)(SIGN_BIT | QNAN | (uint64_t)(obj));
+	return (Value)(SIGN_BIT | QNAN_NUM | (uint64_t)(obj));
 #else
 	Value value;
 	value.type = VAL_OBJ;
 	value.value.obj = obj;
+	return value;
+#endif
+}
+
+static inline Value cardinalPointerToValue(void* ptr) {
+#if CARDINAL_NAN_TAGGING
+	return (Value)(SIGN_BIT | QNAN | (uint64_t)(ptr));
+#else
+	Value value;
+	value.type = VAL_POINTER;
+	value.value.obj = ptr;
 	return value;
 #endif
 }

@@ -5,7 +5,8 @@ class A {
 	public static field b
 	
 	public field a
-
+	
+	construct brown() {}
 }
 
 A.b = 3
@@ -15,6 +16,28 @@ var a = A.new()
 a.a = 2
 IO.println(a.a)
 
-var d = Ptr.make
-d.malloc(500)
-d.free()
+var d = Memory.malloc(500)
+Memory.free(d)
+
+var number = A.new()
+var ptr = &number
+
+IO.println(ptr.get())
+
+/*
+System.collect()
+System.printGC()
+
+a.decoupleGC()
+
+System.collect()
+System.printGC()
+
+a.coupleToGC()
+a = a.delete()
+
+System.collect()
+System.printGC()
+*/
+
+A.brown()

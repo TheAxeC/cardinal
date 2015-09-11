@@ -21,6 +21,8 @@
 
 // Return an object
 #define RETURN_OBJ(obj)     RETURN_VAL(OBJ_VAL(obj))
+// Return an object
+#define RETURN_PTR(ptr)     RETURN_VAL(PTR_VAL(ptr))
 // Return a bool
 #define RETURN_BOOL(value)  RETURN_VAL(BOOL_VAL(value))
 // Return a number
@@ -55,53 +57,99 @@
 	} while (0);
 
 static const char* libSource =
-"class Ptr {}\n";
+"class Memory {}\n";
 
 DEF_NATIVE(ptr_new)
-	RETURN_OBJ(cardinalNewPointer(vm));
-END_NATIVE
-
-DEF_NATIVE(ptr_writeAt)
-END_NATIVE
-
-DEF_NATIVE(ptr_write)
+	RETURN_PTR(NULL);
 END_NATIVE
 
 DEF_NATIVE(ptr_get)
+	if (IS_POINTER(args[0])) {
+		void* ptr = AS_POINTER(args[0]);
+		RETURN_OBJ( ((Obj*) ptr) );
+	} else {
+		RETURN_VAL(args[0]);
+	}
 END_NATIVE
 
 DEF_NATIVE(ptr_getAt)
 END_NATIVE
 
 DEF_NATIVE(ptr_malloc)
-	ObjPointer* ptr = AS_POINTER(args[0]);
 	double size = AS_NUM(args[1]);
-
-	ptr->memory = malloc((int) size);
-	RETURN_OBJ(ptr);
+	RETURN_PTR(malloc((int) size));
 END_NATIVE
 
 DEF_NATIVE(ptr_dealloc)
-	ObjPointer* ptr = AS_POINTER(args[0]);
-	
-	free(ptr->memory);
-	ptr->memory = NULL;
-	
-	RETURN_OBJ(ptr);
+	if (IS_POINTER(args[1])) {
+		free(AS_POINTER(args[1]));
+		RETURN_PTR(NULL);
+	} else {
+		RETURN_VAL(args[0]);
+	}
+END_NATIVE
+
+DEF_NATIVE(object_unplug)
+	if (IS_OBJ(args[0])) {
+		Obj* obj = AS_OBJ(args[0]);
+		cardinalRemoveGCObject(vm, obj);
+	}
+	RETURN_VAL(args[0]);
+END_NATIVE
+
+DEF_NATIVE(object_plugin)
+	if (IS_OBJ(args[0])) {
+		Obj* obj = AS_OBJ(args[0]);
+		cardinalAddGCObject(vm, obj);
+	}
+	RETURN_VAL(args[0]);
+END_NATIVE
+
+DEF_NATIVE(object_delete)
+	if (IS_OBJ(args[0])) {
+		Obj* obj = AS_OBJ(args[0]);
+		cardinalRemoveGCObject(vm, obj);
+		cardinalFreeObj(vm, obj);
+		RETURN_NULL;
+	} else {
+		RETURN_VAL(args[0]);
+	}
+END_NATIVE
+
+DEF_NATIVE(object_getAddress)
+	RETURN_PTR(AS_OBJ(args[0]));
 END_NATIVE
 
 void bindPointerClass(CardinalVM* vm) {
-	vm->metatable.pointerClass = AS_CLASS(cardinalFindVariable(vm, "Ptr"));
-	NATIVE(vm->metatable.pointerClass->obj.classObj, "new", ptr_new);
-	NATIVE(vm->metatable.pointerClass->obj.classObj, "make", ptr_new);
-	NATIVE(vm->metatable.pointerClass, "set()", ptr_write);
-	NATIVE(vm->metatable.pointerClass, "setAt(_)", ptr_writeAt);
+	vm->metatable.pointerClass = AS_CLASS(cardinalFindVariable(vm, "Memory"));
 	NATIVE(vm->metatable.pointerClass, "get()", ptr_get);
 	NATIVE(vm->metatable.pointerClass, "getAt(_)", ptr_getAt);
-	NATIVE(vm->metatable.pointerClass, "malloc(_)", ptr_malloc);
+	NATIVE(vm->metatable.pointerClass->obj.classObj, "malloc(_)", ptr_malloc);
 	//NATIVE(vm->metatable.pointerClass, "realloc(_)", ptr_get);
-	NATIVE(vm->metatable.pointerClass, "free()", ptr_dealloc);
+	NATIVE(vm->metatable.pointerClass->obj.classObj, "free(_)", ptr_dealloc);
 	
+}
+
+static void system_decoupleGC(CardinalVM* vm) {
+	vm->garbageCollector.isCoupled = false;
+}
+
+static void system_coupleGC(CardinalVM* vm) {
+	vm->garbageCollector.isCoupled = true;
+}
+
+// This methods allows the decoupling and recoupling of objects
+// to the Garbage collector
+void bindMemoryManagementSystem(CardinalVM* vm) {
+	cardinalDefineStaticMethod(vm, NULL, "System", "decoupleGC()", system_decoupleGC);
+	cardinalDefineStaticMethod(vm, NULL, "System", "coupleGC()", system_coupleGC);
+}
+
+void cardinalInitialiseManualMemoryManagement(CardinalVM* vm) {
+	NATIVE(vm->metatable.objectClass, "decoupleGC()", object_unplug);
+	NATIVE(vm->metatable.objectClass, "coupleToGC()", object_plugin);
+	NATIVE(vm->metatable.objectClass, "delete()", object_delete);
+	NATIVE(vm->metatable.objectClass, "&", object_getAddress);
 }
 
 // The method binds the DataCenter to the VM 

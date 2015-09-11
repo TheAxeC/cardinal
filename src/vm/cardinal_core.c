@@ -9,6 +9,10 @@
 #include "cardinal_value.h"
 #include "cardinal_debug.h"
 
+#if CARDINAL_USE_MEMORY
+	#include "cardinal_datacenter.h"
+#endif
+
 // Binds a native method named [name] implemented using C function
 // [fn] to `ObjClass` [cls].
 #define NATIVE(cls, name, func) \
@@ -2713,6 +2717,10 @@ void cardinalInitializeCore(CardinalVM* vm) {
 	NATIVE(vm->metatable.objectClass, "getAllMethods()", object_getAllMethods);
 	NATIVE(vm->metatable.objectClass, "<instantiate>", object_instantiate);
 
+#if CARDINAL_USE_MEMORY
+	cardinalInitialiseManualMemoryManagement(vm);
+#endif
+	
 	// Now we can define Class, which is a subclass of Object, but Object's
 	// metaclass.
 	vm->metatable.classClass = defineSingleClass(vm, "Class");

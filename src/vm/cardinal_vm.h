@@ -59,6 +59,9 @@ typedef struct CardinalGC {
 	
 	/// indicates that the garbage collector is busy
 	bool isWorking;
+	
+	/// Indicates whether the garbage collector is coupled
+	bool isCoupled;
 
 	/// The number of total allocated bytes that will trigger the next GC.
 	size_t nextGC;
@@ -176,6 +179,9 @@ typedef struct CardinalMetaTable {
 
 /// Adds a newly allocated object to the GC
 void cardinalAddGCObject(CardinalVM* vm, Obj* obj);
+
+/// Removes an object from the GC
+void cardinalRemoveGCObject(CardinalVM* vm, Obj* obj);
 
 /// Used to get statistics from the Garbage collector
 void cardinalGetGCStatistics(CardinalVM* vm, int* size, int* destroyed, int* detected, int* newobj, int* gcNext, int* nbHosts);
@@ -303,6 +309,7 @@ void cardinalEnableGC(CardinalVM* vm, bool enable);
 static inline ObjClass* cardinalGetClassInline(CardinalVM* vm, Value value) {
 	if (IS_NUM(value)) return vm->metatable.numClass;
 	if (IS_OBJ(value)) return AS_OBJ(value)->classObj;
+	if (IS_POINTER(value)) return vm->metatable.pointerClass;
 	
 #if CARDINAL_NAN_TAGGING
 	switch (GET_TAG(value)) {
