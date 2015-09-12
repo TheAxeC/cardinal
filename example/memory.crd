@@ -38,3 +38,8 @@ IO.println(*obj)
 
 obj.kill()
 Memory.free(obj)
+
+System.run("
+class A {}
+IO.println(\"OK\")
+").call()

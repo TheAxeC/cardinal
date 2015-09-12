@@ -2599,7 +2599,7 @@ static void deassembleFunction(CardinalVM* vm) {
 
 static void runCode(CardinalVM* vm) {
 	const char* source = cardinalGetArgumentString(vm, 1);
-	ObjString* str = cardinalStringConcat(vm, "return new Fiber {\n", -1, source, -1);
+	ObjString* str = cardinalStringConcat(vm, "return Fiber.new {\n", -1, source, -1);
 	ObjString* res = cardinalStringConcat(vm, str->value, str->length, "\n}\n", -1);
 
 	ObjFiber* fiber = loadModuleFiber(vm, cardinalNewString(vm, "<runtime>", 9), OBJ_VAL(res));
@@ -2623,7 +2623,7 @@ static void runCode(CardinalVM* vm) {
 static void runCodeParam(CardinalVM* vm) {
 	const char* param = cardinalGetArgumentString(vm, 1);
 	const char* source = cardinalGetArgumentString(vm, 2);
-	ObjString* str = cardinalStringConcat(vm, "return new Fiber { |", -1, param, -1);
+	ObjString* str = cardinalStringConcat(vm, "return Fiber.new { |", -1, param, -1);
 	ObjString* str2 = cardinalStringConcat(vm, str->value, str->length, "|\n", -1);
 	ObjString* str3 = cardinalStringConcat(vm, str2->value, str2->length, source, -1);
 	ObjString* res = cardinalStringConcat(vm, str3->value, str3->length, "\n}\n", -1);
