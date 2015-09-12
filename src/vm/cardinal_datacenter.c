@@ -331,7 +331,13 @@ void bindPointerClass(CardinalVM* vm) {
 	NATIVE(vm->metatable.pointerClass, "value", ptr_getSingleValue);
 	NATIVE(vm->metatable.pointerClass, "value=(_)", ptr_setSingleValue);
 	
-	// Something to save objects (read/write) (not values)
+	// Something to save objects (read/write) (not values) (inline objects)
+	
+	
+	// Something to reuse the object memory
+	
+	
+	// Arithmetic on pointers
 	
 	
 	// Manipulation

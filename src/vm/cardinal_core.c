@@ -2889,6 +2889,7 @@ void cardinalInitializeCore(CardinalVM* vm) {
 	vm->metatable.fiberClass = AS_CLASS(cardinalFindVariable(vm, "Fiber"));
 	NATIVE(vm->metatable.fiberClass->obj.classObj, "<instantiate>", fiber_instantiate);
 	NATIVE(vm->metatable.fiberClass->obj.classObj, "new(_)", fiber_new);
+	NATIVE(vm->metatable.fiberClass->obj.classObj, "init new(_)", fiber_new);
 	NATIVE(vm->metatable.fiberClass->obj.classObj, "abort(_)", fiber_abort);
 	NATIVE(vm->metatable.fiberClass->obj.classObj, "throw(_)", fiber_throw);
 	NATIVE(vm->metatable.fiberClass->obj.classObj, "yield()", fiber_yield);

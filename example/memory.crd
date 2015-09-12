@@ -6,17 +6,16 @@ IO.println(test, ptr.value)
 Memory.free(ptr)
 
 class A {
-
+	construct new(a, b) {
+	
+	}
 }
 
-var a = A.new()
+//A.new(1, 2)
 
-System.collect()
-System.printGC()
 
-a.delete()
-
-System.collect()
-System.printGC()
-
-IO.println(a)
+var obj = Memory.malloc(500)
+var work = obj.new(Fn.new(){
+	IO.println("hey")
+}, Fiber)
+IO.println(work)

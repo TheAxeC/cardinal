@@ -293,7 +293,7 @@
 #define CARDINAL_DEBUG_TRACE_GC 0
 
 // Set this to true to print out the compiled bytecode of each function.
-#define CARDINAL_DEBUG_DUMP_COMPILED_CODE 0
+#define CARDINAL_DEBUG_DUMP_COMPILED_CODE 1
 
 // Set this to trace each instruction as it's executed.
 #define CARDINAL_DEBUG_TRACE_INSTRUCTIONS 0

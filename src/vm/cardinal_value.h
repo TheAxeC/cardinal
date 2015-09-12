@@ -818,25 +818,6 @@ typedef struct ObjMap { EXTENDS(Obj)
 
 	// Gets the singleton type tag for a Value (which must be a singleton).
 	#define GET_TAG(value) ((int)((value) & MASK_TAG))
-/*
-	// Indicates we have an object pointer
-	#define SIGN_OBJ ((uint64_t)0x0004000000000000)
-	
-	// Indicates we have a raw pointer
-	#define SIGN_PTR ((uint64_t)0x0000000000000000)
-	
-	#define QNAN_OBJ (QNAN | SIGN_PTR)
-
-	// An object pointer is a NaN with a set sign bit.
-	#define IS_OBJ(value) (((value) & (QNAN_NUM | SIGN_BIT)) == (QNAN_NUM | SIGN_BIT))
-
-	// Value -> Obj*.
-	#define AS_OBJ(value) ((Obj*)((value) & ~(SIGN_BIT | QNAN_NUM)))
-	
-	// Value -> void*.
-	#define AS_POINTER(value) ((void*)((value) & ~(SIGN_BIT | QNAN)))
-*/
-
 #else
 	// Value -> 0 or 1.
 	#define AS_BOOL(value) ((value).type == VAL_TRUE)
@@ -1072,6 +1053,9 @@ HashValue* cardinalGetTableIndex(ObjTable* table, int ind);
 
 // Creates a new instance of the given [classObj].
 Value cardinalNewInstance(CardinalVM* vm, ObjClass* classObj);
+
+// Creates a new instance of the given [classObj].
+Value cardinalNewInstance(CardinalVM* vm, ObjClass* classObj, void* mem);
 
 ///////////////////////////////////////////////////////////////////////////////////
 //// FUNCTIONS: MAP	
