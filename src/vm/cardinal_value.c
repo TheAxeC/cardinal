@@ -201,7 +201,7 @@ ObjMethod* cardinalNewMethod(CardinalVM* vm) {
 
 bool methodIsReady(CardinalVM* vm, ObjMethod* method) {
 	UNUSED(vm);
-	return method->symbol >= 0 && method->name != NULL && method->caller != NULL_VAL;
+	return method->symbol >= 0 && method->name != NULL && !IS_NULL(method->caller);
 }
 
 void cardinalLoadMethod(CardinalVM* vm, ObjMethod* method, ObjString* name) {
@@ -1505,7 +1505,7 @@ CardinalValue* cardinalCreateHostObject(CardinalVM* vm, Value val) {
 	CardinalValue* ret = ALLOCATE(vm, CardinalValue);
 
 	if (vm->hostObjects.freeNums->count > 0)
-		ret->value = cardinalListRemoveAt(vm, vm->hostObjects.freeNums, vm->hostObjects.freeNums->count-1);
+		ret->value = AS_NUM(cardinalListRemoveAt(vm, vm->hostObjects.freeNums, vm->hostObjects.freeNums->count-1));
 	else {
 		ret->value = vm->hostObjects.max;
 		vm->hostObjects.max++;

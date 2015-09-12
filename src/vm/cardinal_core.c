@@ -588,7 +588,7 @@ DEF_NATIVE(moduleS_save)
 
 	cardinalSaveModule(vm, module, name);
 	
-	RETURN_NUM(args[1]);
+	RETURN_VAL(args[1]);
 END_NATIVE
 
 DEF_NATIVE(module_import)
@@ -967,7 +967,7 @@ DEF_NATIVE(object_new)
 	// This is the default argument-less constructor that all objects inherit.
 	// It just returns "this".
 	if (IS_CLASS(args[0]))
-		args[0] = OBJ_VAL(cardinalNewInstance(vm, AS_CLASS(args[0])));
+		args[0] = cardinalNewInstance(vm, AS_CLASS(args[0]));
 	RETURN_VAL(args[0]);
 END_NATIVE
 
@@ -2460,7 +2460,7 @@ END_NATIVE
 DEF_NATIVE(table_containsKey)
 	if (!validateKey(vm, args, 1)) return PRIM_ERROR;
 
-	RETURN_BOOL(cardinalTableFind(vm, AS_TABLE(args[0]), args[1]) != NULL_VAL);
+	RETURN_BOOL(IS_NULL(cardinalTableFind(vm, AS_TABLE(args[0]), args[1]) ) ) ;
 END_NATIVE
 
 DEF_NATIVE(table_add)
@@ -2650,7 +2650,7 @@ static void getHostObject(CardinalVM* vm) {
 	double ind = cardinalGetArgumentDouble(vm, 1);
 	
 	CardinalValue* val = cardinalCreateValue(vm);
-	val->value = NUM_VAL(ind);
+	val->value = ind;
 	
 	cardinalReturnValue(vm, val);
 }

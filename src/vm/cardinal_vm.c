@@ -549,13 +549,13 @@ static ObjModule* loadModule(CardinalVM* vm, Value name, Value source) {
 		CARDINAL_PIN(vm, module);
 		cardinalMapSet(vm, vm->modules, name, OBJ_VAL(module));
 		CARDINAL_UNPIN(vm);
-		if (source == NULL_VAL) return module;
+		if (IS_NULL(source)) return module;
 	}
 	else {
 		// Execute the new code in the context of the existing module.
 		module = AS_MODULE(vm->modules->entries[index].value);
 		
-		if (source == NULL_VAL) return module;
+		if (IS_NULL(source)) return module;
 	}
 	
 	CARDINAL_PIN(vm, module);
@@ -726,14 +726,17 @@ bool cardinalFiberCallFrame(CardinalVM* vm, ObjFiber* fiber, CallFrame** frame) 
 	return false;
 }
 
-bool checkMethodManual(CardinalVM* vm, ObjClass*& classObj, stackTop& stacktop, Value*& args, cardinal_integer& symbol, int& numArgs, Value*& stackStart) {
+bool checkMethodManual(CardinalVM* vm, ObjClass*& classObj, stackTop& stacktop, Value*& args, cardinal_integer& symbol, int& numArgs, int& adj, Method*& method) {
+
 	if (classObj == vm->metatable.pointerClass) {
 		void* ptr = AS_POINTER(args[0]);
 		args[0] = (stacktop-1)[0];
 		stacktop--;
 		numArgs--;
 		
-		classObj = cardinalGetClassInline(vm, args[0]);
+		if (!IS_CLASS(args[0])) return false;
+		classObj = AS_CLASS(args[0]);
+		
 		// find the correct method symbol so we can allocate manually
 		String name = vm->methodNames.data[symbol];
 		char str[256]; 
@@ -760,17 +763,22 @@ bool checkMethodManual(CardinalVM* vm, ObjClass*& classObj, stackTop& stacktop, 
 		}
 		symbol = cardinalSymbolTableFind(&vm->methodNames, str, i);
 		
-		if (AS_CLASS(stackStart[0]) == vm->metatable.classClass ||
-	        AS_CLASS(stackStart[0]) == vm->metatable.fiberClass ||
-	        AS_CLASS(stackStart[0]) == vm->metatable.fnClass || // Includes OBJ_CLOSURE.
-	        AS_CLASS(stackStart[0]) == vm->metatable.listClass ||
-	        AS_CLASS(stackStart[0]) == vm->metatable.mapClass ||
-	        AS_CLASS(stackStart[0]) == vm->metatable.rangeClass ||
-	        AS_CLASS(stackStart[0]) == vm->metatable.stringClass) {
+		if (symbol >= classObj->methods.count ) return false;
+		
+		method = cardinalGetMethod(vm, classObj, symbol, adj);
+		if (method == NULL || method->type == METHOD_NONE) return false;
+		
+		if (AS_CLASS(args[0]) == vm->metatable.classClass ||
+	        AS_CLASS(args[0]) == vm->metatable.fiberClass ||
+	        AS_CLASS(args[0]) == vm->metatable.fnClass || // Includes OBJ_CLOSURE.
+	        AS_CLASS(args[0]) == vm->metatable.listClass ||
+	        AS_CLASS(args[0]) == vm->metatable.mapClass ||
+	        AS_CLASS(args[0]) == vm->metatable.rangeClass ||
+	        AS_CLASS(args[0]) == vm->metatable.stringClass) {
 				return false;
 			}
-		args[0] = cardinalNewInstance(vm, AS_CLASS(stackStart[0]), ptr);
-		classObj = cardinalGetClassInline(vm, args[0]);
+		args[0] = cardinalNewInstance(vm, AS_CLASS(args[0]), ptr);
+		
 		return true;
 	}
 	else return false;
@@ -1067,42 +1075,30 @@ bool runInterpreter(CardinalVM* vm) {
 			Value* args = fiber->stacktop - numArgs;
 			ObjClass* classObj = cardinalGetClassInline(vm, args[0]);
 			
+			bool checkManual = false;
+			
 			// If the class's method table doesn't include the symbol, bail.
-			if (symbol >= classObj->methods.count) {
-#if CARDINAL_USE_MEMORY
-				// Maybe we are dealing with manual memory allocation
-				if (checkMethodManual(vm, classObj, fiber->stacktop, args, symbol, numArgs, stackStart)) {
-					// If the class's method table doesn't include the symbol, bail.
-					if (symbol >= classObj->methods.count) {
-						RUNTIME_ERROR(methodNotFound(vm, classObj, (int) symbol));
-					}
-					
-				} else
-#endif
-				RUNTIME_ERROR(methodNotFound(vm, classObj, (int) symbol));
-			}
-			
 			int adj = 0;
-			Method* method = cardinalGetMethod(vm, classObj, symbol, adj);
+			Method* method;
+			if (symbol >= classObj->methods.count) {
+				checkManual = true;
+			} else {
+				adj = 0;
+				method = cardinalGetMethod(vm, classObj, symbol, adj);
 			
-			if (method == NULL) {
+				if (method == NULL || method->type == METHOD_NONE) {
+					checkManual = true;
+				}
+			}
+			
+			if (checkManual) {
 #if CARDINAL_USE_MEMORY
 				// Maybe we are dealing with manual memory allocation
-				if (checkMethodManual(vm, classObj, fiber->stacktop, args, symbol, numArgs, stackStart)) {
-					// If the class's method table doesn't include the symbol, bail.
-					if (symbol >= classObj->methods.count) {
-						RUNTIME_ERROR(methodNotFound(vm, classObj, (int) symbol));
-					}
-					adj = 0;
-					method = cardinalGetMethod(vm, classObj, symbol, adj);
-					if (method == NULL) {
-						RUNTIME_ERROR(methodNotFound(vm, classObj, (int) symbol));
-					}
-				} else
+				if (! checkMethodManual(vm, classObj, fiber->stacktop, args, symbol, numArgs, adj, method) )
 #endif
 				RUNTIME_ERROR(methodNotFound(vm, classObj, (int) symbol));
 			}
-			
+
 			if (IS_INSTANCE(args[0])) {
 				cardinalStackPush(vm, &AS_INSTANCE(args[0])->stack, adj);
 			}
@@ -2196,7 +2192,7 @@ CardinalValue* cardinalCall(CardinalVM* vm, CardinalValue* method, int args, ...
 	va_list argList;
 	va_start(argList, args);
 	Value val = cardinalGetHostObject(vm, method);
-	if (val == NULL_VAL)
+	if (IS_NULL(val))
 		return NULL;
 	ObjFiber* fiber = AS_FIBER(val);
 	

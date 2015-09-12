@@ -76,7 +76,7 @@ DEF_NATIVE(ptr_get)
 END_NATIVE
 
 DEF_NATIVE(ptr_toString)
-	char buffer[24];
+	char buffer[25];
 	int length = sprintf(buffer, "[pointer %p]", AS_POINTER(args[0]));
 	RETURN_VAL(cardinalNewString(vm, buffer, length));
 END_NATIVE
@@ -159,6 +159,115 @@ DEF_NATIVE(ptr_setSingleValue)
 	void* ptr = AS_POINTER(args[0]);
 	( (Value*) ptr)[0] = args[1];
 	RETURN_VAL(args[0]);
+END_NATIVE
+
+DEF_NATIVE(ptr_plus)
+	void* ptr = AS_POINTER(args[0]);
+	if (IS_POINTER(args[1])) {
+		void* other = AS_POINTER(args[1]);
+		RETURN_PTR( (char*) ptr + (cardinal_integer) other) ;
+	} else if (IS_NUM(args[1])) {
+		cardinal_integer other = (cardinal_integer) AS_NUM(args[1]);
+		RETURN_PTR(  (char*) ptr + (cardinal_integer) other) ;
+	} else {
+		RETURN_ERROR("Right operand must be a number or pointer.")
+	}
+END_NATIVE
+
+DEF_NATIVE(ptr_min)
+	void* ptr = AS_POINTER(args[0]);
+	if (IS_POINTER(args[1])) {
+		void* other = AS_POINTER(args[1]);
+		RETURN_PTR(  (char*) ptr - (cardinal_integer) other) ;
+	} else if (IS_NUM(args[1])) {
+		cardinal_integer other = (cardinal_integer) AS_NUM(args[1]);
+		RETURN_PTR( (char*) ptr - (cardinal_integer) other) ;
+	} else {
+		RETURN_ERROR("Right operand must be a number or pointer.")
+	}
+END_NATIVE
+
+DEF_NATIVE(ptr_or)
+	void* ptr = AS_POINTER(args[0]);
+	if (IS_POINTER(args[1])) {
+		void* other = AS_POINTER(args[1]);
+		RETURN_PTR( MASK_POINTER(  (cardinal_integer) ptr | (cardinal_integer) other) );
+	} else if (IS_NUM(args[1])) {
+		cardinal_integer other = (cardinal_integer) AS_NUM(args[1]);
+		RETURN_PTR( MASK_POINTER(  (cardinal_integer) ptr | (cardinal_integer) other) );
+	} else {
+		RETURN_ERROR("Right operand must be a number or pointer.")
+	}
+END_NATIVE
+
+DEF_NATIVE(ptr_and)
+	void* ptr = AS_POINTER(args[0]);
+	if (IS_POINTER(args[1])) {
+		void* other = AS_POINTER(args[1]);
+		RETURN_PTR( MASK_POINTER(  (cardinal_integer) ptr & (cardinal_integer) other) );
+	} else if (IS_NUM(args[1])) {
+		cardinal_integer other = (cardinal_integer) AS_NUM(args[1]);
+		RETURN_PTR( MASK_POINTER(  (cardinal_integer) ptr & (cardinal_integer) other) );
+	} else {
+		RETURN_ERROR("Right operand must be a number or pointer.")
+	}
+END_NATIVE
+
+DEF_NATIVE(ptr_not)
+	void* ptr = AS_POINTER(args[0]);
+	RETURN_PTR( MASK_POINTER( ~((cardinal_integer) ptr)) );
+END_NATIVE
+
+DEF_NATIVE(ptr_ls)
+	void* ptr = AS_POINTER(args[0]);
+	if (IS_NUM(args[1])) {
+		cardinal_integer other = (cardinal_integer) AS_NUM(args[1]);
+		RETURN_PTR( MASK_POINTER( (cardinal_integer) ptr << (cardinal_integer) other) );
+	} else {
+		RETURN_ERROR("Right operand must be a number.")
+	}
+END_NATIVE
+
+DEF_NATIVE(ptr_rs)
+	void* ptr = AS_POINTER(args[0]);
+	if (IS_NUM(args[1])) {
+		cardinal_integer other = (cardinal_integer) AS_NUM(args[1]);
+		RETURN_PTR( MASK_POINTER( (cardinal_integer) ptr >> (cardinal_integer) other) );
+	} else {
+		RETURN_ERROR("Right operand must be a number.")
+	}
+END_NATIVE
+
+DEF_NATIVE(ptr_l)
+	if (!IS_POINTER(args[1])) RETURN_FALSE;
+	RETURN_BOOL(AS_POINTER(args[0]) < AS_POINTER(args[1]));
+END_NATIVE
+
+DEF_NATIVE(ptr_le)
+	if (!IS_POINTER(args[1])) RETURN_TRUE;
+	RETURN_BOOL(AS_POINTER(args[0]) <= AS_POINTER(args[1]));
+END_NATIVE
+
+DEF_NATIVE(ptr_g)
+	if (!IS_POINTER(args[1])) RETURN_FALSE;
+	RETURN_BOOL(AS_POINTER(args[0]) > AS_POINTER(args[1]));
+END_NATIVE
+
+DEF_NATIVE(ptr_ge)
+	if (!IS_POINTER(args[1])) RETURN_TRUE;
+	RETURN_BOOL(AS_POINTER(args[0]) >= AS_POINTER(args[1]));
+END_NATIVE
+
+DEF_NATIVE(ptr_save)
+	
+END_NATIVE
+
+DEF_NATIVE(ptr_load)
+	
+END_NATIVE
+
+DEF_NATIVE(ptr_transfer)
+	
 END_NATIVE
 
 #define DEF_GET(type, name)		DEF_NATIVE(ptr_##name) \
@@ -269,6 +378,38 @@ DEF_NATIVE(object_transfer)
 	RETURN_PTR(AS_OBJ(args[0]));
 END_NATIVE
 
+#define SIZEOF(size, name) \
+	DEF_NATIVE(sizeof_##name) \
+		RETURN_NUM(size); \
+	END_NATIVE
+
+SIZEOF( (sizeof(Value)), ptr)
+SIZEOF( (sizeof(Value)), bool)
+SIZEOF( (sizeof(Value)), num)
+SIZEOF( (sizeof(Value)), null)
+
+SIZEOF( (sizeof(ObjInstance)), object)
+SIZEOF( (sizeof(ObjFiber)), fiber)
+SIZEOF( (sizeof(ObjFn)), fn)
+SIZEOF( (sizeof(ObjList)), list)
+SIZEOF( (sizeof(ObjString)), string)
+SIZEOF( (sizeof(ObjRange)), range)
+SIZEOF( (sizeof(ObjTable)), table)
+SIZEOF( (sizeof(ObjMap)), map)
+SIZEOF( (sizeof(ObjModule)), module)
+SIZEOF( (sizeof(ObjMethod)), method)
+SIZEOF( (sizeof(ObjClass)), class)
+
+SIZEOF( (sizeof(ObjFiber)), fibero)
+SIZEOF( (sizeof(ObjFn)), fno)
+SIZEOF( (sizeof(ObjList)), listo)
+SIZEOF( (sizeof(ObjString)), stringo)
+SIZEOF( (sizeof(ObjRange)), rangeo)
+SIZEOF( (sizeof(ObjTable)), tableo)
+SIZEOF( (sizeof(ObjMap)), mapo)
+SIZEOF( (sizeof(ObjModule)), moduleo)
+SIZEOF( (sizeof(ObjMethod)), methodo)
+
 ///////////////////////////////////////////////////////////////////////////////////
 //// Methods
 ///////////////////////////////////////////////////////////////////////////////////
@@ -336,25 +477,25 @@ void bindPointerClass(CardinalVM* vm) {
 	// This uses the memory from [ptr] to create a new instance from
 	// [classToInstantiate] with the called constructor and the given
 	// arguments
-	/*
+	
 	// Something to save objects (read/write) (not values) (inline objects)
-	NATIVE(vm->metatable.pointerClass, "save(_)", ptr_subscript);
-	NATIVE(vm->metatable.pointerClass, "load(_)", ptr_subscript);
-	NATIVE(vm->metatable.pointerClass, "takeover(_)", ptr_subscript);
+	NATIVE(vm->metatable.pointerClass, "save(_)", ptr_save);
+	NATIVE(vm->metatable.pointerClass, "load(_)", ptr_load);
+	NATIVE(vm->metatable.pointerClass, "takeover(_)", ptr_transfer);
 	
 	// Arithmetic on pointers
-	NATIVE(vm->metatable.pointerClass, "+(_)", ptr_subscript);
-	NATIVE(vm->metatable.pointerClass, "-(_)", ptr_subscript);
-	NATIVE(vm->metatable.pointerClass, "<(_)", ptr_subscript);
-	NATIVE(vm->metatable.pointerClass, "<=(_)", ptr_subscript);
-	NATIVE(vm->metatable.pointerClass, ">(_)", ptr_subscript);
-	NATIVE(vm->metatable.pointerClass, "<=(_)", ptr_subscript);
-	NATIVE(vm->metatable.pointerClass, "~", ptr_subscript);
-	NATIVE(vm->metatable.pointerClass, "&(_)", ptr_subscript);
-	NATIVE(vm->metatable.pointerClass, "|(_)", ptr_subscript);
-	NATIVE(vm->metatable.pointerClass, "<<(_)", ptr_subscript);
-	NATIVE(vm->metatable.pointerClass, ">>(_)", ptr_subscript);
-	*/
+	NATIVE(vm->metatable.pointerClass, "+(_)", ptr_plus);
+	NATIVE(vm->metatable.pointerClass, "-(_)", ptr_min);
+	NATIVE(vm->metatable.pointerClass, "<(_)", ptr_l);
+	NATIVE(vm->metatable.pointerClass, "<=(_)", ptr_le);
+	NATIVE(vm->metatable.pointerClass, ">(_)", ptr_g);
+	NATIVE(vm->metatable.pointerClass, "<=(_)", ptr_ge);
+	NATIVE(vm->metatable.pointerClass, "~", ptr_not);
+	NATIVE(vm->metatable.pointerClass, "&(_)", ptr_and);
+	NATIVE(vm->metatable.pointerClass, "|(_)", ptr_or);
+	NATIVE(vm->metatable.pointerClass, "<<(_)", ptr_ls);
+	NATIVE(vm->metatable.pointerClass, ">>(_)", ptr_rs);
+	
 	// Manipulation
 	NATIVE(vm->metatable.pointerClass, "==(_)", ptr_eqeq);
 	NATIVE(vm->metatable.pointerClass, "!=(_)", ptr_bangeq);
@@ -362,23 +503,36 @@ void bindPointerClass(CardinalVM* vm) {
 
 void sizeOfClasses(CardinalVM* vm) {
 	// Add sizeof to all classes
-	/*
-	NATIVE(vm->metatable.pointerClass, "sizeof", ptr_subscript);
-	NATIVE(vm->metatable.boolClass, "sizeof", ptr_subscript);
-	NATIVE(vm->metatable.numClass, "sizeof", ptr_subscript);
-	NATIVE(vm->metatable.objectClass, "sizeof", ptr_subscript);
-	NATIVE(vm->metatable.fiberClass, "sizeof", ptr_subscript);
-	NATIVE(vm->metatable.fnClass, "sizeof", ptr_subscript);
-	NATIVE(vm->metatable.listClass, "sizeof", ptr_subscript);
-	NATIVE(vm->metatable.nullClass, "sizeof", ptr_subscript);
-	NATIVE(vm->metatable.stringClass, "sizeof", ptr_subscript);
-	NATIVE(vm->metatable.rangeClass, "sizeof", ptr_subscript);
-	NATIVE(vm->metatable.tableClass, "sizeof", ptr_subscript);
-	NATIVE(vm->metatable.mapClass, "sizeof", ptr_subscript);
-	NATIVE(vm->metatable.moduleClass, "sizeof", ptr_subscript);
-	NATIVE(vm->metatable.methodClass, "sizeof", ptr_subscript);
-	NATIVE(vm->metatable.classClass, "sizeof", ptr_subscript);
-	*/
+	NATIVE(vm->metatable.pointerClass, "sizeof", sizeof_ptr);
+	NATIVE(vm->metatable.boolClass, "sizeof", sizeof_bool);
+	NATIVE(vm->metatable.numClass, "sizeof", sizeof_num);
+	NATIVE(vm->metatable.nullClass, "sizeof", sizeof_null);
+	
+	NATIVE(vm->metatable.objectClass, "sizeof", sizeof_object);
+	NATIVE(vm->metatable.fiberClass, "sizeof", sizeof_fibero);
+	NATIVE(vm->metatable.fnClass, "sizeof", sizeof_fno);
+	NATIVE(vm->metatable.listClass, "sizeof", sizeof_listo);
+	NATIVE(vm->metatable.stringClass, "sizeof", sizeof_stringo);
+	NATIVE(vm->metatable.rangeClass, "sizeof", sizeof_rangeo);
+	NATIVE(vm->metatable.tableClass, "sizeof", sizeof_tableo);
+	NATIVE(vm->metatable.mapClass, "sizeof", sizeof_mapo);
+	NATIVE(vm->metatable.moduleClass, "sizeof", sizeof_moduleo);
+	NATIVE(vm->metatable.methodClass, "sizeof", sizeof_methodo);
+	NATIVE(vm->metatable.classClass, "sizeof", sizeof_class);
+	
+	NATIVE(vm->metatable.pointerClass->obj.classObj, "sizeof", sizeof_ptr);
+	NATIVE(vm->metatable.boolClass->obj.classObj, "sizeof", sizeof_bool);
+	NATIVE(vm->metatable.numClass->obj.classObj, "sizeof", sizeof_num);
+	NATIVE(vm->metatable.fiberClass->obj.classObj, "sizeof", sizeof_fiber);
+	NATIVE(vm->metatable.fnClass->obj.classObj, "sizeof", sizeof_fn);
+	NATIVE(vm->metatable.listClass->obj.classObj, "sizeof", sizeof_list);
+	NATIVE(vm->metatable.nullClass->obj.classObj, "sizeof", sizeof_null);
+	NATIVE(vm->metatable.stringClass->obj.classObj, "sizeof", sizeof_string);
+	NATIVE(vm->metatable.rangeClass->obj.classObj, "sizeof", sizeof_range);
+	NATIVE(vm->metatable.tableClass->obj.classObj, "sizeof", sizeof_table);
+	NATIVE(vm->metatable.mapClass->obj.classObj, "sizeof", sizeof_map);
+	NATIVE(vm->metatable.moduleClass->obj.classObj, "sizeof", sizeof_module);
+	NATIVE(vm->metatable.methodClass->obj.classObj, "sizeof", sizeof_method);
 }
 
 void cardinalInitialiseManualMemoryManagement(CardinalVM* vm) {

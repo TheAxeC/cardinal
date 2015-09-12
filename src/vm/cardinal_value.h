@@ -179,16 +179,6 @@ DECLARE_BUFFER(Value, Value);
 DECLARE_BUFFER(ValuePtr, Value*);
 
 /// OBJECT
-// A raw pointer
-typedef struct ObjPointer { EXTENDS(Obj)
-	/// Parent
-	Obj obj;
-	
-	/// location in memory
-	void* memory;	
-} ObjPointer;
-
-/// OBJECT
 /// A string class
 typedef struct ObjString { EXTENDS(Obj) 
 	/// Parent
@@ -818,6 +808,8 @@ typedef struct ObjMap { EXTENDS(Obj)
 
 	// Gets the singleton type tag for a Value (which must be a singleton).
 	#define GET_TAG(value) ((int)((value) & MASK_TAG))
+	
+	#define MASK_POINTER(ptr) ((ptr) & ~(QNAN_NUM | SIGN_BIT))
 #else
 	// Value -> 0 or 1.
 	#define AS_BOOL(value) ((value).type == VAL_TRUE)
@@ -850,11 +842,12 @@ typedef struct ObjMap { EXTENDS(Obj)
 	#define IS_UNDEFINED(value) ((value).type == VAL_UNDEFINED)
 
 	// Singleton values.
-	#define FALSE_VAL ((Value){ VAL_FALSE, {obj: NULL} })
-	#define NULL_VAL ((Value){ VAL_NULL, {obj: NULL} })
-	#define TRUE_VAL ((Value){ VAL_TRUE, {obj: NULL} })
-	#define UNDEFINED_VAL ((Value){ VAL_UNDEFINED, {obj: NULL })
+	#define FALSE_VAL ((Value){ VAL_FALSE, {.obj = NULL} })
+	#define NULL_VAL ((Value){ VAL_NULL, {.obj= NULL} })
+	#define TRUE_VAL ((Value){ VAL_TRUE, {.obj= NULL} })
+	#define UNDEFINED_VAL ((Value){ VAL_UNDEFINED, {.obj= NULL} })
 
+	#define MASK_POINTER(ptr) 
 #endif
 
 
@@ -1198,6 +1191,9 @@ ObjClass* cardinalGetClass(CardinalVM* vm, Value value);
 //// FUNCTIONS: COMPARES	
 ///////////////////////////////////////////////////////////////////////////////////
 
+// Compare function
+bool compareFloat(cardinal_number a, cardinal_number b);
+
 // Returns true if [a] and [b] are strictly the same value. This is identity
 // for object values, and value equality for unboxed values.
 static inline bool cardinalValuesSame(Value a, Value b) {
@@ -1211,9 +1207,6 @@ static inline bool cardinalValuesSame(Value a, Value b) {
 	return a.value.obj == b.value.obj;
 #endif
 }
-
-// Compare function
-bool compareFloat(cardinal_number a, cardinal_number b);
 
 // Returns true if [a] and [b] are equivalent. Immutable values (null, bools,
 // numbers, ranges, and strings) are equal if they have the same data. All
@@ -1257,7 +1250,7 @@ static inline Value cardinalPointerToValue(void* ptr) {
 #else
 	Value value;
 	value.type = VAL_POINTER;
-	value.value.obj = ptr;
+	value.value.obj = (Obj*) ptr;
 	return value;
 #endif
 }
@@ -1280,7 +1273,7 @@ static inline Value cardinalNumToValue(double n) {
 	data.num = n;
 	return data.bits64;
 #else
-	return (Value){ VAL_NUM, {num: n} };
+	return (Value){ VAL_NUM, {.num = n} };
 #endif
 }
 

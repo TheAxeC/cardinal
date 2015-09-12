@@ -2125,8 +2125,8 @@ static void field(Compiler* compiler, bool allowAssignment) {
 		                              compiler->parser->previous.start,
 		                              compiler->parser->previous.length);
 			
-			Value key = OBJ_VAL(cardinalNewString(compiler->parser->vm,
-	                               compiler->parser->previous.start, compiler->parser->previous.length));
+			Value key = cardinalNewString(compiler->parser->vm,
+	                               compiler->parser->previous.start, compiler->parser->previous.length);
 			CARDINAL_PIN(compiler->parser->vm, AS_OBJ(key));
 			Token* token = &compiler->parser->previous;
 			Value value = OBJ_VAL(cardinalStringFormat(compiler->parser->vm,
@@ -2223,8 +2223,8 @@ static void staticField(Compiler* compiler, bool allowAssignment) {
 		                              compiler->parser->previous.start,
 		                              compiler->parser->previous.length);
 					
-			Value key = OBJ_VAL(cardinalNewString(compiler->parser->vm,
-	                               compiler->parser->previous.start, compiler->parser->previous.length));
+			Value key = cardinalNewString(compiler->parser->vm,
+	                               compiler->parser->previous.start, compiler->parser->previous.length);
 			CARDINAL_PIN(compiler->parser->vm, AS_OBJ(key));
 			Token* token = &compiler->parser->previous;
 			Value value = OBJ_VAL(cardinalStringFormat(compiler->parser->vm,
@@ -2291,8 +2291,8 @@ static void checkIfSuperClass(Compiler* compiler, Token* token) {
 	if (compiler->compilingClass) {
 		ClassCompiler* classCompiler = getEnclosingClass(compiler);
 		
-		Value key = OBJ_VAL(cardinalNewString(compiler->parser->vm,
-	                               token->start, token->length));
+		Value key = cardinalNewString(compiler->parser->vm,
+	                               token->start, token->length);
 		CARDINAL_PIN(compiler->parser->vm, AS_OBJ(key));
 		Value value = NUM_VAL(classCompiler->nbSuper);			   
 		
@@ -2472,8 +2472,8 @@ static void class_(Compiler* compiler, bool allowAssignment) {
 	}
 	else {
 		// Add object as superClass
-		Value key = OBJ_VAL(cardinalNewString(compiler->parser->vm,
-	                               "Object", 6));
+		Value key = cardinalNewString(compiler->parser->vm,
+	                               "Object", 6);
 		CARDINAL_PIN(compiler->parser->vm, AS_OBJ(key));
 		Value value = NUM_VAL(0);			   
 		
@@ -2617,8 +2617,8 @@ static void super_(Compiler* compiler, bool allowAssignment) {
 		const char* name = compiler->parser->previous.start;
 		int len = compiler->parser->previous.length;
 		
-		Value val = OBJ_VAL(cardinalNewString(compiler->parser->vm,
-									   name, len));
+		Value val = cardinalNewString(compiler->parser->vm,
+									   name, len);
 		CARDINAL_PIN(compiler->parser->vm, AS_OBJ(val));
 		size_t ind = cardinalMapFind(enclosingClass->super, val);
 		CARDINAL_UNPIN(compiler->parser->vm);
@@ -2638,8 +2638,8 @@ static void super_(Compiler* compiler, bool allowAssignment) {
 			int len = compiler->parser->previous.length;
 			
 			
-			Value val = OBJ_VAL(cardinalNewString(compiler->parser->vm,
-										   name, len));
+			Value val = cardinalNewString(compiler->parser->vm,
+										   name, len);
 			CARDINAL_PIN(compiler->parser->vm, AS_OBJ(val));
 			
 			size_t ind = cardinalMapFind(enclosingClass->super, val);
@@ -3728,8 +3728,8 @@ static void readField(Compiler* compiler, bool publc, int classSymbol, bool isMo
 		createGetter(compiler, field, compiler->parser->current.start, compiler->parser->current.length, classSymbol, isModule, false);
 		createSetter(compiler, field, compiler->parser->current.start, compiler->parser->current.length, classSymbol, isModule, false);
 	}
-	Value val = OBJ_VAL(cardinalNewString(compiler->parser->vm,
-	                               compiler->parser->current.start, compiler->parser->current.length));
+	Value val = cardinalNewString(compiler->parser->vm,
+	                               compiler->parser->current.start, compiler->parser->current.length);
 	CARDINAL_PIN(compiler->parser->vm, AS_OBJ(val));							   
 	if (cardinalMapFind(enclosingClass->undefined, val) != UINT32_MAX) {
 		cardinalMapRemoveKey(compiler->parser->vm, enclosingClass->undefined, val);
@@ -3767,8 +3767,8 @@ static void readStaticField(Compiler* compiler, bool publc, int classSymbol, boo
 		createGetter(compiler, symbol, compiler->parser->previous.start, compiler->parser->previous.length, classSymbol, isModule, true);
 		createSetter(compiler, symbol, compiler->parser->previous.start, compiler->parser->previous.length, classSymbol, isModule, true);
 	}
-	Value val = OBJ_VAL(cardinalNewString(compiler->parser->vm,
-	                               compiler->parser->current.start, compiler->parser->current.length));
+	Value val = cardinalNewString(compiler->parser->vm,
+	                               compiler->parser->current.start, compiler->parser->current.length);
 	CARDINAL_PIN(compiler->parser->vm, AS_OBJ(val));							   
 	if (cardinalMapFind(enclosingClass->undefined, val) != UINT32_MAX) {
 		cardinalMapRemoveKey(compiler->parser->vm, enclosingClass->undefined, val);

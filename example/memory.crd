@@ -43,3 +43,9 @@ System.run("
 class A {}
 IO.println(\"OK\")
 ").call()
+
+obj = Memory.malloc(5)
+IO.println(obj)
+obj = ~ obj
+obj = ~ obj
+IO.println(obj)

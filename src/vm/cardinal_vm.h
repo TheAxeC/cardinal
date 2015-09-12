@@ -327,7 +327,6 @@ static inline ObjClass* cardinalGetClassInline(CardinalVM* vm, Value value) {
 	
     case VAL_NULL: return vm->metatable.nullClass;
     case VAL_NUM: return vm->metatable.numClass;
-	case VAL_INT: return vm->metatable.intClass;
     
     case VAL_OBJ: return AS_OBJ(value)->classObj;
 	default:
