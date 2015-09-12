@@ -726,6 +726,56 @@ bool cardinalFiberCallFrame(CardinalVM* vm, ObjFiber* fiber, CallFrame** frame) 
 	return false;
 }
 
+bool checkMethodManual(CardinalVM* vm, ObjClass*& classObj, stackTop& stacktop, Value*& args, cardinal_integer& symbol, int& numArgs, Value*& stackStart) {
+	if (classObj == vm->metatable.pointerClass) {
+		void* ptr = AS_POINTER(args[0]);
+		args[0] = (stacktop-1)[0];
+		stacktop--;
+		numArgs--;
+		
+		classObj = cardinalGetClassInline(vm, args[0]);
+		// find the correct method symbol so we can allocate manually
+		String name = vm->methodNames.data[symbol];
+		char str[256]; 
+		str[0] = 'i';
+		str[1] = 'n';
+		str[2] = 'i';
+		str[3] = 't';
+		str[4] = ' ';
+		int i;
+		for(i=0; i<(int) name.length; i++) {
+			str[5+i] = name.buffer[i];
+		}
+		i = i+5;
+		if (numArgs >= 1) {
+			// we need to remove a ,_
+			str[i-3] = ')';
+			str[i-2] = '\0';
+			i = i-2;
+		} else {
+			// we only need to remove a _
+			str[i-2] = ')';
+			str[i-1] = '\0';
+			i = i-1;
+		}
+		symbol = cardinalSymbolTableFind(&vm->methodNames, str, i);
+		
+		if (AS_CLASS(stackStart[0]) == vm->metatable.classClass ||
+	        AS_CLASS(stackStart[0]) == vm->metatable.fiberClass ||
+	        AS_CLASS(stackStart[0]) == vm->metatable.fnClass || // Includes OBJ_CLOSURE.
+	        AS_CLASS(stackStart[0]) == vm->metatable.listClass ||
+	        AS_CLASS(stackStart[0]) == vm->metatable.mapClass ||
+	        AS_CLASS(stackStart[0]) == vm->metatable.rangeClass ||
+	        AS_CLASS(stackStart[0]) == vm->metatable.stringClass) {
+				return false;
+			}
+		args[0] = cardinalNewInstance(vm, AS_CLASS(stackStart[0]), ptr);
+		classObj = cardinalGetClassInline(vm, args[0]);
+		return true;
+	}
+	else return false;
+}
+
 ///////////////////////////////////////////////////////////////////////////////////
 //// INTERPRETER
 ///////////////////////////////////////////////////////////////////////////////////
@@ -1021,47 +1071,12 @@ bool runInterpreter(CardinalVM* vm) {
 			if (symbol >= classObj->methods.count) {
 #if CARDINAL_USE_MEMORY
 				// Maybe we are dealing with manual memory allocation
-				if (classObj == vm->metatable.pointerClass) {
-					void* ptr = AS_POINTER(args[0]);
-					args[0] = (fiber->stacktop-1)[0];
-					fiber->stacktop--;
-					numArgs--;
-					
-					classObj = cardinalGetClassInline(vm, args[0]);
-					// find the correct method symbol so we can allocate manually
-					String name = vm->methodNames.data[symbol];
-					char str[256]; 
-					str[0] = 'i';
-					str[1] = 'n';
-					str[2] = 'i';
-					str[3] = 't';
-					str[4] = ' ';
-					int i;
-					for(i=0; i<name.length; i++) {
-						str[5+i] = name.buffer[i];
-					}
-					i = i+5;
-					if (numArgs >= 1) {
-						// we need to remove a ,_
-						str[i-3] = ')';
-						str[i-2] = '\0';
-						i = i-2;
-					} else {
-						// we only need to remove a _
-						str[i-2] = ')';
-						str[i-1] = '\0';
-						i = i-1;
-					}
-					symbol = cardinalSymbolTableFind(&vm->methodNames, str, i);
-					vm->printFunction("%s\n", str);
-					
-					args[0] = cardinalNewInstance(vm, AS_CLASS(stackStart[0]), ptr);
-					classObj = cardinalGetClassInline(vm, args[0]);
-					
+				if (checkMethodManual(vm, classObj, fiber->stacktop, args, symbol, numArgs, stackStart)) {
 					// If the class's method table doesn't include the symbol, bail.
 					if (symbol >= classObj->methods.count) {
 						RUNTIME_ERROR(methodNotFound(vm, classObj, (int) symbol));
 					}
+					
 				} else
 #endif
 				RUNTIME_ERROR(methodNotFound(vm, classObj, (int) symbol));
@@ -1073,22 +1088,16 @@ bool runInterpreter(CardinalVM* vm) {
 			if (method == NULL) {
 #if CARDINAL_USE_MEMORY
 				// Maybe we are dealing with manual memory allocation
-				if (classObj == vm->metatable.pointerClass) {
-					args[0] = (fiber->stacktop-1)[0];
-					fiber->stacktop--;
-					numArgs--;
-					
-					classObj = cardinalGetClassInline(vm, args[0]);
-					// find the correct method symbol so we can allocate manually
-					
-					
+				if (checkMethodManual(vm, classObj, fiber->stacktop, args, symbol, numArgs, stackStart)) {
 					// If the class's method table doesn't include the symbol, bail.
 					if (symbol >= classObj->methods.count) {
 						RUNTIME_ERROR(methodNotFound(vm, classObj, (int) symbol));
 					}
-					
 					adj = 0;
 					method = cardinalGetMethod(vm, classObj, symbol, adj);
+					if (method == NULL) {
+						RUNTIME_ERROR(methodNotFound(vm, classObj, (int) symbol));
+					}
 				} else
 #endif
 				RUNTIME_ERROR(methodNotFound(vm, classObj, (int) symbol));

@@ -4,18 +4,37 @@ var test = Memory.malloc(8)
 ptr.value = test
 IO.println(test, ptr.value)
 Memory.free(ptr)
+Memory.free(test)
 
 class A {
-	construct new(a, b) {
-	
+	construct new(a) {
+		a.call()
 	}
 }
 
-//A.new(1, 2)
+class B {
+	construct new(a) {
+		a.call()
+	}
+}
 
 
 var obj = Memory.malloc(500)
+
 var work = obj.new(Fn.new(){
 	IO.println("hey")
-}, Fiber)
-IO.println(work)
+}, A)
+
+obj.kill()
+obj.new(Fn.new(){
+	IO.println("hey")
+}, B)
+
+
+IO.println(work, " ", *obj)
+
+System.collect()
+IO.println(*obj)
+
+obj.kill()
+Memory.free(obj)

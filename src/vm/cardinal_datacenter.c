@@ -331,18 +331,54 @@ void bindPointerClass(CardinalVM* vm) {
 	NATIVE(vm->metatable.pointerClass, "value", ptr_getSingleValue);
 	NATIVE(vm->metatable.pointerClass, "value=(_)", ptr_setSingleValue);
 	
+	// An object can be manually created using:
+	// ptr.constructor(arguments, classToInstantiate)
+	// This uses the memory from [ptr] to create a new instance from
+	// [classToInstantiate] with the called constructor and the given
+	// arguments
+	/*
 	// Something to save objects (read/write) (not values) (inline objects)
-	
-	
-	// Something to reuse the object memory
-	
+	NATIVE(vm->metatable.pointerClass, "save(_)", ptr_subscript);
+	NATIVE(vm->metatable.pointerClass, "load(_)", ptr_subscript);
+	NATIVE(vm->metatable.pointerClass, "takeover(_)", ptr_subscript);
 	
 	// Arithmetic on pointers
-	
-	
+	NATIVE(vm->metatable.pointerClass, "+(_)", ptr_subscript);
+	NATIVE(vm->metatable.pointerClass, "-(_)", ptr_subscript);
+	NATIVE(vm->metatable.pointerClass, "<(_)", ptr_subscript);
+	NATIVE(vm->metatable.pointerClass, "<=(_)", ptr_subscript);
+	NATIVE(vm->metatable.pointerClass, ">(_)", ptr_subscript);
+	NATIVE(vm->metatable.pointerClass, "<=(_)", ptr_subscript);
+	NATIVE(vm->metatable.pointerClass, "~", ptr_subscript);
+	NATIVE(vm->metatable.pointerClass, "&(_)", ptr_subscript);
+	NATIVE(vm->metatable.pointerClass, "|(_)", ptr_subscript);
+	NATIVE(vm->metatable.pointerClass, "<<(_)", ptr_subscript);
+	NATIVE(vm->metatable.pointerClass, ">>(_)", ptr_subscript);
+	*/
 	// Manipulation
 	NATIVE(vm->metatable.pointerClass, "==(_)", ptr_eqeq);
 	NATIVE(vm->metatable.pointerClass, "!=(_)", ptr_bangeq);
+}
+
+void sizeOfClasses(CardinalVM* vm) {
+	// Add sizeof to all classes
+	/*
+	NATIVE(vm->metatable.pointerClass, "sizeof", ptr_subscript);
+	NATIVE(vm->metatable.boolClass, "sizeof", ptr_subscript);
+	NATIVE(vm->metatable.numClass, "sizeof", ptr_subscript);
+	NATIVE(vm->metatable.objectClass, "sizeof", ptr_subscript);
+	NATIVE(vm->metatable.fiberClass, "sizeof", ptr_subscript);
+	NATIVE(vm->metatable.fnClass, "sizeof", ptr_subscript);
+	NATIVE(vm->metatable.listClass, "sizeof", ptr_subscript);
+	NATIVE(vm->metatable.nullClass, "sizeof", ptr_subscript);
+	NATIVE(vm->metatable.stringClass, "sizeof", ptr_subscript);
+	NATIVE(vm->metatable.rangeClass, "sizeof", ptr_subscript);
+	NATIVE(vm->metatable.tableClass, "sizeof", ptr_subscript);
+	NATIVE(vm->metatable.mapClass, "sizeof", ptr_subscript);
+	NATIVE(vm->metatable.moduleClass, "sizeof", ptr_subscript);
+	NATIVE(vm->metatable.methodClass, "sizeof", ptr_subscript);
+	NATIVE(vm->metatable.classClass, "sizeof", ptr_subscript);
+	*/
 }
 
 void cardinalInitialiseManualMemoryManagement(CardinalVM* vm) {
@@ -351,9 +387,6 @@ void cardinalInitialiseManualMemoryManagement(CardinalVM* vm) {
 	NATIVE(vm->metatable.objectClass, "&", object_getAddress);
 	NATIVE(vm->metatable.objectClass, "delete()", object_delete);
 	NATIVE(vm->metatable.objectClass, "transfer()", object_transfer);
-	
-	// Add sizeof to all classes
-	
 }
 
 // The method binds the DataCenter to the VM 
@@ -362,4 +395,5 @@ void cardinalInitializeDataCenter(CardinalVM* vm) {
 	cardinalInterpret(vm, "", libSource);
 
 	bindPointerClass(vm);
+	sizeOfClasses(vm);
 }

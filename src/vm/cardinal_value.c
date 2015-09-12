@@ -346,8 +346,9 @@ Value cardinalNewInstance(CardinalVM* vm, ObjClass* classObj) {
 Value cardinalNewInstance(CardinalVM* vm, ObjClass* classObj, void* mem) {
 	ObjInstance* instance = (ObjInstance*) mem; //	ALLOCATE_FLEX(vm, ObjInstance, Value, classObj->numFields); 
 	instance->fields = ALLOCATE_ARRAY(vm, Value, classObj->numFields);
-	initObj(vm, &instance->obj, OBJ_INSTANCE, classObj);
-
+	instance->obj.type = OBJ_INSTANCE;
+	instance->obj.classObj = classObj;
+	instance->obj.gcflag = (GCFlag) 0;
 	// Initialize fields to null.
 	for (int i = 0; i < classObj->numFields; i++) {
 		instance->fields[i] = NULL_VAL;
