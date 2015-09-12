@@ -54,3 +54,13 @@ IO.println(test[1])
 
 test[1].a = "Axel"
 Memory.free(test)
+
+class D {
+
+	me3 {
+		IO.println("YES")
+	}
+
+}
+
+(D.new).me3

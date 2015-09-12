@@ -73,16 +73,6 @@ DEF_NATIVE(ptr_get)
 	}
 END_NATIVE
 
-DEF_NATIVE(ptr_getAt)
-	if (IS_POINTER(args[0]) && IS_NUM(args[1])) {
-		void* ptr = AS_POINTER(args[0]);
-		double offset = AS_NUM(args[1]);
-		RETURN_OBJ( ((Obj*) ((size_t)ptr + (size_t) offset)) );
-	} else {
-		RETURN_VAL(args[0]);
-	}
-END_NATIVE
-
 DEF_NATIVE(ptr_realloc)
 	if (IS_POINTER(args[1]) && IS_NUM(args[2])) {
 		void* ptr = AS_POINTER(args[1]);
@@ -136,65 +126,6 @@ DEF_NATIVE(ptr_subscriptSetter)
 	RETURN_VAL(args[0]);
 END_NATIVE
 
-// Numbers
-
-DEF_NATIVE(ptr_mallocNum)
-	RETURN_PTR(malloc(sizeof(cardinal_number)));
-END_NATIVE
-
-DEF_NATIVE(ptr_mallocNumArg)
-	double amount = AS_NUM(args[1]);
-	RETURN_PTR( malloc( sizeof(cardinal_number) * (int) amount ) );
-END_NATIVE
-
-DEF_NATIVE(ptr_num)
-	if (IS_POINTER(args[0]) && IS_NUM(args[1])) {
-		void* ptr = AS_POINTER(args[0]);
-		double num = AS_NUM(args[1]);
-		 *((double*) ptr) = num;
-	}
-	RETURN_VAL(args[0]);
-END_NATIVE
-
-DEF_NATIVE(ptr_getNum)
-	if (IS_POINTER(args[0])) {
-		void* ptr = AS_POINTER(args[0]);
-		double num = *((double*) ptr);
-		RETURN_NUM(num);
-	}
-	RETURN_NUM(0);
-END_NATIVE
-
-DEF_NATIVE(ptr_numGet)
-	if (IS_POINTER(args[0])) {
-		void* ptr = AS_POINTER(args[0]);
-		double dis = AS_NUM(args[1]);
-		double* num = ((double*) ptr);
-		num = num + (int) dis;
-		RETURN_NUM(*num);
-	}
-	RETURN_NUM(0);
-END_NATIVE
-
-DEF_NATIVE(ptr_numSet)
-	if (IS_POINTER(args[0]) && IS_NUM(args[1])) {
-		void* ptr = AS_POINTER(args[0]);
-		double dis = AS_NUM(args[1]);
-		double num = AS_NUM(args[2]);
-		 *(((double*) ptr) + (int) dis) = num;
-	}
-	RETURN_VAL(args[0]);
-END_NATIVE
-
-DEF_NATIVE(ptr_reallocNum)
-	if (IS_POINTER(args[1]) && IS_NUM(args[2])) {
-		void* ptr = AS_POINTER(args[1]);
-		double amount = AS_NUM(args[2]);
-		RETURN_PTR(realloc(ptr, sizeof(cardinal_number) * (int) amount ));
-	} else {
-		RETURN_VAL(args[0]);
-	}
-END_NATIVE
 
 ///////////////////////////////////////////////////////////////////////////////////
 //// OBJECT
@@ -239,8 +170,6 @@ void bindPointerClass(CardinalVM* vm) {
 	vm->metatable.pointerClass = AS_CLASS(cardinalFindVariable(vm, "Memory"));
 	
 	// Get the memory
-	NATIVE(vm->metatable.pointerClass, "get()", ptr_get);
-	NATIVE(vm->metatable.pointerClass, "getAt(_)", ptr_getAt);
 	NATIVE(vm->metatable.pointerClass, "*", ptr_get);
 	
 	// Memory allocation
@@ -252,18 +181,40 @@ void bindPointerClass(CardinalVM* vm) {
 	NATIVE(vm->metatable.pointerClass, "[_]", ptr_subscript);
 	NATIVE(vm->metatable.pointerClass, "[_]=(_)", ptr_subscriptSetter);
 	
+	// Used to write to the memory
+	NATIVE(vm->metatable.pointerClass, "i8(_)", ptr_byte);
+	NATIVE(vm->metatable.pointerClass, "i8(_,_)", ptr_byteset);
+	NATIVE(vm->metatable.pointerClass, "ui8(_)", ptr_byte);
+	NATIVE(vm->metatable.pointerClass, "ui8(_,_)", ptr_byteset);
+	NATIVE(vm->metatable.pointerClass, "i16(_)", ptr_byte);
+	NATIVE(vm->metatable.pointerClass, "i16(_,_)", ptr_byteset);
+	NATIVE(vm->metatable.pointerClass, "ui16(_)", ptr_byte);
+	NATIVE(vm->metatable.pointerClass, "ui16(_,_)", ptr_byteset);
+	NATIVE(vm->metatable.pointerClass, "i32(_)", ptr_byte);
+	NATIVE(vm->metatable.pointerClass, "i32(_,_)", ptr_byteset);
+	NATIVE(vm->metatable.pointerClass, "ui32(_)", ptr_byte);
+	NATIVE(vm->metatable.pointerClass, "ui32(_,_)", ptr_byteset);
+	NATIVE(vm->metatable.pointerClass, "i64(_)", ptr_byte);
+	NATIVE(vm->metatable.pointerClass, "i64(_,_)", ptr_byteset);
+	NATIVE(vm->metatable.pointerClass, "ui64(_)", ptr_byte);
+	NATIVE(vm->metatable.pointerClass, "ui64(_,_)", ptr_byteset);
+	NATIVE(vm->metatable.pointerClass, "value(_)", ptr_byte);
+	NATIVE(vm->metatable.pointerClass, "value(_,_)", ptr_byte);
+	
+	// For all different types	
+	NATIVE(vm->metatable.pointerClass, "getNum(_)", ptr_byte);
+	NATIVE(vm->metatable.pointerClass, "setNum(_,_)", ptr_byte);
+	NATIVE(vm->metatable.pointerClass, "getBool(_)", ptr_byte);
+	NATIVE(vm->metatable.pointerClass, "setBool(_,_)", ptr_byte);
+	NATIVE(vm->metatable.pointerClass, "getPtr(_)", ptr_byte);
+	NATIVE(vm->metatable.pointerClass, "setPtr(_,)", ptr_byte);
+	
+	
+	
 	// Manipulation
 	NATIVE(vm->metatable.pointerClass, "==(_)", ptr_eqeq);
 	NATIVE(vm->metatable.pointerClass, "!=(_)", ptr_bangeq);
-	
-	// Write and read methods
-	NATIVE(vm->metatable.pointerClass->obj.classObj, "mallocNum()", ptr_mallocNum);
-	NATIVE(vm->metatable.pointerClass->obj.classObj, "mallocNum(_)", ptr_mallocNumArg);
-	NATIVE(vm->metatable.pointerClass->obj.classObj, "reallocNum(_,_)", ptr_reallocNum);
-	NATIVE(vm->metatable.pointerClass, "getNum(_)", ptr_numGet);
-	NATIVE(vm->metatable.pointerClass, "setNum(_,_)", ptr_numSet);
-	NATIVE(vm->metatable.pointerClass, "num=(_)", ptr_num);
-	NATIVE(vm->metatable.pointerClass, "num", ptr_getNum);
+
 }
 
 static void system_decoupleGC(CardinalVM* vm) {
@@ -286,7 +237,8 @@ void cardinalInitialiseManualMemoryManagement(CardinalVM* vm) {
 	NATIVE(vm->metatable.objectClass, "coupleToGC()", object_plugin);
 	NATIVE(vm->metatable.objectClass, "delete()", object_delete);
 	NATIVE(vm->metatable.objectClass, "&", object_getAddress);
-	//NATIVE(vm->metatable.numClass, "sizeof", num_sizeof);
+	
+	// Add sizeof to all classes
 }
 
 // The method binds the DataCenter to the VM 
