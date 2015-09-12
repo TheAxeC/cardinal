@@ -28,9 +28,7 @@ Some items on the todo list:
 - complete the pointer usage
 - reading/writing bytecode
 - concurrent running on multiple cores
-- on the fly bytecode generation
-- make the language "smart", allow functionality to help with machine learning
-- bootstrapped compiler
+- on the fly bytecode generation + bootstrapped compiler
 - JITCompiler
 
 
