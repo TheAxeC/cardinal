@@ -98,6 +98,11 @@ DEF_NATIVE(ptr_malloc)
 	RETURN_PTR(malloc((int) size));
 END_NATIVE
 
+DEF_NATIVE(ptr_valloc)
+	double size = AS_NUM(args[1]);
+	RETURN_PTR(malloc((int) size * sizeof(Value)) );
+END_NATIVE
+
 DEF_NATIVE(ptr_dealloc)
 	if (IS_POINTER(args[1])) {
 		free(AS_POINTER(args[1]));
@@ -117,6 +122,31 @@ DEF_NATIVE(ptr_bangeq)
 	RETURN_BOOL(AS_POINTER(args[0]) != AS_POINTER(args[1]));
 END_NATIVE
 
+DEF_NATIVE(ptr_subscript)
+	void* ptr = AS_POINTER(args[0]);
+	int ind = (double) AS_NUM(args[1]);
+	RETURN_VAL( ( (Value*) ptr)[ind] );
+END_NATIVE
+
+
+DEF_NATIVE(ptr_subscriptSetter)
+	void* ptr = AS_POINTER(args[0]);
+	int ind = (double) AS_NUM(args[1]);
+	( (Value*) ptr)[ind] = args[2];
+	RETURN_VAL(args[0]);
+END_NATIVE
+
+// Numbers
+
+DEF_NATIVE(ptr_mallocNum)
+	RETURN_PTR(malloc(sizeof(cardinal_number)));
+END_NATIVE
+
+DEF_NATIVE(ptr_mallocNumArg)
+	double amount = AS_NUM(args[1]);
+	RETURN_PTR( malloc( sizeof(cardinal_number) * (int) amount ) );
+END_NATIVE
+
 DEF_NATIVE(ptr_num)
 	if (IS_POINTER(args[0]) && IS_NUM(args[1])) {
 		void* ptr = AS_POINTER(args[0]);
@@ -133,6 +163,37 @@ DEF_NATIVE(ptr_getNum)
 		RETURN_NUM(num);
 	}
 	RETURN_NUM(0);
+END_NATIVE
+
+DEF_NATIVE(ptr_numGet)
+	if (IS_POINTER(args[0])) {
+		void* ptr = AS_POINTER(args[0]);
+		double dis = AS_NUM(args[1]);
+		double* num = ((double*) ptr);
+		num = num + (int) dis;
+		RETURN_NUM(*num);
+	}
+	RETURN_NUM(0);
+END_NATIVE
+
+DEF_NATIVE(ptr_numSet)
+	if (IS_POINTER(args[0]) && IS_NUM(args[1])) {
+		void* ptr = AS_POINTER(args[0]);
+		double dis = AS_NUM(args[1]);
+		double num = AS_NUM(args[2]);
+		 *(((double*) ptr) + (int) dis) = num;
+	}
+	RETURN_VAL(args[0]);
+END_NATIVE
+
+DEF_NATIVE(ptr_reallocNum)
+	if (IS_POINTER(args[1]) && IS_NUM(args[2])) {
+		void* ptr = AS_POINTER(args[1]);
+		double amount = AS_NUM(args[2]);
+		RETURN_PTR(realloc(ptr, sizeof(cardinal_number) * (int) amount ));
+	} else {
+		RETURN_VAL(args[0]);
+	}
 END_NATIVE
 
 ///////////////////////////////////////////////////////////////////////////////////
@@ -186,12 +247,21 @@ void bindPointerClass(CardinalVM* vm) {
 	NATIVE(vm->metatable.pointerClass->obj.classObj, "malloc(_)", ptr_malloc);
 	NATIVE(vm->metatable.pointerClass->obj.classObj, "realloc(_,_)", ptr_realloc);
 	NATIVE(vm->metatable.pointerClass->obj.classObj, "free(_)", ptr_dealloc);
+	NATIVE(vm->metatable.pointerClass->obj.classObj, "valloc(_)", ptr_valloc);
+	
+	NATIVE(vm->metatable.pointerClass, "[_]", ptr_subscript);
+	NATIVE(vm->metatable.pointerClass, "[_]=(_)", ptr_subscriptSetter);
 	
 	// Manipulation
 	NATIVE(vm->metatable.pointerClass, "==(_)", ptr_eqeq);
 	NATIVE(vm->metatable.pointerClass, "!=(_)", ptr_bangeq);
 	
 	// Write and read methods
+	NATIVE(vm->metatable.pointerClass->obj.classObj, "mallocNum()", ptr_mallocNum);
+	NATIVE(vm->metatable.pointerClass->obj.classObj, "mallocNum(_)", ptr_mallocNumArg);
+	NATIVE(vm->metatable.pointerClass->obj.classObj, "reallocNum(_,_)", ptr_reallocNum);
+	NATIVE(vm->metatable.pointerClass, "getNum(_)", ptr_numGet);
+	NATIVE(vm->metatable.pointerClass, "setNum(_,_)", ptr_numSet);
 	NATIVE(vm->metatable.pointerClass, "num=(_)", ptr_num);
 	NATIVE(vm->metatable.pointerClass, "num", ptr_getNum);
 }
@@ -216,6 +286,7 @@ void cardinalInitialiseManualMemoryManagement(CardinalVM* vm) {
 	NATIVE(vm->metatable.objectClass, "coupleToGC()", object_plugin);
 	NATIVE(vm->metatable.objectClass, "delete()", object_delete);
 	NATIVE(vm->metatable.objectClass, "&", object_getAddress);
+	//NATIVE(vm->metatable.numClass, "sizeof", num_sizeof);
 }
 
 // The method binds the DataCenter to the VM 

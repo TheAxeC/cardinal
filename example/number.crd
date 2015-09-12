@@ -36,12 +36,21 @@ System.collect()
 System.printGC()
 
 a.coupleToGC()
-a = a.delete()
+//a = a.delete()
 
 System.collect()
 System.printGC()
 
-var test = Memory.malloc(8)
-test.num = 2
-IO.println(test.num)
+var test = Memory.valloc(3)
+
+System.printGC()
+
+test[1] = A.new()
+
+System.collect()
+System.printGC()
+
+IO.println(test[1])
+
+test[1].a = "Axel"
 Memory.free(test)

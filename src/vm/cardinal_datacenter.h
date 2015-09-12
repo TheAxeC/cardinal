@@ -3,17 +3,6 @@
 
 #include "cardinal_vm.h"
 
-// Unplug the VM and GC (try to minimize the size of the VM itself)
-// So we can create VM's and run them as a heaveweight thread
-
-// Allow the creation of bytecode on the fly in scripts
-// With functions like: createVar, makeLoop, etc (every opcode is a class or something)
-
-// create pointer
-// allow create and createInplace
-
-// make language expression based
-
 struct CardinalDataCenter {
 	
 };
