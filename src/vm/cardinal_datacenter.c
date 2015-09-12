@@ -1,6 +1,8 @@
 #include "cardinal_datacenter.h"
 
 #include <string.h>
+#include <stdio.h>
+
 #include "cardinal_config.h"
 #include "cardinal_value.h"
 #include "cardinal_debug.h"
@@ -73,6 +75,19 @@ DEF_NATIVE(ptr_get)
 	}
 END_NATIVE
 
+DEF_NATIVE(ptr_toString)
+	char buffer[24];
+	int length = sprintf(buffer, "[pointer %p]", AS_POINTER(args[0]));
+	RETURN_VAL(cardinalNewString(vm, buffer, length));
+END_NATIVE
+
+DEF_NATIVE(ptr_kill)
+	Obj* ptr = (Obj*) AS_POINTER(args[0]);
+	cardinalFreeObjContent(vm, ptr);
+	ptr->classObj = vm->metatable.nullClass;
+	RETURN_PTR(AS_OBJ(args[0]));
+END_NATIVE
+
 DEF_NATIVE(ptr_realloc)
 	if (IS_POINTER(args[1]) && IS_NUM(args[2])) {
 		void* ptr = AS_POINTER(args[1]);
@@ -91,6 +106,16 @@ END_NATIVE
 DEF_NATIVE(ptr_valloc)
 	double size = AS_NUM(args[1]);
 	RETURN_PTR(malloc((int) size * sizeof(Value)) );
+END_NATIVE
+
+DEF_NATIVE(ptr_vrealloc)
+	if (IS_POINTER(args[1]) && IS_NUM(args[2])) {
+		void* ptr = AS_POINTER(args[1]);
+		double size = AS_NUM(args[2]);
+		RETURN_PTR(realloc(ptr, (int) size *  sizeof(Value) ));
+	} else {
+		RETURN_VAL(args[0]);
+	}
 END_NATIVE
 
 DEF_NATIVE(ptr_dealloc)
@@ -118,7 +143,6 @@ DEF_NATIVE(ptr_subscript)
 	RETURN_VAL( ( (Value*) ptr)[ind] );
 END_NATIVE
 
-
 DEF_NATIVE(ptr_subscriptSetter)
 	void* ptr = AS_POINTER(args[0]);
 	int ind = (double) AS_NUM(args[1]);
@@ -126,6 +150,88 @@ DEF_NATIVE(ptr_subscriptSetter)
 	RETURN_VAL(args[0]);
 END_NATIVE
 
+DEF_NATIVE(ptr_getSingleValue)
+	void* ptr = AS_POINTER(args[0]);
+	RETURN_VAL( ( (Value*) ptr)[0] );
+END_NATIVE
+
+DEF_NATIVE(ptr_setSingleValue)
+	void* ptr = AS_POINTER(args[0]);
+	( (Value*) ptr)[0] = args[1];
+	RETURN_VAL(args[0]);
+END_NATIVE
+
+#define DEF_GET(type, name)		DEF_NATIVE(ptr_##name) \
+							void* ptr = AS_POINTER(args[0]); \
+							int ind = (double) AS_NUM(args[1]); \
+							RETURN_NUM( ( (type*) ptr)[ind] ); \
+						END_NATIVE
+						
+#define DEF_SET(type, name)		DEF_NATIVE(ptr_set##name) \
+							void* ptr = AS_POINTER(args[0]); \
+							int ind = (double) AS_NUM(args[1]); \
+							( (type*) ptr)[ind] = (type) AS_NUM(args[2]); \
+							RETURN_VAL(args[0]); \
+						END_NATIVE
+						
+#define DEF_GETTER(type, name)		DEF_NATIVE(ptr_getSingle##name) \
+							void* ptr = AS_POINTER(args[0]); \
+							RETURN_NUM( ( (type*) ptr)[0] ); \
+						END_NATIVE
+						
+#define DEF_SETTER(type, name)		DEF_NATIVE(ptr_setSingle##name) \
+							void* ptr = AS_POINTER(args[0]); \
+							( (type*) ptr)[0] = (type) AS_NUM(args[1]); \
+							RETURN_VAL(args[0]); \
+						END_NATIVE
+
+DEF_GET(cardinalByte, byte);
+DEF_SET(cardinalByte, byte);
+
+DEF_GET(cardinalShort, short);
+DEF_SET(cardinalShort, short);
+
+DEF_GET(cardinalInt, int);
+DEF_SET(cardinalInt, int);
+
+DEF_GET(cardinalLong, long);
+DEF_SET(cardinalLong, long);
+
+DEF_GET(cardinalsByte, sbyte);
+DEF_SET(cardinalsByte, sbyte);
+
+DEF_GET(cardinalsShort, sshort);
+DEF_SET(cardinalsShort, sshort);
+
+DEF_GET(cardinalsInt, sint);
+DEF_SET(cardinalsInt, sint);
+
+DEF_GET(cardinalsLong, slong);
+DEF_SET(cardinalsLong, slong);
+
+DEF_GETTER(cardinalByte, byte);
+DEF_SETTER(cardinalByte, byte);
+
+DEF_GETTER(cardinalShort, short);
+DEF_SETTER(cardinalShort, short);
+
+DEF_GETTER(cardinalInt, int);
+DEF_SETTER(cardinalInt, int);
+
+DEF_GETTER(cardinalLong, long);
+DEF_SETTER(cardinalLong, long);
+
+DEF_GETTER(cardinalsByte, sbyte);
+DEF_SETTER(cardinalsByte, sbyte);
+
+DEF_GETTER(cardinalsShort, sshort);
+DEF_SETTER(cardinalsShort, sshort);
+
+DEF_GETTER(cardinalsInt, sint);
+DEF_SETTER(cardinalsInt, sint);
+
+DEF_GETTER(cardinalsLong, slong);
+DEF_SETTER(cardinalsLong, slong);
 
 ///////////////////////////////////////////////////////////////////////////////////
 //// OBJECT
@@ -147,18 +253,19 @@ DEF_NATIVE(object_plugin)
 	RETURN_VAL(args[0]);
 END_NATIVE
 
-DEF_NATIVE(object_delete)
-	if (IS_OBJ(args[0])) {
-		Obj* obj = AS_OBJ(args[0]);
-		cardinalRemoveGCObject(vm, obj);
-		cardinalFreeObj(vm, obj);
-		RETURN_NULL;
-	} else {
-		RETURN_VAL(args[0]);
-	}
+DEF_NATIVE(object_getAddress)
+	RETURN_PTR(AS_OBJ(args[0]));
 END_NATIVE
 
-DEF_NATIVE(object_getAddress)
+DEF_NATIVE(object_delete)
+	Obj* ptr = AS_OBJ(args[0]);
+	cardinalFreeObjContent(vm, ptr);
+	ptr->classObj = vm->metatable.nullClass;
+	RETURN_NULL;
+END_NATIVE
+
+DEF_NATIVE(object_transfer)
+	cardinalRemoveGCObject(vm, AS_OBJ(args[0]));
 	RETURN_PTR(AS_OBJ(args[0]));
 END_NATIVE
 
@@ -169,76 +276,78 @@ END_NATIVE
 void bindPointerClass(CardinalVM* vm) {
 	vm->metatable.pointerClass = AS_CLASS(cardinalFindVariable(vm, "Memory"));
 	
-	// Get the memory
+	// Get the memory for objects
 	NATIVE(vm->metatable.pointerClass, "*", ptr_get);
+	NATIVE(vm->metatable.pointerClass, "kill()", ptr_kill);
 	
 	// Memory allocation
 	NATIVE(vm->metatable.pointerClass->obj.classObj, "malloc(_)", ptr_malloc);
 	NATIVE(vm->metatable.pointerClass->obj.classObj, "realloc(_,_)", ptr_realloc);
 	NATIVE(vm->metatable.pointerClass->obj.classObj, "free(_)", ptr_dealloc);
-	NATIVE(vm->metatable.pointerClass->obj.classObj, "valloc(_)", ptr_valloc);
+	NATIVE(vm->metatable.pointerClass->obj.classObj, "valloc(_)", ptr_valloc);	
+	NATIVE(vm->metatable.pointerClass->obj.classObj, "vrealloc(_)", ptr_vrealloc);
 	
 	NATIVE(vm->metatable.pointerClass, "[_]", ptr_subscript);
 	NATIVE(vm->metatable.pointerClass, "[_]=(_)", ptr_subscriptSetter);
+	NATIVE(vm->metatable.pointerClass, "toString", ptr_toString);
 	
 	// Used to write to the memory
-	NATIVE(vm->metatable.pointerClass, "i8(_)", ptr_byte);
-	NATIVE(vm->metatable.pointerClass, "i8(_,_)", ptr_byteset);
+	NATIVE(vm->metatable.pointerClass, "i8(_)", ptr_sbyte);
+	NATIVE(vm->metatable.pointerClass, "i8(_,_)", ptr_setsbyte);
 	NATIVE(vm->metatable.pointerClass, "ui8(_)", ptr_byte);
-	NATIVE(vm->metatable.pointerClass, "ui8(_,_)", ptr_byteset);
-	NATIVE(vm->metatable.pointerClass, "i16(_)", ptr_byte);
-	NATIVE(vm->metatable.pointerClass, "i16(_,_)", ptr_byteset);
-	NATIVE(vm->metatable.pointerClass, "ui16(_)", ptr_byte);
-	NATIVE(vm->metatable.pointerClass, "ui16(_,_)", ptr_byteset);
-	NATIVE(vm->metatable.pointerClass, "i32(_)", ptr_byte);
-	NATIVE(vm->metatable.pointerClass, "i32(_,_)", ptr_byteset);
-	NATIVE(vm->metatable.pointerClass, "ui32(_)", ptr_byte);
-	NATIVE(vm->metatable.pointerClass, "ui32(_,_)", ptr_byteset);
-	NATIVE(vm->metatable.pointerClass, "i64(_)", ptr_byte);
-	NATIVE(vm->metatable.pointerClass, "i64(_,_)", ptr_byteset);
-	NATIVE(vm->metatable.pointerClass, "ui64(_)", ptr_byte);
-	NATIVE(vm->metatable.pointerClass, "ui64(_,_)", ptr_byteset);
-	NATIVE(vm->metatable.pointerClass, "value(_)", ptr_byte);
-	NATIVE(vm->metatable.pointerClass, "value(_,_)", ptr_byte);
+	NATIVE(vm->metatable.pointerClass, "ui8(_,_)", ptr_setbyte);
+	NATIVE(vm->metatable.pointerClass, "i16(_)", ptr_sshort);
+	NATIVE(vm->metatable.pointerClass, "i16(_,_)", ptr_setsshort);
+	NATIVE(vm->metatable.pointerClass, "ui16(_)", ptr_short);
+	NATIVE(vm->metatable.pointerClass, "ui16(_,_)", ptr_setshort);
+	NATIVE(vm->metatable.pointerClass, "i32(_)", ptr_sint);
+	NATIVE(vm->metatable.pointerClass, "i32(_,_)", ptr_setsint);
+	NATIVE(vm->metatable.pointerClass, "ui32(_)", ptr_int);
+	NATIVE(vm->metatable.pointerClass, "ui32(_,_)", ptr_setint);
+	NATIVE(vm->metatable.pointerClass, "i64(_)", ptr_slong);
+	NATIVE(vm->metatable.pointerClass, "i64(_,_)", ptr_setslong);
+	NATIVE(vm->metatable.pointerClass, "ui64(_)", ptr_long);
+	NATIVE(vm->metatable.pointerClass, "ui64(_,_)", ptr_setlong);
 	
-	// For all different types	
-	NATIVE(vm->metatable.pointerClass, "getNum(_)", ptr_byte);
-	NATIVE(vm->metatable.pointerClass, "setNum(_,_)", ptr_byte);
-	NATIVE(vm->metatable.pointerClass, "getBool(_)", ptr_byte);
-	NATIVE(vm->metatable.pointerClass, "setBool(_,_)", ptr_byte);
-	NATIVE(vm->metatable.pointerClass, "getPtr(_)", ptr_byte);
-	NATIVE(vm->metatable.pointerClass, "setPtr(_,)", ptr_byte);
+	NATIVE(vm->metatable.pointerClass, "i8", ptr_getSinglesbyte);
+	NATIVE(vm->metatable.pointerClass, "i8=(_)", ptr_setSinglesbyte);
+	NATIVE(vm->metatable.pointerClass, "ui8", ptr_getSinglebyte);
+	NATIVE(vm->metatable.pointerClass, "ui8=(_)", ptr_setSinglebyte);
+	NATIVE(vm->metatable.pointerClass, "i16", ptr_getSinglesshort);
+	NATIVE(vm->metatable.pointerClass, "i16=(_)", ptr_setSinglesshort);
+	NATIVE(vm->metatable.pointerClass, "ui16", ptr_getSingleshort);
+	NATIVE(vm->metatable.pointerClass, "ui16=(_)", ptr_setSingleshort);
+	NATIVE(vm->metatable.pointerClass, "i32", ptr_getSinglesint);
+	NATIVE(vm->metatable.pointerClass, "i32=(_)", ptr_setSinglesint);
+	NATIVE(vm->metatable.pointerClass, "ui32", ptr_getSingleint);
+	NATIVE(vm->metatable.pointerClass, "ui32=(_)", ptr_setSingleint);
+	NATIVE(vm->metatable.pointerClass, "i64", ptr_getSingleslong);
+	NATIVE(vm->metatable.pointerClass, "i64=(_)", ptr_setSingleslong);
+	NATIVE(vm->metatable.pointerClass, "ui64", ptr_getSinglelong);
+	NATIVE(vm->metatable.pointerClass, "ui64=(_)", ptr_setSinglelong);
 	
+	NATIVE(vm->metatable.pointerClass, "value(_)", ptr_subscript);
+	NATIVE(vm->metatable.pointerClass, "value(_,_)", ptr_subscriptSetter);
+	NATIVE(vm->metatable.pointerClass, "value", ptr_getSingleValue);
+	NATIVE(vm->metatable.pointerClass, "value=(_)", ptr_setSingleValue);
+	
+	// Something to save objects (read/write) (not values)
 	
 	
 	// Manipulation
 	NATIVE(vm->metatable.pointerClass, "==(_)", ptr_eqeq);
 	NATIVE(vm->metatable.pointerClass, "!=(_)", ptr_bangeq);
-
-}
-
-static void system_decoupleGC(CardinalVM* vm) {
-	vm->garbageCollector.isCoupled = false;
-}
-
-static void system_coupleGC(CardinalVM* vm) {
-	vm->garbageCollector.isCoupled = true;
-}
-
-// This methods allows the decoupling and recoupling of objects
-// to the Garbage collector
-void bindMemoryManagementSystem(CardinalVM* vm) {
-	cardinalDefineStaticMethod(vm, NULL, "System", "decoupleGC()", system_decoupleGC);
-	cardinalDefineStaticMethod(vm, NULL, "System", "coupleGC()", system_coupleGC);
 }
 
 void cardinalInitialiseManualMemoryManagement(CardinalVM* vm) {
 	NATIVE(vm->metatable.objectClass, "decoupleGC()", object_unplug);
 	NATIVE(vm->metatable.objectClass, "coupleToGC()", object_plugin);
-	NATIVE(vm->metatable.objectClass, "delete()", object_delete);
 	NATIVE(vm->metatable.objectClass, "&", object_getAddress);
+	NATIVE(vm->metatable.objectClass, "delete()", object_delete);
+	NATIVE(vm->metatable.objectClass, "transfer()", object_transfer);
 	
 	// Add sizeof to all classes
+	
 }
 
 // The method binds the DataCenter to the VM 

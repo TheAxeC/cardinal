@@ -1025,6 +1025,10 @@ bool runInterpreter(CardinalVM* vm) {
 			int adj = 0;
 			Method* method = cardinalGetMethod(vm, classObj, symbol, adj);
 			
+			if (method == NULL) {
+				RUNTIME_ERROR(methodNotFound(vm, classObj, (int) symbol));
+			}
+			
 			if (IS_INSTANCE(args[0])) {
 				cardinalStackPush(vm, &AS_INSTANCE(args[0])->stack, adj);
 			}

@@ -45,14 +45,16 @@ var test = Memory.valloc(3)
 
 System.printGC()
 
+test[1] = 5
 test[1] = A.new()
 
 System.collect()
+
 System.printGC()
 
-IO.println(test[1])
+//IO.println(test[1])
 
-test[1].a = "Axel"
+
 Memory.free(test)
 
 class D {

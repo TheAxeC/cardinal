@@ -1,0 +1,22 @@
+
+var ptr = Memory.malloc(8)
+var test = Memory.malloc(8)
+ptr.value = test
+IO.println(test, ptr.value)
+Memory.free(ptr)
+
+class A {
+
+}
+
+var a = A.new()
+
+System.collect()
+System.printGC()
+
+a.delete()
+
+System.collect()
+System.printGC()
+
+IO.println(a)

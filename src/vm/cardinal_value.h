@@ -105,7 +105,9 @@ typedef enum ObjType {
 	// Module
 	OBJ_MODULE,
 	// Method
-	OBJ_METHOD
+	OBJ_METHOD,
+	// Dead object
+	OBJ_DEAD
 } ObjType;
 
 typedef struct ObjClass ObjClass;
@@ -1184,7 +1186,7 @@ Upvalue* cardinalNewUpvalue(CardinalVM* vm, Value* value);
 
 // Mark [value] as reachable and still in use. This should only be called
 // during the sweep phase of a garbage collection.
-void cardinalMarkValue(CardinalVM* vm, Value value);
+void cardinalMarkValue(CardinalVM* vm, Value& value);
 
 // Mark [obj] as reachable and still in use. This should only be called
 // during the sweep phase of a garbage collection.
@@ -1192,6 +1194,9 @@ void cardinalMarkObj(CardinalVM* vm, Obj* obj);
 
 // Releases all memory owned by [obj], including [obj] itself.
 void cardinalFreeObj(CardinalVM* vm, Obj* obj);
+
+// Releases all memory owned by [obj], not including [obj] itself.
+void cardinalFreeObjContent(CardinalVM* vm, Obj* obj);
 
 ///////////////////////////////////////////////////////////////////////////////////
 //// FUNCTIONS: GET CLASS OF VALUE	

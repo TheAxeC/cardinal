@@ -1235,9 +1235,11 @@ static void markModule(CardinalVM* vm, ObjModule* module) {
 
 // Mark [value] as reachable and still in use. This should only be called
 // during the sweep phase of a garbage collection.
-void cardinalMarkValue(CardinalVM* vm, Value value) {
+void cardinalMarkValue(CardinalVM* vm, Value& value) {
 	if (!IS_OBJ(value)) return;
 	cardinalMarkObj(vm, AS_OBJ(value));
+	
+	if (AS_OBJ(value)->type == OBJ_DEAD) value = NULL_VAL;
 }
 
 // Mark [obj] as reachable and still in use. This should only be called
@@ -1267,6 +1269,7 @@ void cardinalMarkObj(CardinalVM* vm, Obj* obj) {
 		case OBJ_MAP: markMap(vm, (ObjMap*) obj); break;
 		case OBJ_MODULE: markModule(vm, (ObjModule*) obj); break;
 		case OBJ_METHOD: markMethod(vm, (ObjMethod*) obj); break;
+		case OBJ_DEAD: break;
 		default: break;
 	}	
 
@@ -1283,6 +1286,12 @@ void cardinalFreeObj(CardinalVM* vm, Obj* obj) {
 	printf(" @ %p\n", obj);
 #endif
 
+	cardinalFreeObjContent(vm, obj);
+	cardinalReallocate(vm, obj, 0, 0);
+}
+
+// Releases all memory owned by [obj], including [obj] itself.
+void cardinalFreeObjContent(CardinalVM* vm, Obj* obj) {
 	switch (obj->type) {
 		case OBJ_CLASS:
 			cardinalMethodBufferClear(vm, &((ObjClass*)obj)->methods);
@@ -1340,11 +1349,11 @@ void cardinalFreeObj(CardinalVM* vm, Obj* obj) {
 		case OBJ_RANGE:
 		case OBJ_UPVALUE:
 		case OBJ_METHOD:
+		case OBJ_DEAD:
 		default:
 		  break;
 	}
-
-	cardinalReallocate(vm, obj, 0, 0);
+	obj->type = OBJ_DEAD;
 }
 
 // Returns the class of [value].
@@ -1384,6 +1393,7 @@ static void printObject(Obj* obj) {
 		case OBJ_MODULE: printf("[module %p]", obj); break;
 		case OBJ_RANGE: printf("[fn %p]", obj); break;
 		case OBJ_METHOD: printf("[method %p]", obj); break;
+		case OBJ_DEAD: printf("[dead object %p]", obj); break;
 		default: printf("[unknown object]"); break;
 	}
 }
