@@ -25,7 +25,6 @@ It has no dependencies, a small standard library, and a simple but extended C AP
 which functions and classes can be linked to Thunderdog-Script. However it can also be used as a general purpose language.
 
 Some items on the todo list:
-- complete the pointer usage
 - reading/writing bytecode
 - concurrent running on multiple cores
 - on the fly bytecode generation + bootstrapped compiler
