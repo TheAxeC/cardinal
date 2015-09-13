@@ -311,7 +311,7 @@ typedef struct CardinalCompiler {
 
 	/// The growable buffer of source line mappings.
 	IntBuffer debugSourceLines;
-	
+
 	/// The growable buffer of source line mappings.
 	SymbolTable debugLocals;
 	

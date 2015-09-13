@@ -15,6 +15,8 @@
 // Version of the Cardinal Scripting Language
 #define CARDINAL_VERSION "cardinal v1.1.0"
 
+#define CARDINAL_EXT ".crd"
+
 ///////////////////////////////////////////////////////////////////////////////////
 //// Methods dealing with VM management.
 ////

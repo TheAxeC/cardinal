@@ -1,0 +1,13 @@
+
+
+import "../standardLibrary/codegen" for CodeGen
+
+var buffer = CodeGen::CodeGenBuffer.new("ui8", 1)
+buffer.write(3)
+buffer.write(3)
+buffer.write(3)
+buffer.write(3)
+buffer.write(3)
+
+System.collect()
+System.printGC()

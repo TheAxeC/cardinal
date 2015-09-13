@@ -1,5 +1,7 @@
 #include "cardinal_datacenter.h"
 
+#if CARDINAL_USE_MEMORY
+
 #include <string.h>
 #include <stdio.h>
 
@@ -534,3 +536,5 @@ void cardinalInitializeDataCenter(CardinalVM* vm) {
 	bindPointerClass(vm);
 	sizeOfClasses(vm);
 }
+
+#endif

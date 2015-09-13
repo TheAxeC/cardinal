@@ -2763,7 +2763,6 @@ void cardinalInitializeCore(CardinalVM* vm) {
 	// CORE
 	cardinalInterpret(vm, "", libSource);
 
-
 	// The rest of the classes can not be defined normally.
 	
 	// MODULES

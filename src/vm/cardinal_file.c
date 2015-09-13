@@ -24,7 +24,7 @@ CardinalValue* defaultModuleLoader(CardinalVM* vm, const char* module) {
 	char* path = (char*)malloc(pathLength + 1);
 	memcpy(path, rootDirectory, rootLength);
 	memcpy(path + rootLength, module, moduleLength);
-	memcpy(path + rootLength + moduleLength, ".tus", 4);
+	memcpy(path + rootLength + moduleLength, CARDINAL_EXT, 4);
 	path[pathLength] = '\0';
 
 	FILE* file = fopen(path, "rb");

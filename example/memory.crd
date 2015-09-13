@@ -13,6 +13,7 @@ class A {
 }
 
 class B {
+
 	construct new(a) {
 		a.call()
 	}

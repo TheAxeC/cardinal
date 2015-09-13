@@ -86,6 +86,12 @@
 	#define CARDINAL_USE_MEMORY 1
 #endif
 
+// If true, loads the Code generation suite in the standard library.
+// Defaults to on.
+#ifndef CARDINAL_USE_CODEGEN
+	#define CARDINAL_USE_CODEGEN 1
+#endif
+
 
 // Use the VM's allocator to allocate an object of [type].
 #define ALLOCATE(vm, type) \
