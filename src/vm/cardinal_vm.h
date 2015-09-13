@@ -258,6 +258,10 @@ bool runInterpreter(CardinalVM* vm);
 
 ObjModule* cardinalImportModuleVar(CardinalVM* vm, Value name);
 
+ObjModule* cardinalGetModule(CardinalVM* vm, Value nameValue);
+
+ObjModule* getCoreModule(CardinalVM* vm);
+
 // Checks whether a module with the given name exists, and if so
 // Replaces it with the given module
 // Otherwise the module is added to the module list

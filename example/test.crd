@@ -1,12 +1,5 @@
 
-import "../standardLibrary/codegen" for CodeGen
+import "../standardLibrary/CodeGenerator/codegen" for CodeGen
 
-var buffer = CodeGen::Buffer::CodeGenBuffer.new("ui8", 1)
-buffer.write(3)
-buffer.write(3)
-buffer.write(3)
-buffer.write(3)
-buffer.write(3)
-
-System.collect()
-System.printGC()
+var compiler = CodeGen::CodeGenCompiler.new()
+compiler.runCode("", "", "main")

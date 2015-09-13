@@ -1,0 +1,67 @@
+
+import "buffer" for Buffer
+
+class CodeGenCompiler {
+	
+	runCode(sourcePath, source, moduleName) {
+		var mod
+		if (sourcePath.count == 0) {
+			mod = Module.core
+			moduleName = ""
+		} else {
+			mod = Module.makeModule(moduleName)
+		}
+		var fn = compile(mod, moduleName, source)
+		var fiber = Fiber.new(fn)
+		fiber.call()
+	}
+	
+	compile(mod, moduleName, source) {
+		return Fn.new{
+			IO.println("OK")
+		}
+	}
+}
+
+class CodeGenFunction {
+	// Indicates the number of local variables
+	field numLocals
+	
+	// The constants that have been defined
+	field constants
+	
+	// The locals that have been defined
+	field locals
+	
+	// number of upvalues
+	field numUpvalues
+	
+	// number of parameters
+	field numParams
+	
+	// upvalues that have been captured
+	field upvalues
+	
+	// Bytecode buffer
+	field bytecode
+	
+	// source lines
+	field sourceLines
+	
+	// source
+	field debugSource
+	
+	construct new() {
+		numLocals = 0
+		numUpvalues = 0
+		numParams = 0
+		constants = []
+		locals = []
+		upvalues = []
+		sourceLines = []
+		debugSource = []
+		bytecode = Buffer::CodeGenBuffer.new("ui8", 1)
+	}
+	
+	
+}

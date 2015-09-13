@@ -526,7 +526,7 @@ void cardinalSaveModule(CardinalVM* vm, ObjModule* module, ObjString* name) {
 }
 
 // Looks up the core module in the module map.
-static ObjModule* getCoreModule(CardinalVM* vm) {
+ObjModule* getCoreModule(CardinalVM* vm) {
 	uint32_t entry = cardinalMapFind(vm->modules, NULL_VAL);
 	ASSERT(entry != UINT32_MAX, "Could not find core module.");
 	return AS_MODULE(vm->modules->entries[entry].value);
@@ -617,6 +617,23 @@ ObjModule* cardinalImportModuleVar(CardinalVM* vm, Value nameValue) {
 	cardinalReleaseObject(vm, source);
 	CARDINAL_UNPIN(vm);
 	// Return the module.
+	return module;
+}
+
+ObjModule* cardinalGetModule(CardinalVM* vm, Value nameValue) {
+	// If the module is already loaded, we don't need to do anything.
+	uint32_t index = cardinalMapFind(vm->modules, nameValue);
+	if (index != UINT32_MAX) {
+		return AS_MODULE(vm->modules->entries[index].value);
+	}
+
+	// Couldn't load the module, create a new Module.
+	ObjModule* module = cardinalReadyNewModule(vm);
+	CARDINAL_PIN(vm, module);
+	// Store it in the VM's module registry so we don't load the same module
+	// multiple times.
+	cardinalMapSet(vm, vm->modules, nameValue, OBJ_VAL(module));
+	CARDINAL_UNPIN(vm);
 	return module;
 }
 

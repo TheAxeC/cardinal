@@ -582,6 +582,18 @@ DEF_NATIVE(moduleS_import)
 	RETURN_VAL(OBJ_VAL(result));
 END_NATIVE
 
+DEF_NATIVE(moduleS_make)
+	ObjModule* result;
+	ObjString* toLoad = AS_STRING(args[1]);
+	result = cardinalGetModule(vm, OBJ_VAL(toLoad));
+	
+	RETURN_VAL(OBJ_VAL(result));
+END_NATIVE
+
+DEF_NATIVE(moduleS_core)
+	RETURN_OBJ(getCoreModule(vm));
+END_NATIVE
+
 DEF_NATIVE(moduleS_save)
 	ObjModule* module = AS_MODULE(args[1]);
 	ObjString* name = AS_STRING(args[2]);
@@ -2773,6 +2785,8 @@ void cardinalInitializeCore(CardinalVM* vm) {
 	NATIVE(vm->metatable.moduleClass, "toString", module_toString);
 	NATIVE(vm->metatable.moduleClass, "count", module_count);
 	NATIVE(vm->metatable.moduleClass->obj.classObj, "importModule(_)", moduleS_import);
+	NATIVE(vm->metatable.moduleClass->obj.classObj, "makeModule(_)", moduleS_make);
+	NATIVE(vm->metatable.moduleClass->obj.classObj, "core", moduleS_core);
 	NATIVE(vm->metatable.moduleClass->obj.classObj, "saveModule(_,_)", moduleS_save);
 	NATIVE(vm->metatable.moduleClass->obj.classObj, "current", module_current);
 	
