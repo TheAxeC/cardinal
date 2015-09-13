@@ -200,6 +200,20 @@ void cardinalSetRootDirectory(CardinalVM* vm, const char* path) {
 	}
 }
 
+// Set the root directory
+static ObjString* cardinalGetRootDirectory(CardinalVM* vm, const char* path) {
+	if (path == NULL) return NULL;
+	
+	// Use the directory where the file is as the root to resolve imports
+	// relative to.
+	const char* lastSlash = strrchr(path, '/');
+	if (lastSlash != NULL) {
+		return AS_STRING(cardinalNewString(vm, path, lastSlash - path + 1));
+	}
+	return NULL;
+}
+
+
 // The built-in reallocation function used when one is not provided by the
 // configuration.
 static void* defaultReallocate(void* buffer , size_t oldSize, size_t newSize) {
@@ -632,6 +646,7 @@ static Value importModule(CardinalVM* vm, Value name) {
 	}
 
 	ObjFiber* moduleFiber = loadModuleFiber(vm, name, cardinalGetHostObject(vm, source));
+	moduleFiber->rootDirectory = cardinalGetRootDirectory(vm, AS_CSTRING(name));
 	CARDINAL_PIN(vm, moduleFiber);
 	cardinalReleaseObject(vm, source);
 	CARDINAL_UNPIN(vm);
@@ -2007,6 +2022,7 @@ CardinalLangResult cardinalInterpretModule(CardinalVM* vm, const char* sourcePat
 		return CARDINAL_COMPILE_ERROR;
 	}
 	
+	fiber->rootDirectory = vm->rootDirectory;
 	vm->fiber = fiber;
 	
 	bool succeeded = runInterpreter(vm);

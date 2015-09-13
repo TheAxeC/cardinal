@@ -1,8 +1,7 @@
 
-
 import "../standardLibrary/codegen" for CodeGen
 
-var buffer = CodeGen::CodeGenBuffer.new("ui8", 1)
+var buffer = CodeGen::Buffer::CodeGenBuffer.new("ui8", 1)
 buffer.write(3)
 buffer.write(3)
 buffer.write(3)

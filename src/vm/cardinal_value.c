@@ -1174,6 +1174,8 @@ static void markFiber(CardinalVM* vm, ObjFiber* fiber) {
 	if (fiber->caller != NULL) markFiber(vm, fiber->caller);
 
 	if (fiber->error != NULL) markInstance(vm, fiber->error);
+	
+	if (fiber->rootDirectory != NULL) markString(vm, fiber->rootDirectory);
 
 	// Keep track of how much memory is still in use.
 	vm->garbageCollector.bytesAllocated += sizeof(ObjFiber);
@@ -1717,7 +1719,7 @@ Value cardinalTableRemove(CardinalVM* vm, ObjTable* list, Value key) {
 			prev->next = ptr->next;
 		else
 			list->hashmap[hash] = ptr->next;
-		
+		list->count--;
 		return ret;
 	}
 }

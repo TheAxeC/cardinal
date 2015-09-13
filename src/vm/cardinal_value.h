@@ -381,6 +381,9 @@ struct ObjFiber { EXTENDS(Obj)
 
 	/// Is set when the fiber is yielded
 	bool yielded;
+	
+	/// Root directory of this Fiber
+	ObjString* rootDirectory;
 };
 
 /// Stores debugging information for a function used for things like stack

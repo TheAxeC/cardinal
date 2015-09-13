@@ -14,6 +14,7 @@
 
 CardinalValue* defaultModuleLoader(CardinalVM* vm, const char* module) {
 	const char* rootDirectory = vm->rootDirectory->value;
+	if (vm->fiber != NULL) rootDirectory = vm->fiber->rootDirectory->value;
 	if (vm->rootDirectory == NULL)
 		rootDirectory = "";
 	

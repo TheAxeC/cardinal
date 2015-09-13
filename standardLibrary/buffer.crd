@@ -1,0 +1,42 @@
+class CodeGenBuffer {
+	// The buffer
+	field m_buffer
+	
+	// Method
+	field m_method
+	
+	// Index
+	field m_index
+	
+	// Capacity
+	field m_capacity
+	
+	// Size of each elem
+	field m_size
+	
+	// Name of the method
+	field m_name
+	
+	construct new(type, size) {
+		m_buffer = Memory.malloc(4 * size)
+		m_method = m_buffer.getMethod(type + "(_,_)")
+		m_index = 0
+		m_capacity = 4
+		m_name = type
+		m_size = size
+	}
+	
+	write(num) {
+		if (m_index >= m_capacity) {
+			m_buffer = Memory.realloc(m_buffer, m_capacity * m_size * 2)
+			m_capacity = m_capacity * 2
+			m_method = m_buffer.getMethod(m_name + "(_,_)")
+		}
+		m_method.call(m_index, num)
+		m_index = m_index + 1
+	}
+	
+	clear() {
+		Memory.free(m_buffer)
+	}
+}
