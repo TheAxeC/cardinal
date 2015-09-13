@@ -258,18 +258,6 @@ DEF_NATIVE(ptr_ge)
 	RETURN_BOOL(AS_POINTER(args[0]) >= AS_POINTER(args[1]));
 END_NATIVE
 
-DEF_NATIVE(ptr_save)
-	
-END_NATIVE
-
-DEF_NATIVE(ptr_load)
-	
-END_NATIVE
-
-DEF_NATIVE(ptr_transfer)
-	
-END_NATIVE
-
 #define DEF_GET(type, name)		DEF_NATIVE(ptr_##name) \
 							void* ptr = AS_POINTER(args[0]); \
 							int ind = (double) AS_NUM(args[1]); \
@@ -477,11 +465,6 @@ void bindPointerClass(CardinalVM* vm) {
 	// This uses the memory from [ptr] to create a new instance from
 	// [classToInstantiate] with the called constructor and the given
 	// arguments
-	
-	// Something to save objects (read/write) (not values) (inline objects)
-	NATIVE(vm->metatable.pointerClass, "save(_)", ptr_save);
-	NATIVE(vm->metatable.pointerClass, "load(_)", ptr_load);
-	NATIVE(vm->metatable.pointerClass, "takeover(_)", ptr_transfer);
 	
 	// Arithmetic on pointers
 	NATIVE(vm->metatable.pointerClass, "+(_)", ptr_plus);
