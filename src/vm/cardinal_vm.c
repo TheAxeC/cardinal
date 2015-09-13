@@ -43,6 +43,11 @@
 	#include "cardinal_regex.h"
 #endif
 
+
+#if CARDINAL_USE_CODEGEN
+	#include "cardinal_codegen.h"
+#endif
+
 ///////////////////////////////////////////////////////////////////////////////////
 //// STATIC
 ///////////////////////////////////////////////////////////////////////////////////
@@ -72,6 +77,9 @@ static void collectGarbage(CardinalVM* vm);
 static void cardinalLoadLibraries(CardinalVM* vm) {
 #if CARDINAL_USE_MEMORY
 	cardinalInitializeDataCenter(vm);
+#endif
+#if CARDINAL_USE_CODEGEN
+	cardinalInitializeCodeGenerator(vm);
 #endif
 #if CARDINAL_USE_LIB_IO
 	cardinalLoadIOLibrary(vm);

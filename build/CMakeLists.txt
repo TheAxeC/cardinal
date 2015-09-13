@@ -31,8 +31,30 @@ set (Script_VERSION_MINOR 0)
 include_directories(SYSTEM ${ROOT_DIR}/${INC_DIR} ${ROOT_DIR}/${SRC_DIR})
 
 # Find all source files
-FILE(GLOB SRCFILES ${ROOT_DIR}/${SRC_DIR}/${VM_DIR}/*.c)
-FILE(GLOB CLIFILES ${ROOT_DIR}/${SRC_DIR}/${CLI_DIR}/*.c)
+# FILE(GLOB SRCFILES ${ROOT_DIR}/${SRC_DIR}/${VM_DIR}/*.c)
+# FILE(GLOB CLIFILES ${ROOT_DIR}/${SRC_DIR}/${CLI_DIR}/*.c)
+
+SET(SRCFILES
+	${ROOT_DIR}/${SRC_DIR}/${VM_DIR}/cardinal_bytecode.c
+	${ROOT_DIR}/${SRC_DIR}/${VM_DIR}/cardinal_codegen.c
+	${ROOT_DIR}/${SRC_DIR}/${VM_DIR}/cardinal_compiler.c
+	${ROOT_DIR}/${SRC_DIR}/${VM_DIR}/cardinal_core.c
+	${ROOT_DIR}/${SRC_DIR}/${VM_DIR}/cardinal_datacenter.c
+	${ROOT_DIR}/${SRC_DIR}/${VM_DIR}/cardinal_debug.c
+	${ROOT_DIR}/${SRC_DIR}/${VM_DIR}/cardinal_debugger.c
+	${ROOT_DIR}/${SRC_DIR}/${VM_DIR}/cardinal_file.c
+	${ROOT_DIR}/${SRC_DIR}/${VM_DIR}/cardinal_io.c
+	${ROOT_DIR}/${SRC_DIR}/${VM_DIR}/cardinal_regex.c
+	${ROOT_DIR}/${SRC_DIR}/${VM_DIR}/cardinal_utils.c
+	${ROOT_DIR}/${SRC_DIR}/${VM_DIR}/cardinal_value.c
+	${ROOT_DIR}/${SRC_DIR}/${VM_DIR}/cardinal_vm.c
+)
+
+SET(CLIFILES 
+	${ROOT_DIR}/${SRC_DIR}/${CLI_DIR}/io.c
+	${ROOT_DIR}/${SRC_DIR}/${CLI_DIR}/main.c
+	${ROOT_DIR}/${SRC_DIR}/${CLI_DIR}/vm.c
+)
 
 # Set the output directories
 SET(EXECUTABLE_OUTPUT_PATH ${ROOT_DIR}/${BIN_DIR})

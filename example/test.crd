@@ -1,5 +1,8 @@
 
-import "../standardLibrary/CodeGenerator/codegen" for CodeGen
+import "../standardLibrary/codegen" for CodeGen
 
 var compiler = CodeGen::CodeGenCompiler.new()
 compiler.runCode("", "", "main")
+
+var fn = CodeGen::CodeGenFunction.new()
+fn.addConstant("axel")

@@ -47,9 +47,13 @@ class CodeGenFunction {
 	
 	// source lines
 	field sourceLines
+	field sourceLineNbr
 	
 	// source
-	field debugSource
+	field debugSourcePath
+	field debugName
+	
+	field mod
 	
 	construct new() {
 		numLocals = 0
@@ -59,8 +63,32 @@ class CodeGenFunction {
 		locals = []
 		upvalues = []
 		sourceLines = []
-		debugSource = []
+		sourceLineNbr = []
+		debugSourcePath = []
+		debugName = ""
 		bytecode = Buffer::CodeGenBuffer.new("ui8", 1)
+		mod = Module.current
+	}
+	
+	addConstant(con) {
+		constants.add(con)
+	}
+	
+	addParam(par) {
+		locals.add(par)
+		numParams++;
+	}
+	
+	addLocal(local) {
+		locals.add(local)
+	}
+	
+	generateFn() {
+		return Fn.create(mod, constants, numUpvalues,
+						numParams, bytecode.ptr, bytecode.size,
+						debugSourcePath, debugName,
+						sourceLineNbr, locals, sourceLines)
+	
 	}
 	
 	

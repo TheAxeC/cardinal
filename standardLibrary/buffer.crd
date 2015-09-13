@@ -39,4 +39,7 @@ class CodeGenBuffer {
 	clear() {
 		Memory.free(m_buffer)
 	}
+	
+	ptr { m_buffer }
+	size { m_index }
 }
