@@ -63,7 +63,6 @@ typedef enum TokenType {
 	TOKEN_IMPORT,
     TOKEN_IN,
     TOKEN_IS,
-    TOKEN_NEW,
     TOKEN_NULL,
     TOKEN_RETURN,
     TOKEN_STATIC,
@@ -716,7 +715,6 @@ static void readName(Parser* parser, TokenType type) {
 	else if (isKeyword(parser, "import")) type = TOKEN_IMPORT;
 	else if (isKeyword(parser, "in")) type = TOKEN_IN;
 	else if (isKeyword(parser, "is")) type = TOKEN_IS;
-	//else if (isKeyword(parser, "new")) type = TOKEN_NEW;
 	else if (isKeyword(parser, "null")) type = TOKEN_NULL;
 	else if (isKeyword(parser, "return")) type = TOKEN_RETURN;
 	else if (isKeyword(parser, "static")) type = TOKEN_STATIC;
@@ -2769,30 +2767,6 @@ static void doubleColon(Compiler* compiler, bool allowAssignment) {
 	callSignature(compiler, CODE_CALL_0, &signature);
 }
 
-static void new_(Compiler* compiler, bool allowAssignment) {
-	UNUSED(allowAssignment);
-	// Allow a dotted name after 'new'.
-	if (match(compiler, TOKEN_NAME)) {
-		//consume(compiler, TOKEN_NAME, "Expect name after 'new'.");
-		name(compiler, false);
-		while (match(compiler, TOKEN_DOT)) {
-			call(compiler, false);
-		}
-	}
-	else if (match(compiler, TOKEN_CLASS)) {
-		class_(compiler, allowAssignment);
-	}
-	else {
-		error(compiler, "Expect name after 'new'.");
-	}
-
-	// The leading space in the name is to ensure users can't call it directly.
-	callMethod(compiler, 0, "<instantiate>", 13);
-
-	// Invoke the constructor on the new instance.
-	methodCall(compiler, CODE_CALL_0, "new", 3);
-}
-
 static void is(Compiler* compiler, bool allowAssignment) {
 	UNUSED(allowAssignment);
 	ignoreNewlines(compiler);
@@ -2978,15 +2952,6 @@ void namedSignature(Compiler* compiler, Signature* signature) {
 	parameterList(compiler, signature);
 }
 
-void constructorSignature(Compiler* compiler, Signature* signature);
-// Compiles a method signature for a constructor.
-void constructorSignature(Compiler* compiler, Signature* signature) {
-	signature->type = SIG_GETTER;
-
-	// Add the parameters, if there are any.
-	parameterList(compiler, signature);
-}
-
 // Compiles a method signature for a constructor.
 void constructorSignatureOOStyle(Compiler* compiler, Signature* signature) {
 	consume(compiler, TOKEN_NAME, "Expect constructor name after 'construct'.");
@@ -3082,7 +3047,6 @@ GrammarRule rules[] = {
 	/* TOKEN_IMPORT        */ UNUSED_T,
 	/* TOKEN_IN            */ UNUSED_T,
 	/* TOKEN_IS            */ INFIX(PREC_IS, is),
-	/* TOKEN_NEW           */ { new_, NULL, constructorSignature, PREC_NONE, NULL },
 	/* TOKEN_NULL          */ PREFIX(null),
 	/* TOKEN_RETURN        */ UNUSED_T,
 	/* TOKEN_STATIC        */ UNUSED_T,
@@ -3955,7 +3919,7 @@ void classBody(Compiler* compiler, bool isModule, int numFieldsInstruction, int 
 				instruction = CODE_METHOD_STATIC;
 				classCompiler->isStaticMethod = true;
 			}
-			else if (peek(compiler) == TOKEN_NEW || peek(compiler) == TOKEN_CONSTRUCT) {
+			else if (peek(compiler) == TOKEN_CONSTRUCT) {
 				// If the method name is "new", it's a constructor.
 				type = CONSTRUCTOR;
 			}
