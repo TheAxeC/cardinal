@@ -86,7 +86,6 @@ typedef enum TokenType {
 
     TOKEN_ERROR,
     TOKEN_EOF,
-	TOKEN_DEC_FIELD,
 	TOKEN_MEMBER,
 	TOKEN_INIT,
 	TOKEN_MODULE,
@@ -723,7 +722,6 @@ static void readName(Parser* parser, TokenType type) {
 	else if (isKeyword(parser, "true")) type = TOKEN_TRUE;
 	else if (isKeyword(parser, "var")) type = TOKEN_VAR;
 	else if (isKeyword(parser, "while")) type = TOKEN_WHILE;
-	else if (isKeyword(parser, "fields")) type = TOKEN_DEC_FIELD;
 	else if (isKeyword(parser, "field")) type = TOKEN_MEMBER;
 	else if (isKeyword(parser, "pre")) type = TOKEN_INIT;
 	else if (isKeyword(parser, "module")) type = TOKEN_MODULE;
@@ -3066,7 +3064,6 @@ GrammarRule rules[] = {
 	/* TOKEN_PRIVATE       */ UNUSED_T,
 	/* TOKEN_ERROR         */ UNUSED_T,
 	/* TOKEN_EOF           */ UNUSED_T,
-	/* TOKEN_DEC_FIELD     */ UNUSED_T,
 	/* TOKEN_FIELD		   */ UNUSED_T,
 	/* TOKEN_INIT	       */ { NULL, NULL, initSignature, PREC_NONE, NULL },
 	/* TOKEN_MODULE	       */ {module_,  NULL, NULL, PREC_NONE, NULL},
@@ -3740,29 +3737,6 @@ static void readStaticField(Compiler* compiler, bool publc, int classSymbol, boo
 	CARDINAL_UNPIN(compiler->parser->vm);
 }
 
-// Read fields from a class
-static void readClassFields(Compiler* compiler, bool publc, int classSymbol, bool isModule) {
-	// Compile the field declarations.
-	consume(compiler, TOKEN_LEFT_BRACE, "Expect '{' after fields declaration.");
-	matchLine(compiler);
-	
-	while (!match(compiler, TOKEN_RIGHT_BRACE)) {
-		if (!matchLine(compiler)) {
-			if (match(compiler, TOKEN_STATIC)) {
-				readStaticField(compiler, publc, classSymbol, isModule);
-			}
-			else {
-				readField(compiler, publc, classSymbol, isModule);
-				nextToken(compiler->parser);
-			}
-		}
-		
-		// Don't require a newline after the last definition.
-		if (match(compiler, TOKEN_RIGHT_BRACE)) break;
-	}
-	consumeLine(compiler, "Expect newline after fields.");
-}
-
 // Read a single field from a class
 static void readSingleClassField(Compiler* compiler, bool publc, int classSymbol, bool isModule) {
 	if (match(compiler, TOKEN_STATIC)) {
@@ -3866,16 +3840,13 @@ void classBody(Compiler* compiler, bool isModule, int numFieldsInstruction, int 
 		else if (match(compiler, TOKEN_PRIVATE))
 			publc = false;
 		
-		if (match(compiler, TOKEN_DEC_FIELD)) {
-			readClassFields(compiler, publc, symbol, isModule);
-		} else if (match(compiler, TOKEN_MEMBER)) {
+		if (match(compiler, TOKEN_MEMBER)) {
 			readSingleClassField(compiler, publc, symbol, isModule);
 		} else if (match(compiler, TOKEN_FOREIGN)) {
 			readForeignMethod(compiler);
 		} else if (match(compiler, TOKEN_STATIC)) {
 			if (match(compiler, TOKEN_MEMBER)) {
 				readStaticField(compiler, publc, symbol, isModule);
-				//nextToken(compiler->parser);
 				consumeLine(compiler, "Expect newline after field.");
 			}
 		} else {
@@ -3897,9 +3868,7 @@ void classBody(Compiler* compiler, bool isModule, int numFieldsInstruction, int 
 		else if (match(compiler, TOKEN_PRIVATE))
 			publc = false;
 			
-		if (match(compiler, TOKEN_DEC_FIELD)) {
-			readClassFields(compiler, publc, -1, isModule);
-		} else if (match(compiler, TOKEN_MEMBER)) {
+		if (match(compiler, TOKEN_MEMBER)) {
 			readSingleClassField(compiler, publc, -1, isModule);
 		} else if (match(compiler, TOKEN_FOREIGN)) {
 			readForeignMethod(compiler);
@@ -3912,7 +3881,6 @@ void classBody(Compiler* compiler, bool isModule, int numFieldsInstruction, int 
 			if (match(compiler, TOKEN_STATIC)) {
 				if (match(compiler, TOKEN_MEMBER)) {
 					readStaticField(compiler, publc, -1, isModule);
-					//nextToken(compiler->parser);
 					consumeLine(compiler, "Expect newline after field.");
 					continue;
 				}

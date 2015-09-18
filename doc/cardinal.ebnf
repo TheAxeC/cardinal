@@ -1,0 +1,33 @@
+<program> := <epsilon> | <class> | <import> | <var> | <module> | <func> | <block> | <comment>
+<func> := 'function' <name> <parameters> <block>
+<var> := 'var' <name> ( '=' <expression> )?
+<import> := 'import' <string> ( 'for' <name> )
+<class> := 'class' <name> <superClass>? '{' <class-body> '}'
+<class-body> := (<field> | <comment> | <method>)*
+<module> := 'module' <name> '{' <program> '}'
+<block> := <statement> | <body>
+<body> := '{' <statement-list> '}'
+<superClass> := 'is' <params>
+<field> := ('public' | 'private')? 'static'? 'field' <name>
+<method> := 'foreign'? 'construct'? <methodName> <parameters> <body>
+
+; parameters for a function or method
+<parameters> := ( '(' (<name> ())? ')' )?
+<parameters> := <epsilon> | '()' | '(' <params> ')'
+<params> := <name> | <params> , <name>
+
+; an identifier for a name
+<name> := ('_' | '@' | 'a'-'z' | '0'-'9')+
+<nb> := ('0'-'9')+
+<float> := '-'? <nb> (. <nb>)+
+<string> := '"' <anything> '"'
+<methodName> := (<name> |  '+' | '-' | '*' 
+			| '%' | '<' '='? | '>' '='?| '==' | '!' '='? | 
+			'&' | '\' | '|' | '~') 
+<comment> := '//' <anything-noendl> <endl> | '/*' <anything> '*/'
+
+<statement-list> := <epsilon> | <statement> <statement-list>
+<statement> := 'break' | 'for' | 'return' <expression>? | <while> | <if>
+<if> := 'if' '(' <expression> ')' <block> ('else' <block>)?
+<while> := 'while' '(' <expression> ')' <block>
+<expression> := 

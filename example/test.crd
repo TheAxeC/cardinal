@@ -7,4 +7,10 @@ compiler.runCode("", "", "main")
 var fn = CodeGen::CodeGenFunction.new()
 fn.addConstant("axel")
 
-var a_@ = 3
+var a_@ = "
+
+3"
+
+IO.println(5)
+IO.println(a_@)
+IO.println(5)
