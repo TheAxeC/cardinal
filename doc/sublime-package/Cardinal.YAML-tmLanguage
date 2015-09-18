@@ -1,0 +1,223 @@
+# [PackageDev] target_format: plist, ext: tmLanguage
+---
+name: Cardinal
+scopeName: source.cardinal
+fileTypes: [crd]
+uuid: fa761344-7fe1-4602-bfe3-7846848b7417
+
+patterns:
+- include: '#code'
+repository:
+  block-argument:
+    begin: '[)a-zA-Z0-9_]\s*(\{)'
+    beginCaptures:
+      '1':
+        name: punctuation.block-argument.cardinal
+    end: '}'
+    endCaptures:
+      '0':
+        name: punctuation.block-argument.cardinal
+    patterns:
+      - name: meta.block.parameters
+        begin: \|
+        beginCaptures:
+          '0':
+            name: punctuation.definition.parameters.cardinal
+        end: \|
+        endCaptures:
+          '0':
+            name: punctuation.definition.parameters.cardinal
+        patterns:
+        - match: \w+
+          name: variable.parameter.cardinal
+      - include: '#code'
+  class:
+    name: meta.class.cardinal
+    begin: \b(class)\s+(\w+)
+    beginCaptures:
+      '1':
+        name: storage.modifier.cardinal
+      '2':
+        name: entity.name.type.class.cardinal
+    end: (?=})
+    endCaptures:
+      '0':
+        name: punctuation.section.class.end.cardinal
+    patterns:
+    - include: '#comments'
+    - name: meta.definition.class.inherited.cardinal
+      begin: \bis\b
+      beginCaptures:
+        '0':
+          name: storage.modifier.is.cardinal
+      end: (?={)
+      patterns:
+      - include: '#code' # TODO: Something tighter?
+    - name: meta.class.body.cardinal
+      begin: '{'
+      end: (?=})
+      patterns:
+      - include: '#class-body'
+  class-body:
+    patterns:
+    - include: '#comment-block'
+    - include: '#comment-line'
+    - include: '#method-foreign'
+    - include: '#class-field'
+    - include: '#class-field-static'
+    - include: '#method'
+  code:
+    patterns:
+    - include: '#block-argument'
+    - include: '#class'
+    - include: '#comment-block'
+    - include: '#comment-line'
+    - include: '#constant'
+    - include: '#keyword'
+    - include: '#list'
+    - include: '#string'
+    - include: '#variable'
+    - begin: '{'
+      end: '}'
+      patterns:
+      - include: '#code'
+  comment-block:
+    patterns:
+    - name: comment.block.cardinal
+      begin: /\*
+      end: \*/
+      captures:
+        '0':
+          name: punctuation.definition.comment.cardinal
+      patterns:
+      - include: '#comment-block' # Block comments nest.
+  comment-line:
+    patterns:
+    - match: \s*((//).*$\n?)
+      captures:
+        '1':
+          name: comment.line.double-slash.cardinal
+        '2':
+          name: punctuation.definition.comment.cardinal
+  constant:
+    patterns:
+    - name: constant.language.cardinal
+      match: \b(true|false|null)\b
+    - name: variable.language.cardinal
+      match: \b(this|super)\b
+    - name: constant.numeric.cardinal
+      match: \b(0x[0-9a-fA-F]*|[0-9]+(\.?[0-9]*)?(e(\+|-)?[0-9]+)?)\b
+  keyword:
+    patterns:
+    - name: keyword.control.cardinal
+      match: \b(break|else|for|if|import|in|new|return|while|var)\b
+    - name: keyword.operator.logical.cardinal
+      match: (!|&&|\|\|)
+    - name: keyword.control.cardinal
+      match: '\?|:'
+    - name: keyword.operator.cardinal
+      match: \b(is)\b
+    - name: keyword.operator.comparison.cardinal
+      match: (==|!=|<=|>=|<|>)
+    - name: keyword.operator.assignment.cardinal
+      match: (=)
+    - name: keyword.operator.arithmetic.cardinal
+      match: (\-|\+|\*|\/|%)
+    - name: keyword.operator.bitwise.cardinal
+      match: (~|<<|>>|^)
+    - name: keyword.operator.range.cardinal
+      match: (\.\.\.?)
+    - match: (?<=\S)\.(?=\S)
+      name: keyword.operator.dereference.cardinal
+  list:
+    patterns:
+    - name: storage.type.object.list.cardinal
+      begin: \[
+      beginCaptures:
+        '0':
+          name: punctuation.definition.array.cardinal
+      end: \]
+      endCaptures:
+        '0':
+          name: punctuation.definition.array.cardinal
+      patterns:
+      - include: '#code'
+  method:
+    name: meta.method.cardinal
+    begin: \b((construct|static)\s+)?(\w+\s*=|\w+|\+|-|\*|/|%|<=?|>=?|==|!=?|&|\||~)
+    beginCaptures:
+      '1':
+        name: storage.modifier.cardinal
+      '2':
+        name: entity.name.function.cardinal
+    end: '}'
+    patterns:
+    - name: meta.method.identifier.cardinal
+      begin: \(
+      end: \)
+      patterns:
+      - match: \w+
+        name: variable.parameter.cardinal
+    - name: meta.method.body.cardinal
+      begin: '{'
+      end: (?=})
+      patterns:
+      - include: '#code'
+  class-field:
+    name: meta.method.cardinal
+    begin: (\bfield)\s+([a-z|_|@|A-Z][\w|@]*)
+    beginCaptures:
+      '1':
+        name: storage.modifier.cardinal
+      '2':
+        name: variable.other.instance.cardinal
+    end: '\n'
+  class-field-static:
+    name: meta.method.cardinal
+    begin: (\bstatic)\s+(\bfield)\s+([a-z|_|@|A-Z][\w|@]*)
+    beginCaptures:
+      '1':
+        name: storage.modifier.cardinal
+      '2':
+        name: storage.modifier.cardinal
+      '3':
+        name: variable.other.class.cardinal
+    end: '\n'
+  method-foreign:
+    name: meta.method.cardinal
+    begin: (\bforeign)\s+(\b(construct|static)\s+)?(\w+\s*=|\w+|\+|-|\*|/|%|<=?|>=?|==|!=?|&|\||~)
+    beginCaptures:
+      '1':
+        name: storage.modifier.cardinal
+      '2':
+        name: storage.modifier.cardinal
+      '3':
+        name: entity.name.function.cardinal
+    end: '\n'
+    patterns:
+    - name: meta.method.identifier.cardinal
+      begin: \(
+      end: \)
+      patterns:
+      - match: \w+
+        name: variable.parameter.cardinal
+  string:
+    patterns:
+    - begin: '"'
+      beginCaptures:
+        '0':
+          name: punctuation.definition.string.begin.cardinal
+      end: '"'
+      endCaptures:
+        '0':
+          name: punctuation.definition.string.end.cardinal
+      name: string.quoted.double.cardinal
+      patterns:
+      - match: (\\x\h\h|\\u\h\h\h\h|\\[0"\\abfnrtv])
+        name: constant.character.escape.cardinal
+  variable:
+    patterns:
+    - name: variable.other.global.cardinal
+      match: \b[a-z|_|@|A-Z][\w|@]*
+
+

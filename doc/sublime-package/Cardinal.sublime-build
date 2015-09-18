@@ -1,0 +1,4 @@
+{
+  "cmd": ["cardinal", "$file"],
+  "selector": "source.crd"
+}

@@ -1,0 +1,7 @@
+{
+  "scope": "meta.class.body.cardinal",
+
+  "completions": [
+   { "trigger": "static" },
+  ]
+}

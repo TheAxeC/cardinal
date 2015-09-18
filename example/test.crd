@@ -6,3 +6,5 @@ compiler.runCode("", "", "main")
 
 var fn = CodeGen::CodeGenFunction.new()
 fn.addConstant("axel")
+
+var a_@ = 3

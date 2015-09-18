@@ -2,7 +2,7 @@
 import "buffer" for Buffer
 
 class CodeGenCompiler {
-	
+
 	runCode(sourcePath, source, moduleName) {
 		var mod
 		if (sourcePath.count == 0) {
@@ -76,7 +76,7 @@ class CodeGenFunction {
 	
 	addParam(par) {
 		locals.add(par)
-		numParams++;
+		numParams = numParams + 1
 	}
 	
 	addLocal(local) {
