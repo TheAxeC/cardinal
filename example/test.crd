@@ -23,7 +23,7 @@ function hey { |a|
 hey.call(1)
 */
 
-import "importTest" for B from A, C
+//import "importTest" for B from A
 
 IO.println(A)
 IO.println(B)
