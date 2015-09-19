@@ -23,7 +23,10 @@ function hey { |a|
 hey.call(1)
 */
 
-//import "importTest" for B from A
+import "importTest" for B from A
+
+import "../standardLibrary/compiler/compiler" for Compiler
 
 IO.println(A)
 IO.println(B)
+IO.println("axel" == "axel")

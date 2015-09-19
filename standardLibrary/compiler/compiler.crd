@@ -1,6 +1,6 @@
 
-import "nodes.crd" for Node 
-import "lexer.crd" for Lexer
+import "nodes" for Node from Local
+import "lexer" for Lexer
 import "buffer" for Buffer
 
 // The main compiler

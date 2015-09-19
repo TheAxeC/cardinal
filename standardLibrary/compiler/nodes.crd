@@ -8,7 +8,7 @@ class Local {
 	field _depth
 
 	// If this local variable is being used as an upvalue.
-	field _isUpvalue;
+	field _isUpvalue
 
 	// the name of the local
 	field _str
@@ -28,10 +28,10 @@ class Local {
 class CompilerUpvalue {
 	// True if this upvalue is capturing a local variable from the enclosing
 	// function. False if it's capturing an upvalue.
-	field _isLocal;
+	field _isLocal
 
 	// The index of the local or upvalue being captured in the enclosing function.
-	field _index;
+	field _index
 
 	construct new(isLocal, index) {
 		this._isLocal = isLocal
@@ -45,21 +45,21 @@ class CompilerUpvalue {
 // Keeps track of bookkeeping information for the current loop being compiled.
 class Loop {
 	// Index of the instruction that the loop should jump back to.
-	field _start;
+	field _start
 
 	// Index of the argument for the CODE_JUMP_IF instruction used to exit the
 	// loop. Stored so we can patch it once we know where the loop ends.
-	field _exitJump;
+	field _exitJump
 
 	// Index of the first instruction of the body of the loop.
-	field _body;
+	field _body
 
 	// Depth of the scope(s) that need to be exited if a break is hit inside the
 	// loop.
-	field _scopeDepth;
+	field _scopeDepth
 
 	// The loop enclosing this one, or NULL if this is the outermost loop.
-	field _enclosing;
+	field _enclosing
 
 	construct new(start, exit, body, scope, enclosing) {
 		_start = start

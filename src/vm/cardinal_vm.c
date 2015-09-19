@@ -215,10 +215,13 @@ static ObjString* cardinalGetRootDirectory(CardinalVM* vm, const char* path) {
 	// Use the directory where the file is as the root to resolve imports
 	// relative to.
 	const char* lastSlash = strrchr(path, '/');
+	ObjString* currentPath;
 	if (lastSlash != NULL) {
-		return AS_STRING(cardinalNewString(vm, path, lastSlash - path + 1));
+		currentPath = AS_STRING(cardinalNewString(vm, path, lastSlash - path + 1));
+	} else {
+		currentPath = AS_STRING(cardinalNewString(vm, "", 0));
 	}
-	return NULL;
+	return cardinalStringConcat(vm, vm->fiber->rootDirectory->value, vm->fiber->rootDirectory->length, currentPath->value, currentPath->length);
 }
 
 

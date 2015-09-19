@@ -22,7 +22,7 @@ class Welcome {
 
 Cardinal has been confirmed to compile and run on Linux (Arch Linux and Ubuntu), Windows (8.1 and 10) and MacOSX (Yosemite). 
 
-The codebase is about **12000 lines long** which keeps the language and libraries small.
+The codebase is about **12000 lines long** (and an additional 1000 lines in  Cardinal) which keeps the language and libraries small.
 It is fully documented and easily understandable. You can skim [the whole thing][src] in one sitting. 
 Cardinal is written fairly clean. It's written in warning-free standard C99. It compiles cleanly as C99 or C++98 and onwards.
 
