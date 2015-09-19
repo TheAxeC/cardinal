@@ -2118,31 +2118,27 @@ DEF_NATIVE(num_fromString)
 	RETURN_NUM(number);
 END_NATIVE
 
-DEF_NATIVE(num_fromStringHex)
-	if (!validateString(vm, args, 1, "Argument")) return PRIM_ERROR;
-
-	ObjString* string = AS_STRING(args[1]);
-
-	// Corner case: Can't parse an empty string.
-	if (string->length == 0) RETURN_NULL;
-
-	//errno = 0;
-	char* end;
-	double number = (double) strtol(string->value, &end, 16);
-
-	// Skip past any trailing whitespace.
-	while (*end != '\0' && isspace(*end)) end++;
-
-	//if (errno == ERANGE) {
-	//	args[0] = cardinalNewString(vm, "Number literal is too large.", 28);
-	//	return PRIM_ERROR;
-	//}
-
-	// We must have consumed the entire string. Otherwise, it contains non-number
-	// characters and we can't parse it.
-	if (end < string->value + string->length) RETURN_NULL;
-
+#define STRING_TO_NUMBER(system) \
+	if (!validateString(vm, args, 1, "Argument")) return PRIM_ERROR; \
+\
+	ObjString* string = AS_STRING(args[1]); \
+\
+	if (string->length == 0) RETURN_NULL; \
+\
+	char* end; \
+	double number = (double) strtol(string->value, &end, system); \
+\
+	while (*end != '\0' && isspace(*end)) end++; \
+	if (end < string->value + string->length) RETURN_NULL; \
+\
 	RETURN_NUM(number);
+
+DEF_NATIVE(num_fromStringHex)
+	STRING_TO_NUMBER(16)
+END_NATIVE
+
+DEF_NATIVE(num_fromStringBin)
+	STRING_TO_NUMBER(2)
 END_NATIVE
 
 DEF_NATIVE(num_truncate)
@@ -2835,6 +2831,7 @@ void cardinalInitializeCore(CardinalVM* vm) {
 	vm->metatable.numClass = AS_CLASS(cardinalFindVariable(vm, "Num"));
 	NATIVE(vm->metatable.numClass->obj.classObj, "fromString(_)", num_fromString);
 	NATIVE(vm->metatable.numClass->obj.classObj, "fromStringHex(_)", num_fromStringHex);
+	NATIVE(vm->metatable.numClass->obj.classObj, "fromStringBin(_)", num_fromStringBin);
 	NATIVE(vm->metatable.numClass->obj.classObj, "pi", num_pi);
 	NATIVE(vm->metatable.numClass, "abs", num_abs);
 	NATIVE(vm->metatable.numClass, "ceil", num_ceil);

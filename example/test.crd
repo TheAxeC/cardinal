@@ -31,4 +31,15 @@ IO.println(A)
 IO.println(B)
 IO.println("axel" == "axel")
 
-IO.println(Num.fromString("5.356."))
+IO.println(Num.fromStringHex("0x10"))
+
+var list = []
+
+
+function makeVar { |name, value|
+	Module.current[name] = list.add(value)
+}
+
+makeVar.call("a", "yes")
+
+IO.println(Module.current::a)
