@@ -84,10 +84,55 @@ class Parser {
 		return c
 	}
 
+	// Sets the parser's current token to the given [type] and current character
+	// range.
 	makeToken(type) {
 		_currentToken = Token.new(type, _source[_tokenStart .. _ind], _currentLine)
 		if (type == TokenType::TOKEN_LINE) _currentLine = _currentLine - 1
 	}
+
+	// If the current character is [c], then consumes it and makes a token of type
+	// [two]. Otherwise makes a token of type [one].
+	twoCharToken(char, type2, type1) {
+		if (peekChar() == char) {
+			nextChar()
+			makeToken(type2)
+			return
+		}
+		makeToken(type1)
+	}
+
+	// Skips the rest of the current line.
+	// Comment is started by a //
+	skipLineComment() {
+		while (peekChar() != "\n" && peekChar() != "\0") nextChar()
+	}
+
+	// Skips the rest of a block comment.
+	// Comments are opened by /* and closed by */
+	skipBlockComment() {
+		nextChar()
+
+		var nesting = 1
+		while (nesting > 0) {
+			if (peekChar() == "\0") {
+				lexError("Unterminated block comment.")
+				return
+			}
+
+			if (peekChar() == "/" && peekNextChar() == "*") {
+				nextChar()
+				nextChar()
+				nesting = nesting + 1
+			} else if (peekChar() == "*" && peekNextChar() == "/") {
+				nextChar()
+				nextChar()
+				nesting = nesting - 1
+			} else { nextChar() }
+		}
+	}
+
+	
 
 	lexError(error) {
 		_hasError = true

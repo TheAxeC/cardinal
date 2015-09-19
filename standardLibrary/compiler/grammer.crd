@@ -1,0 +1,96 @@
+// This file can be used to define a language
+// Some tokens are required regardless of the language
+// 		TOKEN_LINE
+// 		TOKEN_ERROR
+//		TOKEN_EOF
+//
+// Other tokens can be changed
+module TokenType {
+	// Indicates a type of token
+	// This includes the grammer of the language
+	class Type {
+		// Name of the type
+		field name 
+
+		// Action to happen when lexing
+		field actionLex
+
+		// Grammer rule
+		field grammerRule
+
+	}
+
+	var TOKEN_LEFT_PAREN 	= 0
+	var TOKEN_RIGHT_PAREN 	= 1
+	var TOKEN_LEFT_BRACKET 	= 2
+	var TOKEN_RIGHT_BRACKET = 3
+	var TOKEN_LEFT_BRACE 	= 4
+	var TOKEN_RIGHT_BRACE 	= 5
+	var TOKEN_COLON			= 6
+	var TOKEN_DOT			= 7
+	var TOKEN_DOTDOT		= 8
+	var TOKEN_DOTDOTDOT		= 9
+	var TOKEN_COMMA 		= 10
+	var TOKEN_STAR			= 11
+	var TOKEN_SLASH			= 11
+	var TOKEN_PERCENT		= 12
+	var TOKEN_PLUS			= 13
+	var TOKEN_MINUS 		= 14
+	var TOKEN_LTLT 			= 15
+	var TOKEN_GTGT			= 16
+	var TOKEN_PIPE 			= 16
+	var TOKEN_PIPEPIPE 		= 16
+	var TOKEN_CARET 		= 16
+	var TOKEN_AMP 			= 16
+	var TOKEN_AMPAMP 		= 16
+	var TOKEN_BANG 			= 16
+	var TOKEN_TILDE 		= 16
+	var TOKEN_QUESTION 		= 16
+	var TOKEN_EQ 			= 16
+	var TOKEN_LT 			= 16
+	var TOKEN_GT 			= 16
+	var TOKEN_LTEQ 			= 16
+	var TOKEN_GTEQ 			= 16
+	var TOKEN_EQEQ 			= 16
+	var TOKEN_BANGEQ 		= 16
+	
+	var TOKEN_BREAK 		= 16
+	var TOKEN_CLASS 		= 16
+	var TOKEN_CONSTRUCT 	= 16
+	var TOKEN_ELSE 			= 16
+	var TOKEN_FALSE 		= 16
+	var TOKEN_FOR 			= 16
+	var TOKEN_IF 			= 16
+	var TOKEN_IMPORT 		= 16
+	var TOKEN_IN 			= 16
+	var TOKEN_IS 			= 16
+	var TOKEN_NULL 			= 16
+	var TOKEN_RETURN 		= 16
+	var TOKEN_STATIC 		= 16
+	var TOKEN_FOREIGN 		= 16
+	var TOKEN_SUPER 		= 16	
+	var TOKEN_THIS 			= 16
+	var TOKEN_TRUE 			= 16
+	var TOKEN_VAR 			= 16
+	var TOKEN_WHILE 		= 16
+	
+	var TOKEN_FIELD			= 16 
+	var TOKEN_STATIC_FIELD 	= 16
+	var TOKEN_NAME 			= 16
+	var TOKEN_NUMBER 		= 16
+	var TOKEN_STRING 		= 16
+	
+	var TOKEN_LINE			= 16
+	
+	var TOKEN_PUBLIC 		= 16
+	var TOKEN_PRIVATE 		= 16
+	
+	var TOKEN_ERROR 		= 16
+	var TOKEN_EOF 			= 16
+	var TOKEN_MEMBER 		= 16
+	var TOKEN_INIT 			= 16
+	var TOKEN_MODULE 		= 16
+	var TOKEN_DCOLON 		= 16
+	var TOKEN_FUNC			= 16
+
+}

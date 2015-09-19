@@ -30,3 +30,5 @@ import "../standardLibrary/compiler/compiler" for Compiler
 IO.println(A)
 IO.println(B)
 IO.println("axel" == "axel")
+
+IO.println(Num.fromString("5.356."))
