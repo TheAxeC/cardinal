@@ -1,0 +1,79 @@
+
+// Represents a local variable
+class Local {
+
+	// The depth in the scope chain that this variable was declared at. Zero is
+	// the outermost scope--parameters for a method, or the first local block in
+	// top level code. One is the scope within that, etc.
+	field _depth
+
+	// If this local variable is being used as an upvalue.
+	field _isUpvalue;
+
+	// the name of the local
+	field _str
+
+	construct new(depth, isUpvalue, str) {
+		this._depth = depth
+		this._isUpvalue = isUpvalue
+		this._str = str
+	}
+
+	depth { this._depth }
+	isUpvalue { this._isUpvalue }
+	str { this._str }
+}
+
+// Represents an upvalue at compiler level
+class CompilerUpvalue {
+	// True if this upvalue is capturing a local variable from the enclosing
+	// function. False if it's capturing an upvalue.
+	field _isLocal;
+
+	// The index of the local or upvalue being captured in the enclosing function.
+	field _index;
+
+	construct new(isLocal, index) {
+		this._isLocal = isLocal
+		this._index = index
+	}
+
+	isLocal { this._isLocal }
+	index { this._index }
+}
+
+// Keeps track of bookkeeping information for the current loop being compiled.
+class Loop {
+	// Index of the instruction that the loop should jump back to.
+	field _start;
+
+	// Index of the argument for the CODE_JUMP_IF instruction used to exit the
+	// loop. Stored so we can patch it once we know where the loop ends.
+	field _exitJump;
+
+	// Index of the first instruction of the body of the loop.
+	field _body;
+
+	// Depth of the scope(s) that need to be exited if a break is hit inside the
+	// loop.
+	field _scopeDepth;
+
+	// The loop enclosing this one, or NULL if this is the outermost loop.
+	field _enclosing;
+
+	construct new(start, exit, body, scope, enclosing) {
+		_start = start
+		_exitJump = exit
+		_body = body
+		_scopeDepth = scope
+		_enclosing = enclosing
+	}
+
+	start { _start }
+	exitJump { _exitJump }
+	body { _body }
+	scopeDepth { _scopeDepth }
+	enclosing { _enclosing }
+}
+
+

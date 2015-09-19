@@ -1,0 +1,89 @@
+
+import "nodes.crd" for Node 
+import "lexer.crd" for Lexer
+import "buffer" for Buffer
+
+// The main compiler
+class Compiler {
+
+	// The parser used to parse the source code
+	field _parser
+
+	// The parent compiler
+	field _parent
+
+	// Indicates the number of local variables
+	field _numLocals
+	
+	// The constants that have been defined
+	field _constants
+	
+	// The locals that have been defined
+	field _locals
+	
+	// number of upvalues
+	field _numUpvalues
+	
+	// number of parameters
+	field _numParams
+	
+	// upvalues that have been captured
+	field _upvalues
+
+	// innermost loop
+	field _loop
+
+	// scope
+	field _scope
+
+	// Bytecode buffer
+	field bytecode
+	
+	// source lines
+	field sourceLines
+	field sourceLineNbr
+	
+	// source
+	field debugSourcePath
+	field debugName
+
+	construct new(parser, parent, isFunc) {
+		_parser = parser
+		_parent = parent
+		numLocals = 0
+		numUpvalues = 0
+		numParams = 0
+		constants = []
+		locals = []
+		upvalues = []
+		sourceLines = []
+		sourceLineNbr = []
+		debugSourcePath = []
+		debugName = ""
+		bytecode = Buffer::CodeGenBuffer.new("ui8", 1)
+		
+		if (parent == null) {
+			_numLocals = 0
+			_scope = -1
+		} else {
+			_numLocals = 1
+			_scope = 0
+			if (isFunc) {
+				locals.add(Local.new(-1, false, null))
+			} else {
+				locals.add(Local.new(-1, false, "this"))
+			}
+		}
+	}
+
+	getTopCompiler() {
+		var comp = this
+		while (comp.parent != null) comp = comp.parent
+		return comp
+	}
+
+
+	parent { _parent }
+
+	addConstant(const) { _constants.add(const) }
+}

@@ -34,11 +34,11 @@ def copy_builtin(filename):
 
   c_source = PATTERN.sub(constant, c_source)
 
-  with open(root + "src/vm/cardinal_" + name + ".txt", "w") as f:
+  with open(root + "src/vm/cardinal_" + name + ".c", "w") as f:
     f.write(constant)
 
   print(name)
 
 
-for f in glob.iglob(root + "standardLibrary/builtin/*.tus"):
+for f in glob.iglob(root + "standardLibrary/builtin/*.crd"):
   copy_builtin(f)

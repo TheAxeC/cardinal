@@ -679,7 +679,7 @@ static Value importModule(CardinalVM* vm, Value name) {
 	return OBJ_VAL(moduleFiber);
 }
 
-static bool importVariable(CardinalVM* vm, Value moduleName, Value variableName,
+static bool importModule(CardinalVM* vm, Value moduleName, Value variableName,
                            Value* result) {
 	UNUSED(variableName);
 	uint32_t moduleEntry = cardinalMapFind(vm->modules, moduleName);
@@ -688,7 +688,31 @@ static bool importVariable(CardinalVM* vm, Value moduleName, Value variableName,
 	ObjModule* module = AS_MODULE(vm->modules->entries[moduleEntry].value);
 	
 	*result = OBJ_VAL(module);
+	if (IS_NUM(variableName) && compareFloat(AS_NUM(variableName), 0)) return false;
 	return true;
+}
+
+static bool importVariable(CardinalVM* vm, Value moduleName, Value variableName, 
+                            Value* result) {
+	uint32_t moduleEntry = cardinalMapFind(vm->modules, moduleName);
+	ASSERT(moduleEntry != UINT32_MAX, "Should only look up loaded modules.");
+	ObjModule* module = AS_MODULE(vm->modules->entries[moduleEntry].value);
+
+	ObjString* variable = AS_STRING(variableName);
+	int variableEntry = cardinalSymbolTableFind(&module->variableNames,
+	                                           variable->value,
+	                                           variable->length);
+
+	// It's a runtime error if the imported variable does not exist.
+	if (variableEntry != -1) {
+		*result = module->variables.data[variableEntry];
+		return true;
+	}
+	*result = OBJ_VAL(cardinalStringFormat(vm,
+    	"Could not find a variable named '%s' in module '%s'.",
+    	AS_STRING(variableName)->value, AS_STRING(moduleName)->value));
+
+	return false;
 }
 
 ///////////////////////////////////////////////////////////////////////////////////
@@ -1675,6 +1699,18 @@ bool runInterpreter(CardinalVM* vm) {
 			Value variable = fn->constants[READ_CONSTANT()];
 			Value result;
 			if (importVariable(vm, module, variable, &result)) {
+				PUSH(result);
+			}
+			else {
+				RUNTIME_ERROR(AS_STRING(result));
+			}
+			DISPATCH();
+		}
+		CASECODE(IMPORT_MODULE): {
+			Value module = fn->constants[READ_CONSTANT()];
+			Value variable = fn->constants[READ_CONSTANT()];
+			Value result;
+			if (importModule(vm, module, variable, &result)) {
 				PUSH(result);
 			}
 			else {

@@ -1,0 +1,92 @@
+
+class ScriptClass {
+
+}
+
+class ScriptMethod {
+
+}
+
+class ScriptModule {
+
+}
+
+class ScriptVariable {
+
+}
+
+class ScriptComment {
+
+}
+
+// Represents an import in a script
+class ScriptImport {
+	// the import string
+	field _import
+
+	construct new(imp) {
+		_import = "import " + "\"" + imp + "\"" + "\n"
+	}
+
+	construct new(imp, forVar) {
+		_import = "import " + "\"" + imp + "\" for " + forVar + "\n"
+	}
+
+	// Get the source code
+	source { _import }
+}
+
+// Represents a script
+class ScriptBuilder {
+	// The source
+	field _source
+
+	construct new() {
+		_source = ""
+	}
+
+	// Build the source
+	// Only works if the compiler is also imported
+	build(compiler, module) {
+		return buildCode("", _source, module)
+	}
+
+	// build code
+	buildCode(sourcePath, source, moduleName) {
+		var mod
+		if (sourcePath.count == 0) {
+			mod = Module.core
+			moduleName = ""
+		} else {
+			mod = Module.makeModule(moduleName)
+		}
+		var fn = compile(mod, sourcePath, source)
+		return Fiber.new(fn)
+	}
+
+	// build and run code
+	runCode(sourcePath, source, moduleName) {
+		buildCode(sourcePath, source, moduleName).call()
+	}
+	
+	// just compile code
+	compile(mod, sourcePath, source) {
+		return Compiler.compile(mod, sourcePath, source)
+	}
+
+	// Get the source
+	source { _source }
+
+	// Set the source
+	source=(other) { _source = other }
+
+	// Save source to a file
+	saveTo(fileName) {
+		File.writeFile(fileName, _source)
+	}
+
+	// Load source from a file
+	loadFrom(fileName) {
+		File.readFile(fileName)
+	}
+}

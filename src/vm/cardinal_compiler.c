@@ -59,6 +59,7 @@ typedef enum TokenType {
     TOKEN_ELSE,
     TOKEN_FALSE,
     TOKEN_FOR,
+    TOKEN_FROM,
     TOKEN_IF,
 	TOKEN_IMPORT,
     TOKEN_IN,
@@ -710,6 +711,7 @@ static void readName(Parser* parser, TokenType type) {
 	else if (isKeyword(parser, "else")) type = TOKEN_ELSE;
 	else if (isKeyword(parser, "false")) type = TOKEN_FALSE;
 	else if (isKeyword(parser, "for")) type = TOKEN_FOR;
+	else if (isKeyword(parser, "from")) type = TOKEN_FROM;
 	else if (isKeyword(parser, "if")) type = TOKEN_IF;
 	else if (isKeyword(parser, "import")) type = TOKEN_IMPORT;
 	else if (isKeyword(parser, "in")) type = TOKEN_IN;
@@ -3041,6 +3043,7 @@ GrammarRule rules[] = {
 	/* TOKEN_ELSE          */ UNUSED_T,
 	/* TOKEN_FALSE         */ PREFIX(boolean),
 	/* TOKEN_FOR           */ UNUSED_T,
+	/* TOKEN_FROM		   */ UNUSED_T,
 	/* TOKEN_IF            */ UNUSED_T,
 	/* TOKEN_IMPORT        */ UNUSED_T,
 	/* TOKEN_IN            */ UNUSED_T,
@@ -4106,7 +4109,25 @@ static void import(Compiler* compiler) {
 	emit(compiler, CODE_POP);
 
 	// The for clause is optional.
-	if (!match(compiler, TOKEN_FOR)) return;
+	if (match(compiler, TOKEN_FOR)) {
+		consume(compiler, TOKEN_NAME, "Expect name of variable to import.");
+		int slot = declareVariable(compiler);
+
+		// Define a string constant for the variable name.
+		int variableConstant = addConstant(compiler,
+		                                   cardinalNewString(compiler->parser->vm,
+		                                           compiler->parser->previous.start,
+		                                           compiler->parser->previous.length));
+
+		// Load the variable from the other module.
+		emitValue(compiler, CODE_IMPORT_MODULE, moduleConstant, GLOBAL_BYTE);
+		emitValueArg(compiler, variableConstant, CONSTANT_BYTE);
+
+		// Store the result in the variable here.
+		defineVariable(compiler, slot);
+	}
+
+	if (!match(compiler, TOKEN_FROM)) return;
 
 	// Compile the comma-separated list of variables to import.
 	do {
@@ -4158,8 +4179,11 @@ static void function(Compiler* compiler, const char* classname, int len) {
 	
 	int symbol = declareNamedVariable(compiler);
 	
-	const char* name = compiler->parser->previous.start;
-	int length = compiler->parser->previous.length;
+	//const char* name = compiler->parser->previous.start;
+	//int length = compiler->parser->previous.length;
+
+	Signature signature;
+	signatureFromToken(compiler, &signature);
 
 	// Compile the body.
 	int module = cardinalSymbolTableFind(&compiler->parser->module->variableNames,
@@ -4170,7 +4194,7 @@ static void function(Compiler* compiler, const char* classname, int len) {
 	callMethod(compiler, 0, "<instantiate>", 13);
 
 	// Invoke the constructor on the new instance.
-	namedMethodCall(compiler, CODE_CALL_0, "new", 3, name, length);
+	namedMethodCall(compiler, CODE_CALL_0, "new", 3, signature.name, signature.length);
 
 	defineVariable(compiler, symbol);	 
 }

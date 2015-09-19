@@ -1,5 +1,6 @@
 
-import "../standardLibrary/codegen" for CodeGen
+/*
+import "../standardLibrary/compiler/codegen" for CodeGen
 
 var compiler = CodeGen::CodeGenCompiler.new()
 compiler.runCode("", "", "main")
@@ -14,3 +15,15 @@ var a_@ = "
 IO.println(5)
 IO.println(a_@)
 IO.println(5)
+
+function hey { |a|
+	IO.println(10,a)
+}
+
+hey.call(1)
+*/
+
+import "importTest" for B from A, C
+
+IO.println(A)
+IO.println(B)

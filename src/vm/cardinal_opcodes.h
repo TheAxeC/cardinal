@@ -189,6 +189,12 @@ OPCODE(LOAD_MODULE)
 // error otherwise.
 OPCODE(IMPORT_VARIABLE)
 
+// Reads a top-level variable from another module. [arg1] is a string
+// constant for the name of the module) and [arg2] is a string constant for
+// the variable name. Pushes the variable if found) or generates a runtime
+// error otherwise.
+OPCODE(IMPORT_MODULE)
+
 /// Loads an module into an variable
 OPCODE(MODULE)
 
