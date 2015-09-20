@@ -5,100 +5,130 @@
 //		TOKEN_EOF
 //
 // Other tokens can be changed
-module TokenType {
-	var TokenList = []
-	function makeVar { |name, value|
-		Module.current[name] = TokenList.add(value)
-	}
+var TokenList = {}
 
-	// Indicates a type of token
-	// This includes the grammer of the language
-	class Type {
-		// Name of the type
-		field _name 
+var error = 1
+var name = 2
+var number = 3
+var eof = 4
 
-		// Action to happen when lexing
-		field _actionLex
+function makeVar { |name, value|
+	// Add the token to the module variable list
+	Module.current[name] = value
 
-		// Grammer rule
-		field _grammerRule
+	// Set the id of the value
+	value.id = name
 
-		construct new(name) {
-			_name = name
+	// Make a token tree
+	//TokenList[value.name] = value
+	
+	if (value.name is String) {
+		var fn = Fn.new { |str, tokenlist|
+			var c = str[0]
+			var list = tokenlist[c]
+			if (list == null) {
+				tokenlist[c] = list = {}
+			}
+			if (str.count > 1) {
+				fn.call(str[1...str.count], list)
+			} else {
+				list[null] = value
+			}
 		}
+		fn.call(value.name, TokenList)
+	}
+}
 
-		name { _name }
+
+// Indicates a type of token
+// This includes the grammer of the language
+class Type {
+	// Name of the type
+	field _name 
+
+	// Action to happen when lexing
+	field _actionLex
+
+	// Grammer rule
+	field _grammerRule
+
+	public field id
+
+	construct new(name) {
+		_name = name
 	}
 
-	makeVar.call("TOKEN_LEFT_PAREN", Type.new("("))
-	makeVar.call("TOKEN_RIGHT_PAREN", Type.new(")"))
-	makeVar.call("TOKEN_LEFT_BRACKET", Type.new("["))
-	makeVar.call("TOKEN_RIGHT_BRACKET", Type.new("]"))
-	makeVar.call("TOKEN_LEFT_BRACE", Type.new("{"))
-	makeVar.call("TOKEN_RIGHT_BRACE", Type.new("}"))
-	makeVar.call("TOKEN_COLON", Type.new(":"))
-	makeVar.call("TOKEN_DOT", Type.new("."))
-	makeVar.call("TOKEN_DOTDOT", Type.new(".."))
-	makeVar.call("TOKEN_DOTDOTDOT", Type.new("..."))
-	makeVar.call("TOKEN_COMMA", Type.new(","))
-	makeVar.call("TOKEN_STAR", Type.new("*"))
-	makeVar.call("TOKEN_SLASH", Type.new("/"))
-	makeVar.call("TOKEN_PERCENT", Type.new("%"))
-	makeVar.call("TOKEN_PLUS", Type.new("+"))
-	makeVar.call("TOKEN_MINUS", Type.new("-"))
-	makeVar.call("TOKEN_LTLT", Type.new("<<"))
-	makeVar.call("TOKEN_GTGT", Type.new(">>"))
-	makeVar.call("TOKEN_PIPE", Type.new("|"))
-	makeVar.call("TOKEN_PIPEPIPE", Type.new("||"))
-	makeVar.call("TOKEN_CARET", Type.new("^"))
-	makeVar.call("TOKEN_AMP", Type.new("&"))
-	makeVar.call("TOKEN_AMPAMP", Type.new("&&"))
-	makeVar.call("TOKEN_BANG", Type.new("!"))
-	makeVar.call("TOKEN_TILDE", Type.new("~"))
-	makeVar.call("TOKEN_QUESTION", Type.new("?"))
-	makeVar.call("TOKEN_EQ", Type.new("="))
-	makeVar.call("TOKEN_LT", Type.new("<"))
-	makeVar.call("TOKEN_GT", Type.new(">"))
-	makeVar.call("TOKEN_LTEQ", Type.new("<="))
-	makeVar.call("TOKEN_GTEQ", Type.new(">="))
-	makeVar.call("TOKEN_EQEQ", Type.new("=="))
-	makeVar.call("TOKEN_BANGEQ", Type.new("!="))
-	
-	makeVar.call("TOKEN_BREAK", Type.new("break"))
-	makeVar.call("TOKEN_CLASS", Type.new("class"))
-	makeVar.call("TOKEN_CONSTRUCT", Type.new("construct"))
-	makeVar.call("TOKEN_ELSE", Type.new("else"))
-	makeVar.call("TOKEN_FALSE", Type.new("false"))
-	makeVar.call("TOKEN_FOR", Type.new("for"))
-	makeVar.call("TOKEN_IF", Type.new("if"))
-	makeVar.call("TOKEN_IMPORT", Type.new("import"))
-	makeVar.call("TOKEN_IN", Type.new("in"))
-	makeVar.call("TOKEN_IS", Type.new("is"))
-	makeVar.call("TOKEN_NULL", Type.new("null"))
-	makeVar.call("TOKEN_RETURN", Type.new("return"))
-	makeVar.call("TOKEN_STATIC", Type.new("static"))
-	makeVar.call("TOKEN_FOREIGN", Type.new("foreign"))
-	makeVar.call("TOKEN_SUPER", Type.new("super"))	
-	makeVar.call("TOKEN_THIS", Type.new("this"))
-	makeVar.call("TOKEN_TRUE", Type.new("true"))
-	makeVar.call("TOKEN_VAR", Type.new("var"))
-	makeVar.call("TOKEN_WHILE", Type.new("while"))
-	
-	makeVar.call("TOKEN_NAME", Type.new(null))
-	makeVar.call("TOKEN_NUMBER", Type.new(null))
-	makeVar.call("TOKEN_STRING", Type.new("\""))
-	
-	makeVar.call("TOKEN_LINE", Type.new("\n"))
-	
-	makeVar.call("TOKEN_PUBLIC", Type.new("public"))
-	makeVar.call("TOKEN_PRIVATE", Type.new("private"))
-	
-	makeVar.call("TOKEN_ERROR", Type.new(null))
-	makeVar.call("TOKEN_EOF", Type.new("\0"))
-	makeVar.call("TOKEN_MEMBER", Type.new("field"))
-	makeVar.call("TOKEN_INIT", Type.new("pre"))
-	makeVar.call("TOKEN_MODULE", Type.new("module"))
-	makeVar.call("TOKEN_DCOLON", Type.new("::"))
-	makeVar.call("TOKEN_FUNC", Type.new("function"))
-
+	name { _name }
 }
+
+makeVar.call("TOKEN_LEFT_PAREN", Type.new("("))
+makeVar.call("TOKEN_RIGHT_PAREN", Type.new(")"))
+makeVar.call("TOKEN_LEFT_BRACKET", Type.new("["))
+makeVar.call("TOKEN_RIGHT_BRACKET", Type.new("]"))
+makeVar.call("TOKEN_LEFT_BRACE", Type.new("{"))
+makeVar.call("TOKEN_RIGHT_BRACE", Type.new("}"))
+makeVar.call("TOKEN_COLON", Type.new(":"))
+makeVar.call("TOKEN_DOT", Type.new("."))
+makeVar.call("TOKEN_DOTDOT", Type.new(".."))
+makeVar.call("TOKEN_DOTDOTDOT", Type.new("..."))
+makeVar.call("TOKEN_COMMA", Type.new(","))
+makeVar.call("TOKEN_STAR", Type.new("*"))
+makeVar.call("TOKEN_SLASH", Type.new("/"))
+makeVar.call("TOKEN_PERCENT", Type.new("%"))
+makeVar.call("TOKEN_PLUS", Type.new("+"))
+makeVar.call("TOKEN_MINUS", Type.new("-"))
+makeVar.call("TOKEN_LTLT", Type.new("<<"))
+makeVar.call("TOKEN_GTGT", Type.new(">>"))
+makeVar.call("TOKEN_PIPE", Type.new("|"))
+makeVar.call("TOKEN_PIPEPIPE", Type.new("||"))
+makeVar.call("TOKEN_CARET", Type.new("^"))
+makeVar.call("TOKEN_AMP", Type.new("&"))
+makeVar.call("TOKEN_AMPAMP", Type.new("&&"))
+makeVar.call("TOKEN_BANG", Type.new("!"))
+makeVar.call("TOKEN_TILDE", Type.new("~"))
+makeVar.call("TOKEN_QUESTION", Type.new("?"))
+makeVar.call("TOKEN_EQ", Type.new("="))
+makeVar.call("TOKEN_LT", Type.new("<"))
+makeVar.call("TOKEN_GT", Type.new(">"))
+makeVar.call("TOKEN_LTEQ", Type.new("<="))
+makeVar.call("TOKEN_GTEQ", Type.new(">="))
+makeVar.call("TOKEN_EQEQ", Type.new("=="))
+makeVar.call("TOKEN_BANGEQ", Type.new("!="))
+
+makeVar.call("TOKEN_BREAK", Type.new("break"))
+makeVar.call("TOKEN_CLASS", Type.new("class"))
+makeVar.call("TOKEN_CONSTRUCT", Type.new("construct"))
+makeVar.call("TOKEN_ELSE", Type.new("else"))
+makeVar.call("TOKEN_FALSE", Type.new("false"))
+makeVar.call("TOKEN_FOR", Type.new("for"))
+makeVar.call("TOKEN_IF", Type.new("if"))
+makeVar.call("TOKEN_IMPORT", Type.new("import"))
+makeVar.call("TOKEN_IN", Type.new("in"))
+makeVar.call("TOKEN_IS", Type.new("is"))
+makeVar.call("TOKEN_NULL", Type.new("null"))
+makeVar.call("TOKEN_RETURN", Type.new("return"))
+makeVar.call("TOKEN_STATIC", Type.new("static"))
+makeVar.call("TOKEN_FOREIGN", Type.new("foreign"))
+makeVar.call("TOKEN_SUPER", Type.new("super"))	
+makeVar.call("TOKEN_THIS", Type.new("this"))
+makeVar.call("TOKEN_TRUE", Type.new("true"))
+makeVar.call("TOKEN_VAR", Type.new("var"))
+makeVar.call("TOKEN_WHILE", Type.new("while"))
+
+
+makeVar.call("TOKEN_STRING", Type.new("\""))
+makeVar.call("TOKEN_LINE", Type.new("\n"))
+makeVar.call("TOKEN_SPACE", Type.new(" "))
+
+makeVar.call("TOKEN_PUBLIC", Type.new("public"))
+makeVar.call("TOKEN_PRIVATE", Type.new("private"))
+makeVar.call("TOKEN_MEMBER", Type.new("field"))
+makeVar.call("TOKEN_INIT", Type.new("pre"))
+makeVar.call("TOKEN_MODULE", Type.new("module"))
+makeVar.call("TOKEN_DCOLON", Type.new("::"))
+makeVar.call("TOKEN_FUNC", Type.new("function"))
+
+makeVar.call("TOKEN_ERROR", Type.new(error))
+makeVar.call("TOKEN_EOF", Type.new(eof))
+makeVar.call("TOKEN_NAME", Type.new(name))
+makeVar.call("TOKEN_NUMBER", Type.new(number))

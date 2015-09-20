@@ -1,4 +1,4 @@
-import "grammer" from TokenType
+import "grammer" for TokenType from TokenList
 
 // Token in a script
 class Token {
@@ -20,6 +20,13 @@ class Token {
 	type { _type }
 	str { _str }
 	line { line }
+
+	content {
+		if (str == "") return null
+		if (str == "\n" || str == "\r\n") return "newline"
+		if (str == "\0") return "end of file"
+		return str
+	}
 
 }
 

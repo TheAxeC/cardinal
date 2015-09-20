@@ -79,7 +79,7 @@ ObjClass* cardinalNewSingleClass(CardinalVM* vm, int numFields, ObjString* name)
 
 bool cardinalIsSubClass(ObjClass* actual, ObjClass* expected) {
 	// Walk the superclass chain looking for the class.
-	while (actual != NULL) {
+	if (actual != NULL) {
 		if (actual == expected) {
 			return true;
 		}
@@ -773,7 +773,7 @@ static ObjString* allocateString(CardinalVM* vm, size_t length) {
 }
 
 // Calculates and stores the hash code for [string].
-static void hashString(ObjString* string) {
+void hashString(ObjString* string) {
 	// FNV-1a hash. See: http://www.isthe.com/chongo/tech/comp/fnv/
 	uint32_t hash = 2166136261u;
 
@@ -833,7 +833,7 @@ ObjString* cardinalStringConcat(CardinalVM* vm, const char* left, int leftLength
 	memcpy(string->value, left, leftLength);
 	memcpy(string->value + leftLength, right, rightLength);
 	string->value[leftLength + rightLength] = '\0';
-
+	hashString(string);
 	return string;
 }
 

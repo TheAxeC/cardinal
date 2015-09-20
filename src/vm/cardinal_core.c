@@ -1111,6 +1111,7 @@ DEF_NATIVE(string_subscript)
 		result->value[i] = string->value[start + (i * step)];
 	}
 	result->value[count] = '\0';
+	hashString(result);
 
 	RETURN_OBJ(result);
 END_NATIVE

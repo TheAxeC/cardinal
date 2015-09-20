@@ -1,5 +1,5 @@
 
-import "tokens" from Token, TokenType
+import "tokens" from Token, TokenType, TokenList
 
 class Lexer {
 
@@ -26,6 +26,38 @@ class Lexer {
 	static isDigit(char) {
 		var elem = char.byteAt(0)
 		return elem >= nb0 && elem <= nb9
+	}
+
+	// Read a name
+	static readName(str) {
+		if (!Lexer.isName(str[0])) return null
+		if (str.contains(" ")) return null
+		return str[0...(str.count)]
+	}
+
+	// Read a number
+	static readNumber(str) {
+		return Num.fromString(str[0...(str.count)])
+	}
+
+	// Check the token
+	static checkString(str, notMax) {
+		if (!notMax) return TokenType::TOKEN_EOF
+
+		var list = TokenList[str[0]]
+		var ind = 1
+		while (list != null && ind < str.count) {
+			list = list[str[ind]]
+			ind = ind + 1
+		}
+
+		// we have a token or null
+		if (list != null && list[null] != null) return list[null]
+
+		// we have a number, name or error
+		if (readNumber(str) != null) return TokenType::TOKEN_NUMBER
+		if (readName(str) != null) return TokenType::TOKEN_NAME
+		return null
 	}
 
 	pre {
@@ -67,72 +99,41 @@ class Parser {
 	// indicates whether an error was found
 	field _hasError
 
-	// Returns the current character the parser is sitting on.
-	peekChar() { _source[ind] }
-
-	// Returns the character after the current character.
-	peekNextChar() {
-		if (peekChar() == "\0") return "\0"
-		return _source[ind + 1]
+	construct new(source, sourcePath, mod) {
+		_hasError = false
+		_source = source
+		_sourcePath = sourcePath
+		_module = mod
+		_ind = 0
+		_currentToken = Token.new(null, "", 0)
+		_currentLine = 0
 	}
 
-	// Advances the parser forward one character.
-	nextChar() {
-		var c = peekChar()
-		_ind = _ind + 1
-		if (c == "\n") _currentLine = _currentLine + 1
-		return c
+	nextToken() {
+		_previousToken = _currentToken
+
+		_tokenStart = _ind
+		var prev = null
+		var prevString = "\0"
+		while (true) {
+			var notMax = _ind < _source.count
+			var str = "\0"
+			if (notMax) str = _source[_tokenStart .. _ind]
+			var token = Lexer.checkString(str, notMax)
+			if ((token == null && prev != null) || (prev == token && !notMax)) return makeToken(prevString, prev)
+			_ind = _ind + 1
+			prev = token
+			prevString = str
+		}
 	}
 
 	// Sets the parser's current token to the given [type] and current character
 	// range.
-	makeToken(type) {
-		_currentToken = Token.new(type, _source[_tokenStart .. _ind], _currentLine)
-		if (type == TokenType::TOKEN_LINE) _currentLine = _currentLine - 1
+	makeToken(str, type) {
+		_currentToken = Token.new(type, str, _currentLine)
+		if (_currentToken.str == "\n") _currentLine = _currentLine - 1
+		return _currentToken
 	}
-
-	// If the current character is [c], then consumes it and makes a token of type
-	// [two]. Otherwise makes a token of type [one].
-	twoCharToken(char, type2, type1) {
-		if (peekChar() == char) {
-			nextChar()
-			makeToken(type2)
-			return
-		}
-		makeToken(type1)
-	}
-
-	// Skips the rest of the current line.
-	// Comment is started by a //
-	skipLineComment() {
-		while (peekChar() != "\n" && peekChar() != "\0") nextChar()
-	}
-
-	// Skips the rest of a block comment.
-	// Comments are opened by /* and closed by */
-	skipBlockComment() {
-		nextChar()
-
-		var nesting = 1
-		while (nesting > 0) {
-			if (peekChar() == "\0") {
-				lexError("Unterminated block comment.")
-				return
-			}
-
-			if (peekChar() == "/" && peekNextChar() == "*") {
-				nextChar()
-				nextChar()
-				nesting = nesting + 1
-			} else if (peekChar() == "*" && peekNextChar() == "/") {
-				nextChar()
-				nextChar()
-				nesting = nesting - 1
-			} else { nextChar() }
-		}
-	}
-
-	
 
 	lexError(error) {
 		_hasError = true
@@ -143,31 +144,19 @@ class Parser {
 
 	warning(warning) {
 		var token = _previousToken
-
-		if (token.type == TokenType::TOKEN_ERROR) return
-
+		if (token.content == null) return
 		IO.print("  warning: ")
 		IO.print("[", _sourcePath ," line ", _currentLine, "] Warning: ")
-		if (token.type == TokenType::TOKEN_LINE) { 
-			IO.print("newline: ") 
-		} else if (token.type == TokenType::TOKEN_EOF) {
-			IO.print("end of file: ")
-		} else IO.print(token.str)
+		IO.print(token.content)
 		IO.println(warning)
 	}
 
 	error(error) {
 		var token = _previousToken
-
-		if (token.type == TokenType::TOKEN_ERROR) return
-
+		if (token.content == null) return
 		IO.print("  error: ")
 		IO.print("[", _sourcePath ," line ", _currentLine, "] Error: ")
-		if (token.type == TokenType::TOKEN_LINE) { 
-			IO.print("newline: ") 
-		} else if (token.type == TokenType::TOKEN_EOF) {
-			IO.print("end of file: ")
-		} else IO.print(token.str)
+		IO.print(token.content)
 		IO.println(error)
 	}
 

@@ -1153,6 +1153,9 @@ Value cardinalNewUninitializedString(CardinalVM* vm, size_t length);
 // [needle].
 uint32_t cardinalStringFind(CardinalVM* vm, ObjString* haystack, ObjString* needle);
 
+// Hash the string [string]
+void hashString(ObjString* string);
+
 ///////////////////////////////////////////////////////////////////////////////////
 //// FUNCTIONS: UPVALUE	
 ///////////////////////////////////////////////////////////////////////////////////
