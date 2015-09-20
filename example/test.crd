@@ -1,49 +1,30 @@
 
-/*
-import "../standardLibrary/compiler/codegen" for CodeGen
-
-var compiler = CodeGen::CodeGenCompiler.new()
-compiler.runCode("", "", "main")
-
-var fn = CodeGen::CodeGenFunction.new()
-fn.addConstant("axel")
-
-var a_@ = "
-
-3"
-
-IO.println(5)
-IO.println(a_@)
-IO.println(5)
-
-function hey { |a|
-	IO.println(10,a)
-}
-
-hey.call(1)
-*/
-
-
 //import "../standardLibrary/compiler/compiler" for Compiler
 import "../standardLibrary/compiler/lexer" for Lexer
 
-IO.println(Lexer::Lexer.checkString("v", true).id)
 
 var source =
-"var break \n<< ( )"
+"var break << ( 
+) 
+/* /* */
+abba "
 var lex = Lexer::Parser.new(source, "", null)
 
-IO.println("-", lex.nextToken().content, "-")
-IO.println("-", lex.nextToken().content, "-")
-IO.println("-", lex.nextToken().content, "-")
-IO.println("-", lex.nextToken().content, "-")
-IO.println("-", lex.nextToken().content, "-")
-IO.println("-", lex.nextToken().content, "-")
-IO.println("-", lex.nextToken().content, "-")
-IO.println("-", lex.nextToken().content, "-")
-IO.println("-", lex.nextToken().content, "-")
-IO.println("-", lex.nextToken().content, "-")
-
-IO.println("" == "
-	")
-
+IO.println("-", lex.nextToken().type.id, "-")
+IO.println("-", lex.nextToken().type.id, "-")
+IO.println("-", lex.nextToken().type.id, "-")
+IO.println("-", lex.nextToken().type.id, "-")
+IO.println("-", lex.nextToken().type.id, "-")
+IO.println("-", lex.nextToken().type.id, "-")
+IO.println("-", lex.nextToken().type.id, "-")
+IO.println("-", lex.nextToken().type.id, "-")
+IO.println("-", lex.nextToken().type.id, "-")
+IO.println("-", lex.nextToken().type.id, "-")
+IO.println("-", lex.nextToken().type.id, "-")
+IO.println("-", lex.nextToken().type.id, "-")
+IO.println("-", lex.nextToken().type.id, "-")
+IO.println("-", lex.nextToken().type.id, "-")
+IO.println("-", lex.nextToken().type.id, "-")
+IO.println("-", lex.nextToken().type.id, "-")
+IO.println("-", lex.nextToken().type.id, "-")
+IO.println("-", lex.nextToken().type.id, "-")

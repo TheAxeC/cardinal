@@ -1,16 +1,15 @@
 // This file can be used to define a language
 // Some tokens are required regardless of the language
-// 		TOKEN_LINE
-// 		TOKEN_ERROR
-//		TOKEN_EOF
-//
-// Other tokens can be changed
+
 var TokenList = {}
 
 var error = 1
 var name = 2
 var number = 3
 var eof = 4
+var line = 5
+var string = 6
+var comment = 7
 
 function makeVar { |name, value|
 	// Add the token to the module variable list
@@ -94,7 +93,6 @@ makeVar.call("TOKEN_LTEQ", Type.new("<="))
 makeVar.call("TOKEN_GTEQ", Type.new(">="))
 makeVar.call("TOKEN_EQEQ", Type.new("=="))
 makeVar.call("TOKEN_BANGEQ", Type.new("!="))
-
 makeVar.call("TOKEN_BREAK", Type.new("break"))
 makeVar.call("TOKEN_CLASS", Type.new("class"))
 makeVar.call("TOKEN_CONSTRUCT", Type.new("construct"))
@@ -114,12 +112,9 @@ makeVar.call("TOKEN_THIS", Type.new("this"))
 makeVar.call("TOKEN_TRUE", Type.new("true"))
 makeVar.call("TOKEN_VAR", Type.new("var"))
 makeVar.call("TOKEN_WHILE", Type.new("while"))
-
-
-makeVar.call("TOKEN_STRING", Type.new("\""))
-makeVar.call("TOKEN_LINE", Type.new("\n"))
 makeVar.call("TOKEN_SPACE", Type.new(" "))
-
+makeVar.call("TOKEN_TAB", Type.new("\t"))
+makeVar.call("TOKEN_CARRIAGE", Type.new("\r"))
 makeVar.call("TOKEN_PUBLIC", Type.new("public"))
 makeVar.call("TOKEN_PRIVATE", Type.new("private"))
 makeVar.call("TOKEN_MEMBER", Type.new("field"))
@@ -132,3 +127,7 @@ makeVar.call("TOKEN_ERROR", Type.new(error))
 makeVar.call("TOKEN_EOF", Type.new(eof))
 makeVar.call("TOKEN_NAME", Type.new(name))
 makeVar.call("TOKEN_NUMBER", Type.new(number))
+makeVar.call("TOKEN_COMMENT", Type.new(comment))
+
+makeVar.call("TOKEN_STRING", Type.new("\""))
+makeVar.call("TOKEN_LINE", Type.new(line))

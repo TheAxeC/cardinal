@@ -1,6 +1,33 @@
 
 import "tokens" from Token, TokenType, TokenList
 
+// Error class
+class Error {
+	field message
+
+	// Set when triggered
+	field isTriggered
+
+	construct new() {
+		isTriggered = false
+	}
+
+	// Set a message
+	setMessage(str) {
+		if (isTriggered) return
+		isTriggered = true
+		message = str
+	}
+
+	// Check the message
+	checkMessage() {
+		if (isTriggered) {
+			isTriggered = false
+			return message
+		}
+		return null
+	}
+}
 class Lexer {
 
 	// Represents the bytevalue of a
@@ -30,19 +57,78 @@ class Lexer {
 
 	// Read a name
 	static readName(str) {
-		if (!Lexer.isName(str[0])) return null
-		if (str.contains(" ")) return null
-		return str[0...(str.count)]
+		var regex = Regex.new
+		regex.compile("[a-z|_|@|A-Z][\\w|@]*")
+		if (regex.match(str)) return str
+		return null
 	}
 
 	// Read a number
 	static readNumber(str) {
-		return Num.fromString(str[0...(str.count)])
+		var regex = Regex.new
+		regex.compile("[0-9]+")
+		if (!regex.match(str)) return null
+
+		return Num.fromString(str)
+	}
+
+	// read a string
+	static readString(str) {
+		var ind = 1
+		while (ind < str.count) {
+			if (str.startsWith("\"") && str[ind] == "\"" && ind < str.count-1) return null
+
+			if (str[ind] == "\\") {
+				ind = ind + 1
+			}
+			ind = ind + 1
+		}
+
+		if (str.startsWith("\"")) return str
+		return null
+	}
+
+	// read a comment
+	static readBlockComment(str) {
+		if (!str.startsWith("/*")) return null
+
+		var nesting = 1
+		var ind = 2
+		while (nesting > 0 && ind < str.count) {
+			if (str[ind] == "/") {
+				if (ind < str.count - 1 && str[ind + 1] == "*") {
+					nesting = nesting + 1
+					ind = ind + 1
+				}
+			} else if (str[ind] == "*") {
+				if (ind < str.count - 1 && str[ind + 1] == "/") {
+					nesting = nesting - 1
+					ind = ind + 1
+				}
+			}
+			ind = ind + 1
+		}
+
+		if (nesting == 0 && ind < str.count) return null
+
+		return str
+	}
+
+	// read a line comment
+	static readlineComment(str) {
+		var regex = Regex.new
+		regex.compile("//.*\\n.")
+		if (regex.match(str)) return null
+
+		if (str.startsWith("//")) return str
+		return null
 	}
 
 	// Check the token
 	static checkString(str, notMax) {
 		if (!notMax) return TokenType::TOKEN_EOF
+
+		if (str == "\n") return TokenType::TOKEN_LINE
 
 		var list = TokenList[str[0]]
 		var ind = 1
@@ -57,6 +143,16 @@ class Lexer {
 		// we have a number, name or error
 		if (readNumber(str) != null) return TokenType::TOKEN_NUMBER
 		if (readName(str) != null) return TokenType::TOKEN_NAME
+
+		// we could have a string
+		if (readString(str) != null) return TokenType::TOKEN_STRING
+
+		// We could have a line comment
+		if (readlineComment(str) != null) return TokenType::TOKEN_COMMENT
+
+		// Or a block comment
+		if (readBlockComment(str) != null) return TokenType::TOKEN_COMMENT
+
 		return null
 	}
 
@@ -99,6 +195,9 @@ class Parser {
 	// indicates whether an error was found
 	field _hasError
 
+	// A list with all types to ignore
+	field _ignoreTypes
+
 	construct new(source, sourcePath, mod) {
 		_hasError = false
 		_source = source
@@ -107,20 +206,29 @@ class Parser {
 		_ind = 0
 		_currentToken = Token.new(null, "", 0)
 		_currentLine = 0
+		_ignoreTypes = []
+
+		// Ignore these types
+		_ignoreTypes.add(TokenType::TOKEN_COMMENT)
+		_ignoreTypes.add(TokenType::TOKEN_SPACE)
+		_ignoreTypes.add(TokenType::TOKEN_CARRIAGE)
 	}
 
 	nextToken() {
 		_previousToken = _currentToken
 
 		_tokenStart = _ind
-		var prev = null
+		var prev = Lexer.checkString("", false)
 		var prevString = "\0"
 		while (true) {
 			var notMax = _ind < _source.count
 			var str = "\0"
 			if (notMax) str = _source[_tokenStart .. _ind]
 			var token = Lexer.checkString(str, notMax)
-			if ((token == null && prev != null) || (prev == token && !notMax)) return makeToken(prevString, prev)
+			if ((token == null && prev != null) || (!notMax)) {
+				if (prevString != "\0" && !notMax) lexError("error")
+				return makeToken(prevString, prev)
+			}
 			_ind = _ind + 1
 			prev = token
 			prevString = str
@@ -131,13 +239,13 @@ class Parser {
 	// range.
 	makeToken(str, type) {
 		_currentToken = Token.new(type, str, _currentLine)
-		if (_currentToken.str == "\n") _currentLine = _currentLine - 1
+		if (_currentToken.type == TokenType::TOKEN_LINE) _currentLine = _currentLine + 1
 		return _currentToken
 	}
 
 	lexError(error) {
 		_hasError = true
-		IO.print("    error: ", args)
+		IO.print("    error: ")
 		IO.print("[", _sourcePath ," line ", _currentLine, "] Error: ")
 		IO.println(error)
 	}
@@ -151,14 +259,44 @@ class Parser {
 		IO.println(warning)
 	}
 
-	error(error) {
+	error(err) {
 		var token = _previousToken
 		if (token.content == null) return
 		IO.print("  error: ")
 		IO.print("[", _sourcePath ," line ", _currentLine, "] Error: ")
 		IO.print(token.content)
-		IO.println(error)
+		IO.println(err)
 	}
 
+	// Peek at the next type
+	peek() { _currentToken.type }
+
+	// Consumes the current token if its type is [expected]. Returns true if a
+	// token was consumed.
+	match(expected) {
+		if (peek() != expected) return false
+		nextToken()
+		return true
+	}
+
+	// Matches one or more newlines. Returns true if at least one was found.
+	matchLine() {
+		if (!match(TokenType::TOKEN_LINE)) return false
+		while (match(TokenType::TOKEN_LINE)) {}
+		return true
+	}
+
+	// Consumes the current token. Emits an error if its type is not [expected].
+	// Returns the consumed token.
+	consume(expected, err) {
+		nextToken()
+		if (_previousToken.type != expected) {
+			error(err)
+
+			// If the next token is the one we want, assume the current one is just a
+			// spurious error and discard it to minimize the number of cascaded errors.
+			if (_currentToken.type == expected) nextToken()
+		}
+	}
 }
 

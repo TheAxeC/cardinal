@@ -2409,6 +2409,90 @@ void cardinalReleaseObject(CardinalVM* vm, CardinalValue* val) {
 		cardinalRemoveHostObject(vm, val);
 }
 
+static ObjFn* createConstructor(CardinalVM* vm, ObjModule* module, const char* signature) {
+	int signatureLength = (int)strlen(signature);
+
+	// Count the number parameters the method expects.
+	int numParams = 0;
+	for (const char* s = signature; *s != '\0'; s++) {
+		if (*s == '_') numParams++;
+	}
+
+	int method =  cardinalSymbolTableEnsure(vm, &vm->methodNames,
+	                                    signature, signatureLength);
+
+	uint8_t* bytecode = ALLOCATE_ARRAY(vm, uint8_t, 8);
+	bytecode[0] = CODE_CONSTRUCT;
+	bytecode[1] = CODE_CALL_0 + numParams;
+	int end = 2;
+#if METHOD_BYTE == 2
+	bytecode[2] = (method >> 8) & 0xff;
+	bytecode[3] = method & 0xff;
+	end = 4;
+#elif METHOD_BYTE == 4
+	bytecode[2] = (method >> 24) & 0xffff;
+	bytecode[3] = (method >> 16) & 0xffff;
+	bytecode[4] = (method >> 8) & 0xffff;
+	bytecode[5] = method & 0xffff;
+	end = 6;
+#endif
+	bytecode[end] = CODE_RETURN;
+	bytecode[end+1] = CODE_END;
+
+	int* debugLines = ALLOCATE_ARRAY(vm, int, end+2);
+	memset(debugLines, 1, end+2);
+	
+	SymbolTable locals;
+	SymbolTable lines;
+	cardinalSymbolTableInit(vm, &locals);
+	cardinalSymbolTableInit(vm, &lines);
+	FnDebug* debug = cardinalNewDebug(vm, NULL, signature, signatureLength, debugLines, locals, lines);
+	return cardinalNewFunction(vm, module, NULL, 0, 0, 0, bytecode, end+2, debug);
+}
+
+// Defines a constructor [constructor] for the given class
+void cardinalDefineConstructor(CardinalVM* vm, const char* module, const char* className,
+                            const char* signature,
+                            cardinalForeignMethodFn methodFn) {
+	// make a static method to call the constructor
+	ObjString* name = cardinalStringConcat(vm, "init ", 5, signature, strlen(signature));
+	CARDINAL_PIN(vm, name);
+	cardinalDefineMethod(vm, module, className, name->value, methodFn);
+
+	ObjModule* coreModule = getCoreModule(vm);
+	if (module != NULL) {
+		Value moduleName = cardinalNewString(vm, module, strlen(module));
+		uint32_t moduleEntry = cardinalMapFind(vm->modules, moduleName);
+		
+		if (moduleEntry != UINT32_MAX) {
+			coreModule = AS_MODULE(vm->modules->entries[moduleEntry].value);
+		}
+	}
+	
+	//ObjModule* coreModule = getCoreModule(vm);
+	// Find or create the class to bind the method to.
+	int classSymbol = cardinalSymbolTableFind(&coreModule->variableNames,
+										  className, strlen(className));
+	ObjClass* classObj = AS_CLASS(coreModule->variables.data[classSymbol]);
+	ObjFn* fn = createConstructor(vm, coreModule, name->value);
+	CARDINAL_PIN(vm, fn);
+	int length = (int)strlen(signature);
+	// Bind the method.
+	int methodSymbol = cardinalSymbolTableEnsure(vm, &vm->methodNames,
+					   signature, length);
+
+	Method method;
+	method.type = METHOD_BLOCK;
+	method.fn.obj = (Obj*) fn;
+
+	classObj = classObj->obj.classObj;
+
+	cardinalBindMethod(vm, classObj, methodSymbol, method);
+
+	CARDINAL_UNPIN(vm);
+	CARDINAL_UNPIN(vm);
+}
+
 void cardinalDefineMethod(CardinalVM* vm, const char* module, const char* className,
                             const char* signature,
                             cardinalForeignMethodFn methodFn) {
@@ -2510,7 +2594,8 @@ void cardinalDefineClass(CardinalVM* vm, const char* module, const char* classNa
 // This assumes that the object is an instance
 void* cardinalGetInstance(CardinalVM* vm, CardinalValue* val) {
 	Value obj = cardinalGetHostObject(vm, val);
-	return ((Obj*)AS_INSTANCE(obj))+1;
+	//return ((Obj*)AS_INSTANCE(obj))+1;
+	return (void*) AS_INSTANCE(obj)->fields;
 }
 
 // Get the object as a bool

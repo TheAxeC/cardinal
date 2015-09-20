@@ -373,6 +373,11 @@ typedef void (*cardinalDestructorFn)(void* obj);
 // of [className]
 void cardinalDefineDestructor(CardinalVM* vm, const char* module, const char* className, cardinalDestructorFn destructor);
 
+// Defines a constructor [constructor] for the given class
+void cardinalDefineConstructor(CardinalVM* vm, const char* module, const char* className,
+                            const char* signature,
+                            cardinalForeignMethodFn methodFn);
+
 // Defines a foreign method implemented by the host application. Looks for a
 // global class named [className] to bind the method to. If not found, it will
 // be created automatically.

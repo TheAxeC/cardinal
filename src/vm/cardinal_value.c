@@ -1092,7 +1092,8 @@ static void markFn(CardinalVM* vm, ObjFn* fn) {
 		cardinalMarkValue(vm, fn->constants[i]);
 	}
 
-	cardinalMarkObj(vm, (Obj*)fn->debug->sourcePath);
+	if (fn->debug->sourcePath != NULL)
+		cardinalMarkObj(vm, (Obj*)fn->debug->sourcePath);
 
 	// Keep track of how much memory is still in use.
 	vm->garbageCollector.bytesAllocated += sizeof(ObjFn);
@@ -1354,12 +1355,12 @@ void cardinalFreeObjContent(CardinalVM* vm, Obj* obj) {
 			// call the foreign destructor
 			ObjInstance* inst = (ObjInstance*) obj;
 			cardinalStackClear(vm, &inst->stack);
-			cardinalReallocate(vm, inst->fields, 0, 0);
 			ObjClass* cls = cardinalGetClass(vm, OBJ_VAL(obj));
 			if (cls->destructor != NULL) {
 				// call the destructor
-				cls->destructor(obj+1);
+				cls->destructor((void*) inst->fields);
 			}
+			cardinalReallocate(vm, inst->fields, 0, 0);
 			break;
 		}
 		case OBJ_STRING:

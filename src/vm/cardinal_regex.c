@@ -780,7 +780,7 @@ void cardinalLoadRegexLibrary(CardinalVM* vm) {
 	cardinalDefineClass(vm, NULL, "Regex", sizeof(ScriptRegex), NULL);
 	
 	// Defines the constructor and destructor
-	cardinalDefineMethod(vm, NULL, "Regex", "new", newRegex);
+	cardinalDefineConstructor(vm, NULL, "Regex", "new", newRegex);
 	cardinalDefineDestructor(vm, NULL, "Regex", destructRegex);
 	
 	// Define the methods on the Regex class

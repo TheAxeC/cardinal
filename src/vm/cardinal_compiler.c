@@ -74,8 +74,6 @@ typedef enum TokenType {
     TOKEN_VAR,
     TOKEN_WHILE,
 
-    TOKEN_FIELD,
-    TOKEN_STATIC_FIELD,
     TOKEN_NAME,
     TOKEN_NUMBER,
     TOKEN_STRING,
@@ -3057,8 +3055,6 @@ GrammarRule rules[] = {
 	/* TOKEN_TRUE          */ PREFIX(boolean),
 	/* TOKEN_VAR           */ UNUSED_T,
 	/* TOKEN_WHILE         */ UNUSED_T,
-	/* TOKEN_FIELD         */ PREFIX(field),
-	/* TOKEN_STATIC_FIELD  */ PREFIX(staticField),
 	/* TOKEN_NAME          */ { name, NULL, namedSignature, PREC_NONE, NULL },
 	/* TOKEN_NUMBER        */ PREFIX(number),
 	/* TOKEN_STRING        */ PREFIX(string),
