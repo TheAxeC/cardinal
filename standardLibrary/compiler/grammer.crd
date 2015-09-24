@@ -45,9 +45,6 @@ class Type {
 	// Name of the type
 	field _name 
 
-	// Action to happen when lexing
-	field _actionLex
-
 	// Grammer rule
 	field _grammerRule
 

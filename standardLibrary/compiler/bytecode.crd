@@ -1,0 +1,69 @@
+import "buffer" for Buffer
+
+var BytecodeList = {
+	"EMPTY" : 0,
+	"CONSTANT" : 1,
+	"NULL" : 2,
+	"FALSE" : 3,
+	"TRUE" : 4,
+	"LOCAL_LOCAL_0" : 5,
+	"LOAD_LOCAL" : 14,
+	"STORE_LOCAL" : 15,
+	"LOAD_UPVALUE" : 16,
+	"STORE_UPVALUE" : 17,
+	"LOAD_MODULE_VAR" : 18,
+	"STORE_MODULE_VAR" : 19,
+	"LOAD_FIELD_THIS" : 20,
+	"STORE_FIELD_THIS" : 21,
+	"LOAD_FIELD" : 22,
+	"STORE_FIELD" : 23,
+	"POP" : 24,
+	"DUP" : 25,
+	"CALL_0" : 26,
+	"SUPER_0" : 33,
+	"JUMP" : 50,
+	"LOOP" : 51,
+	"JUMP_IF" : 52,
+	"AND" : 53,
+	"OR" : 54,
+	"IS" : 55,
+	"CLOSE_UPVALUE" : 56,
+	"RETURN" : 57,
+	"CLOSURE" : 58,
+	"CONSTRUCT" : 59,
+	"CLASS" : 60,
+	"METHOD_INSTANCE" : 61,
+	"LOAD_MODULE" : 62,
+	"IMPORT_VARIABLE" : 63,
+	"IMPORT_MODULE" : 64,
+	"MODULE" : 65,
+	"END" : 66,
+	"BREAK" : 67
+}
+
+// The bytecode emitter
+class Bytecode {
+	// field for the buffer
+	field _buffer
+
+	construct new() {
+		_buffer = Buffer::CodeGenBuffer.new("ui8", 1)
+	}
+
+	emit(nb) {
+		_buffer.write(nb)
+	}
+
+	emit(nb, bytes) {
+
+	}
+
+	emitAt(at) {
+
+	}
+
+	emitAt(at, bytes) {
+
+	}
+}
+

@@ -5,9 +5,11 @@ import "../standardLibrary/compiler/lexer" for Lexer
 
 var source =
 "var break << ( 
-) 
-/* /* */
-abba "
+) ## #
+
+abba
+
+"
 var lex = Lexer::Parser.new(source, "", null)
 
 IO.println("-", lex.nextToken().type.id, "-")

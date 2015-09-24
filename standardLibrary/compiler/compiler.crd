@@ -1,7 +1,7 @@
 
 import "nodes" for Node from Local
 import "lexer" for Lexer
-import "buffer" for Buffer
+import "Bytecode" from Bytecode
 
 // The main compiler
 class Compiler {
@@ -11,18 +11,12 @@ class Compiler {
 
 	// The parent compiler
 	field _parent
-
-	// Indicates the number of local variables
-	field _numLocals
 	
 	// The constants that have been defined
 	field _constants
 	
 	// The locals that have been defined
 	field _locals
-	
-	// number of upvalues
-	field _numUpvalues
 	
 	// number of parameters
 	field _numParams
@@ -47,43 +41,107 @@ class Compiler {
 	field debugSourcePath
 	field debugName
 
+	// Module we work in
+	field _module
+
 	construct new(parser, parent, isFunc) {
 		_parser = parser
 		_parent = parent
-		numLocals = 0
-		numUpvalues = 0
-		numParams = 0
-		constants = []
-		locals = []
-		upvalues = []
-		sourceLines = []
-		sourceLineNbr = []
-		debugSourcePath = []
-		debugName = ""
-		bytecode = Buffer::CodeGenBuffer.new("ui8", 1)
+		_numParams = 0
+		_constants = []
+		_locals = []
+		_upvalues = []
+		_sourceLines = []
+		_sourceLineNbr = []
+		_debugSourcePath = []
+		_debugName = ""
+		_bytecode = Bytecode.new()
 		
-		if (parent == null) {
-			_numLocals = 0
+		if (_parent == null) {
 			_scope = -1
 		} else {
-			_numLocals = 1
 			_scope = 0
 			if (isFunc) {
-				locals.add(Local.new(-1, false, null))
+				_locals.add(Local.new(-1, false, null))
 			} else {
-				locals.add(Local.new(-1, false, "this"))
+				_locals.add(Local.new(-1, false, "this"))
 			}
 		}
 	}
 
+	// Get the top compiler
 	getTopCompiler() {
 		var comp = this
 		while (comp.parent != null) comp = comp.parent
 		return comp
 	}
 
-
+	// Get the parent
 	parent { _parent }
 
+	// Add a new constant
 	addConstant(const) { _constants.add(const) }
+
+	// Define a local variable
+	defineLocal(str) {
+		_locals.add(Local.new(_scope, false, str))
+	}
+
+	// Declare a variable name
+	declareVariableName(name) {
+		if (_scope == -1) {
+			_module[name] = null
+			return
+		}
+
+		for(i in _locals.count..0) {
+			var l = _locals[i]
+
+			if (l.depth < _scope) break
+
+			if (l.str == name) return i
+		}
+
+		return defineLocal(name)
+	}
+
+	// Declare variable
+	declareVariable() {
+		declareVariableName(_parser.prev().str)
+	}
+
+	// Stores a variable with the previously defined symbol in the current scope.
+	defineVariable(symbol) {
+
+	}
+
+	// Starts a new local block scope.
+	pushScope() { 
+		_scope = _scope + 1
+	}
+
+	discardLocals(depth) {
+
+	}
+
+	// Closes the last pushed block scope and discards any local variables declared
+	// in that scope. This should only be called in a statement context where no
+	// temporaries are still on the stack.
+	popScope() {
+		discardLocals(_scope)
+		_scope = _scope - 1
+	}
+
+	// Attempts to look up the name in the local variables of [compiler]. If found,
+	// returns its index, otherwise returns -1.
+	resolveLocal(name) {
+		for(i in _locals.count..0) {
+			var l = _locals[i]
+
+			if (l.str == name) return i
+		}
+		return -1
+	}
 }
+
+
