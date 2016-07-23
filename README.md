@@ -1,4 +1,4 @@
-Cardinal is an extension from ThunderdogScript. It uses Wren as the base VM and adds a couple extra features.
+Cardinal is an extension from ThunderdogScript. It uses Wren as the base VM and adds a couple extra features. This was done to learn more about how programming languages are made.
 
 It is a scripting language designed around the concept of being completely dynamic. 
 The language natively supports manual memory management. This can be disable if not required.
