@@ -37,3 +37,5 @@ bin/
 lib/
 # Dont commit anything from cmake
 build/
+
+.DS_Store
